@@ -1,4 +1,6 @@
 import os
+from datetime import timedelta
+from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
@@ -17,16 +19,21 @@ from api.models import (
     Health,
     Meta,
     SeriesResponse,
+    Scenario,
     Site,
     SitesResponse,
+    StationPoint,
     SummaryResponse,
 )
 from api.series_json import series_response, site_series
+from api.summary_json import build_summary, mission_series, span_text
 from api.score_config import load_configs
-from api.scenario import Mast, MonthParam, ScenarioParams
+from api.scenario import Mast, MonthParam, ScenarioParams, parse_t0
 from engine import __version__
-from engine.geometry import OutOfRange
+from engine.geometry import EARTH_ORIENTATION_OBSERVED_UNTIL, OutOfRange
 from engine.horizons import mask_at_height
+from engine.metrics import MissionMetrics, MissionWindow, compute_metrics, mission_window
+from engine.series import STEP_S
 
 SHORT_CACHE = "public, max-age=60"
 IMMUTABLE_CACHE = "public, max-age=31536000, immutable"
@@ -149,9 +156,53 @@ def create_app(
             response.headers["Cache-Control"] = IMMUTABLE_CACHE
         return series_response(arrays, start, n)
 
+    @lru_cache(maxsize=128)
+    def _metrics(
+        site_id: str,
+        t0: str,
+        days: float,
+        margin: int,
+        panel: float,
+        antenna: float,
+        station: tuple[float, float, float, float],
+    ) -> tuple[MissionWindow, MissionMetrics]:
+        # Only these fields shape the series; the scoring settings are not part of the cache key.
+        keyed = Scenario.model_construct(
+            site=site_id, t0=t0, days=days, margin=margin, panel=panel, antenna=antenna,
+            station=StationPoint(lat_deg=station[0], lon_deg=station[1], alt_m=station[2], min_el_deg=station[3]),
+        )
+        assert bundle is not None
+        arrays, window = mission_series(bundle, catalog[site_id], keyed)
+        return window, compute_metrics(arrays, window.landing)
+
     @app.get("/api/v1/scenario/summary")
-    def get_summary(scenario: ScenarioParams, v: str = "") -> SummaryResponse:
-        raise ApiError(503, "FEATURE_DISABLED", ENGINE_PENDING)
+    def get_summary(response: Response, scenario: ScenarioParams, v: str = "") -> SummaryResponse:
+        entry = catalog.get(scenario.site)
+        if entry is None:
+            raise ApiError(404, "INVALID_PARAM", "unknown site id")
+        if bundle is None:
+            raise ApiError(503, "FEATURE_DISABLED", "no horizon bundle is configured")
+        st = scenario.station
+        try:
+            window, metrics = _metrics(
+                scenario.site, scenario.t0, scenario.days, scenario.margin, scenario.panel,
+                scenario.antenna, (st.lat_deg, st.lon_deg, st.alt_m, st.min_el_deg),
+            )
+        except OutOfRange as error:
+            first = mission_window(parse_t0(scenario.t0), scenario.days, scenario.margin).start
+            eph = bundle.ephemeris
+            raise ApiError(
+                422,
+                "OUT_OF_TIME_RANGE",
+                f"the window starts at {first:%Y-%m-%dT%H:%MZ}; "
+                f"the ephemeris covers {span_text(eph.start, eph.vectors_km.shape[0], eph.step_s)}",
+            ) from error
+        data_codes = list(bundle.warnings.get(scenario.site, []))
+        if window.start + timedelta(seconds=window.n * STEP_S) > EARTH_ORIENTATION_OBSERVED_UNTIL:
+            data_codes.append("EARTH_ORIENTATION_PREDICTED")
+        if v:
+            response.headers["Cache-Control"] = IMMUTABLE_CACHE
+        return build_summary(entry, scenario, window, metrics, data_codes, configs, f"{bundle.bundle_id}.{__version__}")
 
     return app
 
