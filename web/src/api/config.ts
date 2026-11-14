@@ -20,7 +20,7 @@ const ALL_SAMPLE: AppConfig = {
   sources: { sites: 'sample', horizon: 'sample', summary: 'sample' },
 }
 
-export async function loadConfig(url = '/config.json'): Promise<AppConfig> {
+export async function loadConfig(url = `${import.meta.env.BASE_URL}config.json`): Promise<AppConfig> {
   try {
     const response = await fetch(url)
     if (!response.ok) return ALL_SAMPLE
