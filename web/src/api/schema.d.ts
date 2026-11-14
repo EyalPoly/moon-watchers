@@ -72,6 +72,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sites/{site_id}/horizon": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Horizon */
+        get: operations["get_horizon_api_v1_sites__site_id__horizon_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -122,6 +139,32 @@ export interface components {
             status: "ok";
             /** Version */
             version: string;
+        };
+        /** HorizonResponse */
+        HorizonResponse: {
+            /** Algo Version */
+            algo_version: string;
+            /** Az Step Deg */
+            az_step_deg: number;
+            /** Blocking Distance Km */
+            blocking_distance_km: (number | null)[];
+            /** Elevation Deg */
+            elevation_deg: (number | null)[];
+            /** Height M */
+            height_m: number | null;
+            /** High Deg */
+            high_deg: (number | null)[];
+            /** Low Deg */
+            low_deg: (number | null)[];
+            /**
+             * Part
+             * @enum {string}
+             */
+            part: "full" | "far";
+            /** Site Id */
+            site_id: string;
+            /** Warnings */
+            warnings: string[];
         };
         /** Layer */
         Layer: {
@@ -333,6 +376,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Site"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_horizon_api_v1_sites__site_id__horizon_get: {
+        parameters: {
+            query?: {
+                height?: number;
+                part?: "full" | "far";
+                v?: string | null;
+            };
+            header?: never;
+            path: {
+                site_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HorizonResponse"];
                 };
             };
             /** @description Validation Error */

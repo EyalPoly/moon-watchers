@@ -114,6 +114,118 @@
         "title": "Health",
         "type": "object"
       },
+      "HorizonResponse": {
+        "properties": {
+          "algo_version": {
+            "title": "Algo Version",
+            "type": "string"
+          },
+          "az_step_deg": {
+            "title": "Az Step Deg",
+            "type": "number"
+          },
+          "blocking_distance_km": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Blocking Distance Km",
+            "type": "array"
+          },
+          "elevation_deg": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Elevation Deg",
+            "type": "array"
+          },
+          "height_m": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Height M"
+          },
+          "high_deg": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "High Deg",
+            "type": "array"
+          },
+          "low_deg": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Low Deg",
+            "type": "array"
+          },
+          "part": {
+            "enum": [
+              "full",
+              "far"
+            ],
+            "title": "Part",
+            "type": "string"
+          },
+          "site_id": {
+            "title": "Site Id",
+            "type": "string"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "site_id",
+          "height_m",
+          "part",
+          "az_step_deg",
+          "elevation_deg",
+          "low_deg",
+          "high_deg",
+          "blocking_distance_km",
+          "algo_version",
+          "warnings"
+        ],
+        "title": "HorizonResponse",
+        "type": "object"
+      },
       "Layer": {
         "properties": {
           "attribution": {
@@ -564,6 +676,87 @@
           }
         },
         "summary": "Get Site"
+      }
+    },
+    "/api/v1/sites/{site_id}/horizon": {
+      "get": {
+        "operationId": "get_horizon_api_v1_sites__site_id__horizon_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "height",
+            "required": false,
+            "schema": {
+              "default": 2,
+              "maximum": 10,
+              "minimum": 1,
+              "title": "Height",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "part",
+            "required": false,
+            "schema": {
+              "default": "full",
+              "enum": [
+                "full",
+                "far"
+              ],
+              "title": "Part",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "v",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "V"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HorizonResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Horizon"
       }
     }
   }
