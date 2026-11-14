@@ -2,9 +2,19 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
+import { anySample, loadConfig } from './api/config'
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
-)
+async function start() {
+  const config = await loadConfig()
+  if (anySample(config, window.location.search)) {
+    const { worker } = await import('./api/mocks/browser')
+    await worker.start({ onUnhandledFrame: 'bypass' })
+  }
+  createRoot(document.getElementById('root')!).render(
+    <StrictMode>
+      <App />
+    </StrictMode>,
+  )
+}
+
+void start()
