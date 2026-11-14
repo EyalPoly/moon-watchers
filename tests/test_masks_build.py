@@ -6,9 +6,10 @@ import pytest
 from numpy.typing import NDArray
 
 from api.models import Site
-from build.make_masks import DEFAULT_TERRAIN, build_bundle
+from build.make_masks import DEFAULT_TERRAIN, build_bundle, load_windows, map_half_width_m
+from build.make_masks import DEM_240 as DEM_240_LAYER
 from engine.horizons import HORIZON_ALGO_VERSION
-from engine.terrain import project
+from engine.terrain import MOON_RADIUS_M, project
 from tests.tif_helpers import write_tif
 
 DEM_20 = "lola/LDEM_80S_20MPP_ADJ.TIF"
@@ -144,3 +145,19 @@ def test_unknown_terrain_is_rejected(tmp_path: Path) -> None:
         build_bundle(CATALOG, make_sources(tmp_path), tmp_path / "b", terrain="10m")
 
 
+
+def test_far_window_holds_a_300km_ray_heading_away_from_the_pole(tmp_path: Path) -> None:
+    sources = tmp_path / "sources"
+    write_dem(sources, DEM_240, 600_000, 4_000)
+    far_site = site("a", -85.5, 0.0)
+    _, errors = load_windows(far_site, sources, [DEM_240_LAYER])
+    window = errors[0]
+    reach_lat = -85.5 + np.degrees(300_000.0 / MOON_RADIUS_M)
+    _, y_end = project(reach_lat, 0.0)
+    assert window.y0_m >= float(y_end), "the window must reach the end of the northward ray"
+
+
+def test_map_half_width_follows_the_polar_scale() -> None:
+    assert map_half_width_m(-90.0, 1.0) == pytest.approx(1.0, rel=1e-6)
+    assert map_half_width_m(-60.0, 1.0) == pytest.approx(2 / (1 + np.cos(np.radians(30.0))), rel=1e-6)
+    assert map_half_width_m(-85.5, 300_000.0) > 302_200.0
