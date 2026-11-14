@@ -18,9 +18,9 @@ from api.models import (
     SeriesResponse,
     Site,
     SitesResponse,
-    Station,
     SummaryResponse,
 )
+from api.scenario import DEFAULT_STATION, Antenna, Days, Mast, MonthParam, Panel, StationParam, parse_station
 from engine import __version__
 
 SHORT_CACHE = "public, max-age=60"
@@ -30,18 +30,7 @@ FAR_MAST_M = 2.0
 ENGINE_PENDING = "the engine for this endpoint is not built yet; the web app uses sample answers"
 
 T0 = Annotated[str, Query(pattern=r"^\d{4}-\d{2}-\d{2}T\d{2}:\d0Z$")]
-Days = Annotated[float, Query(ge=1, le=365)]
-Mast = Annotated[float, Query(ge=1, le=10)]
 Weights = Annotated[str, Query(pattern=r"^(0(\.\d)?|1(\.0)?)(,(0(\.\d)?|1(\.0)?)){3}$")]
-Month = Annotated[str, Query(pattern=r"^\d{4}-\d{2}$")]
-StationLat = Annotated[float | None, Query(ge=-90, le=90)]
-StationLon = Annotated[float | None, Query(ge=-180, le=180)]
-
-
-def check_station(station: Station, lat: float | None, lon: float | None) -> None:
-    """A custom station needs both coordinates; a named one takes none."""
-    if (station == "custom") != (lat is not None and lon is not None) or (lat is None) != (lon is None):
-        raise ApiError(422, "INVALID_PARAM", "station=custom needs station_lat and station_lon, and only then")
 
 
 def create_app(
@@ -133,31 +122,29 @@ def create_app(
     def get_series(
         site: str,
         t0: T0,
-        month: Month,
-        days: Days = 29.53,
-        mast: Mast = 2,
+        month: MonthParam,
+        days: Days = 30,
+        panel: Panel = 2,
+        antenna: Antenna = 3,
         w: Weights = "1,1,1,0",
-        station: Station = "any",
-        station_lat: StationLat = None,
-        station_lon: StationLon = None,
+        station: StationParam = DEFAULT_STATION,
         v: str = "",
     ) -> SeriesResponse:
-        check_station(station, station_lat, station_lon)
+        parse_station(station)
         raise ApiError(503, "FEATURE_DISABLED", ENGINE_PENDING)
 
     @app.get("/api/v1/scenario/summary")
     def get_summary(
         site: str,
         t0: T0,
-        days: Days = 29.53,
-        mast: Mast = 2,
+        days: Days = 30,
+        panel: Panel = 2,
+        antenna: Antenna = 3,
         w: Weights = "1,1,1,0",
-        station: Station = "any",
-        station_lat: StationLat = None,
-        station_lon: StationLon = None,
+        station: StationParam = DEFAULT_STATION,
         v: str = "",
     ) -> SummaryResponse:
-        check_station(station, station_lat, station_lon)
+        parse_station(station)
         raise ApiError(503, "FEATURE_DISABLED", ENGINE_PENDING)
 
     return app

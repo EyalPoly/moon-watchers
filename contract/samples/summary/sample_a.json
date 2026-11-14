@@ -2,15 +2,21 @@
   "scenario": {
     "site": "sample_a",
     "t0": "2027-03-01T00:00Z",
-    "days": 29.53,
-    "mast": 2,
+    "days": 30,
+    "panel": 2,
+    "antenna": 3,
     "w": [
       1,
       1,
       1,
       0
     ],
-    "station": "any"
+    "station": {
+      "lat_deg": 29.7604,
+      "lon_deg": -95.3698,
+      "alt_m": 0,
+      "min_el_deg": 0
+    }
   },
   "version": "sample",
   "metrics": {

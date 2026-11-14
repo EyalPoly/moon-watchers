@@ -132,6 +132,12 @@
       "EarthStation": {
         "description": "A ground station the lander can talk to directly (spec \u00a77.3, P3).",
         "properties": {
+          "alt_m": {
+            "maximum": 9000.0,
+            "minimum": -500.0,
+            "title": "Alt M",
+            "type": "number"
+          },
           "id": {
             "pattern": "^[a-z0-9_]{1,32}$",
             "title": "Id",
@@ -149,16 +155,24 @@
             "title": "Lon Deg",
             "type": "number"
           },
+          "min_el_deg": {
+            "maximum": 45.0,
+            "minimum": 0.0,
+            "title": "Min El Deg",
+            "type": "number"
+          },
           "name": {
             "title": "Name",
             "type": "string"
           }
         },
         "required": [
-          "id",
-          "name",
           "lat_deg",
-          "lon_deg"
+          "lon_deg",
+          "alt_m",
+          "min_el_deg",
+          "id",
+          "name"
         ],
         "title": "EarthStation",
         "type": "object"
@@ -420,6 +434,10 @@
           "capabilities": {
             "$ref": "#/components/schemas/Capabilities"
           },
+          "default_station": {
+            "title": "Default Station",
+            "type": "string"
+          },
           "limits": {
             "$ref": "#/components/schemas/Limits"
           },
@@ -457,7 +475,8 @@
           "regions",
           "capabilities",
           "limits",
-          "stations"
+          "stations",
+          "default_station"
         ],
         "title": "Meta",
         "type": "object"
@@ -620,16 +639,22 @@
       },
       "Scenario": {
         "properties": {
+          "antenna": {
+            "maximum": 10.0,
+            "minimum": 1.0,
+            "title": "Antenna",
+            "type": "number"
+          },
           "days": {
             "maximum": 365.0,
             "minimum": 1.0,
             "title": "Days",
             "type": "number"
           },
-          "mast": {
+          "panel": {
             "maximum": 10.0,
             "minimum": 1.0,
-            "title": "Mast",
+            "title": "Panel",
             "type": "number"
           },
           "site": {
@@ -637,41 +662,7 @@
             "type": "string"
           },
           "station": {
-            "enum": [
-              "any",
-              "goldstone",
-              "madrid",
-              "canberra",
-              "custom"
-            ],
-            "title": "Station",
-            "type": "string"
-          },
-          "station_lat_deg": {
-            "anyOf": [
-              {
-                "maximum": 90.0,
-                "minimum": -90.0,
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Station Lat Deg"
-          },
-          "station_lon_deg": {
-            "anyOf": [
-              {
-                "maximum": 180.0,
-                "minimum": -180.0,
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Station Lon Deg"
+            "$ref": "#/components/schemas/StationPoint"
           },
           "t0": {
             "title": "T0",
@@ -702,7 +693,8 @@
           "site",
           "t0",
           "days",
-          "mast",
+          "panel",
+          "antenna",
           "w",
           "station"
         ],
@@ -819,6 +811,42 @@
       },
       "SeriesResponse": {
         "properties": {
+          "contact": {
+            "items": {
+              "anyOf": [
+                {
+                  "enum": [
+                    0,
+                    1
+                  ],
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Contact",
+            "type": "array"
+          },
+          "earth_any": {
+            "items": {
+              "anyOf": [
+                {
+                  "enum": [
+                    0,
+                    1
+                  ],
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Earth Any",
+            "type": "array"
+          },
           "earth_az": {
             "items": {
               "type": "number"
@@ -835,7 +863,14 @@
           },
           "earth_horizon_el": {
             "items": {
-              "type": "number"
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
             },
             "title": "Earth Horizon El",
             "type": "array"
@@ -854,11 +889,22 @@
             "title": "Earth Vis El",
             "type": "array"
           },
-          "earth_visible": {
+          "earth_whole": {
             "items": {
-              "type": "boolean"
+              "anyOf": [
+                {
+                  "enum": [
+                    0,
+                    1
+                  ],
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ]
             },
-            "title": "Earth Visible",
+            "title": "Earth Whole",
             "type": "array"
           },
           "n": {
@@ -897,6 +943,41 @@
             "title": "Start",
             "type": "string"
           },
+          "station_az": {
+            "items": {
+              "type": "number"
+            },
+            "title": "Station Az",
+            "type": "array"
+          },
+          "station_el": {
+            "items": {
+              "type": "number"
+            },
+            "title": "Station El",
+            "type": "array"
+          },
+          "station_horizon_el": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Station Horizon El",
+            "type": "array"
+          },
+          "station_moon_el": {
+            "items": {
+              "type": "number"
+            },
+            "title": "Station Moon El",
+            "type": "array"
+          },
           "step_s": {
             "title": "Step S",
             "type": "integer"
@@ -917,14 +998,28 @@
           },
           "sun_horizon_el": {
             "items": {
-              "type": "number"
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
             },
             "title": "Sun Horizon El",
             "type": "array"
           },
           "sun_lit_frac": {
             "items": {
-              "type": "number"
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
             },
             "title": "Sun Lit Frac",
             "type": "array"
@@ -950,8 +1045,14 @@
           "earth_el",
           "earth_vis_el",
           "earth_horizon_el",
-          "earth_visible",
-          "earth_station_up"
+          "earth_any",
+          "earth_whole",
+          "contact",
+          "station_az",
+          "station_el",
+          "station_horizon_el",
+          "earth_station_up",
+          "station_moon_el"
         ],
         "title": "SeriesResponse",
         "type": "object"
@@ -1047,6 +1148,42 @@
           "sites"
         ],
         "title": "SitesResponse",
+        "type": "object"
+      },
+      "StationPoint": {
+        "properties": {
+          "alt_m": {
+            "maximum": 9000.0,
+            "minimum": -500.0,
+            "title": "Alt M",
+            "type": "number"
+          },
+          "lat_deg": {
+            "maximum": 90.0,
+            "minimum": -90.0,
+            "title": "Lat Deg",
+            "type": "number"
+          },
+          "lon_deg": {
+            "maximum": 180.0,
+            "minimum": -180.0,
+            "title": "Lon Deg",
+            "type": "number"
+          },
+          "min_el_deg": {
+            "maximum": 45.0,
+            "minimum": 0.0,
+            "title": "Min El Deg",
+            "type": "number"
+          }
+        },
+        "required": [
+          "lat_deg",
+          "lon_deg",
+          "alt_m",
+          "min_el_deg"
+        ],
+        "title": "StationPoint",
         "type": "object"
       },
       "SummaryResponse": {
@@ -1322,7 +1459,7 @@
             "name": "month",
             "required": true,
             "schema": {
-              "pattern": "^\\d{4}-\\d{2}$",
+              "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
               "title": "Month",
               "type": "string"
             }
@@ -1332,7 +1469,7 @@
             "name": "days",
             "required": false,
             "schema": {
-              "default": 29.53,
+              "default": 30,
               "maximum": 365,
               "minimum": 1,
               "title": "Days",
@@ -1341,13 +1478,25 @@
           },
           {
             "in": "query",
-            "name": "mast",
+            "name": "panel",
             "required": false,
             "schema": {
               "default": 2,
               "maximum": 10,
               "minimum": 1,
-              "title": "Mast",
+              "title": "Panel",
+              "type": "number"
+            }
+          },
+          {
+            "in": "query",
+            "name": "antenna",
+            "required": false,
+            "schema": {
+              "default": 3,
+              "maximum": 10,
+              "minimum": 1,
+              "title": "Antenna",
               "type": "number"
             }
           },
@@ -1367,52 +1516,9 @@
             "name": "station",
             "required": false,
             "schema": {
-              "default": "any",
-              "enum": [
-                "any",
-                "goldstone",
-                "madrid",
-                "canberra",
-                "custom"
-              ],
+              "default": "29.7604,-95.3698,0,0",
               "title": "Station",
               "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "station_lat",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "maximum": 90,
-                  "minimum": -90,
-                  "type": "number"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Station Lat"
-            }
-          },
-          {
-            "in": "query",
-            "name": "station_lon",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "maximum": 180,
-                  "minimum": -180,
-                  "type": "number"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Station Lon"
             }
           },
           {
@@ -1479,7 +1585,7 @@
             "name": "days",
             "required": false,
             "schema": {
-              "default": 29.53,
+              "default": 30,
               "maximum": 365,
               "minimum": 1,
               "title": "Days",
@@ -1488,13 +1594,25 @@
           },
           {
             "in": "query",
-            "name": "mast",
+            "name": "panel",
             "required": false,
             "schema": {
               "default": 2,
               "maximum": 10,
               "minimum": 1,
-              "title": "Mast",
+              "title": "Panel",
+              "type": "number"
+            }
+          },
+          {
+            "in": "query",
+            "name": "antenna",
+            "required": false,
+            "schema": {
+              "default": 3,
+              "maximum": 10,
+              "minimum": 1,
+              "title": "Antenna",
               "type": "number"
             }
           },
@@ -1514,52 +1632,9 @@
             "name": "station",
             "required": false,
             "schema": {
-              "default": "any",
-              "enum": [
-                "any",
-                "goldstone",
-                "madrid",
-                "canberra",
-                "custom"
-              ],
+              "default": "29.7604,-95.3698,0,0",
               "title": "Station",
               "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "station_lat",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "maximum": 90,
-                  "minimum": -90,
-                  "type": "number"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Station Lat"
-            }
-          },
-          {
-            "in": "query",
-            "name": "station_lon",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "maximum": 180,
-                  "minimum": -180,
-                  "type": "number"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Station Lon"
             }
           },
           {
