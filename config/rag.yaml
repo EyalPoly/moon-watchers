@@ -1,0 +1,2 @@
+pct: {green_from: 60, amber_from: 30}
+slope_deg: {green_max: 5, amber_max: 10}

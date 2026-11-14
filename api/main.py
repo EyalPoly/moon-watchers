@@ -1,9 +1,9 @@
 import os
 from pathlib import Path
-from typing import Annotated, Literal
+from typing import Literal
 
 import numpy as np
-from fastapi import FastAPI, Query, Response
+from fastapi import FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from numpy.typing import NDArray
@@ -22,7 +22,8 @@ from api.models import (
     SummaryResponse,
 )
 from api.series_json import series_response, site_series
-from api.scenario import DEFAULT_STATION, Antenna, Days, Mast, MonthParam, Panel, StationParam, parse_station
+from api.score_config import load_configs
+from api.scenario import Mast, MonthParam, ScenarioParams
 from engine import __version__
 from engine.geometry import OutOfRange
 from engine.horizons import mask_at_height
@@ -33,16 +34,17 @@ FAR_ROW = 10
 FAR_MAST_M = 2.0
 ENGINE_PENDING = "the engine for this endpoint is not built yet; the web app uses sample answers"
 
-T0 = Annotated[str, Query(pattern=r"^\d{4}-\d{2}-\d{2}T\d{2}:\d0Z$")]
-Weights = Annotated[str, Query(pattern=r"^(0(\.\d)?|1(\.0)?)(,(0(\.\d)?|1(\.0)?)){3}$")]
-
 
 def create_app(
     sample_dir: Path = Path("contract/samples"),
     catalog_path: Path = Path("catalog/sites.yaml"),
     bundle_dir: Path | None = None,
+    config_dir: Path = Path("config"),
 ) -> FastAPI:
-    meta = Meta.model_validate_json((sample_dir / "meta.json").read_text())
+    configs = load_configs(config_dir)
+    meta = Meta.model_validate_json((sample_dir / "meta.json").read_text()).model_copy(
+        update={"score": configs.score, "rag": configs.rag, "warning_catalog": list(configs.warnings.values())}
+    )
     catalog = load_catalog(catalog_path)
     if bundle_dir is None and os.environ.get("BUNDLE_DIR"):
         bundle_dir = Path(os.environ["BUNDLE_DIR"])
@@ -130,24 +132,17 @@ def create_app(
     @app.get("/api/v1/scenario/series")
     def get_series(
         response: Response,
-        site: str,
-        t0: T0,
+        scenario: ScenarioParams,
         month: MonthParam,
-        days: Days = 30,
-        panel: Panel = 2,
-        antenna: Antenna = 3,
-        w: Weights = "1,1,1,0",
-        station: StationParam = DEFAULT_STATION,
         v: str = "",
     ) -> SeriesResponse:
-        point = parse_station(station)
-        entry = catalog.get(site)
+        entry = catalog.get(scenario.site)
         if entry is None:
             raise ApiError(404, "INVALID_PARAM", "unknown site id")
         if bundle is None:
             raise ApiError(503, "FEATURE_DISABLED", "no horizon bundle is configured")
         try:
-            arrays, start, n = site_series(bundle, entry, month, panel, antenna, point)
+            arrays, start, n = site_series(bundle, entry, month, scenario.panel, scenario.antenna, scenario.station)
         except (OutOfRange, ValueError, OverflowError) as error:
             raise ApiError(422, "OUT_OF_TIME_RANGE", f"no ephemeris for month {month}") from error
         if v:
@@ -155,17 +150,7 @@ def create_app(
         return series_response(arrays, start, n)
 
     @app.get("/api/v1/scenario/summary")
-    def get_summary(
-        site: str,
-        t0: T0,
-        days: Days = 30,
-        panel: Panel = 2,
-        antenna: Antenna = 3,
-        w: Weights = "1,1,1,0",
-        station: StationParam = DEFAULT_STATION,
-        v: str = "",
-    ) -> SummaryResponse:
-        parse_station(station)
+    def get_summary(scenario: ScenarioParams, v: str = "") -> SummaryResponse:
         raise ApiError(503, "FEATURE_DISABLED", ENGINE_PENDING)
 
     return app

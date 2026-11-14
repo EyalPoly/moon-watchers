@@ -196,9 +196,11 @@ export interface components {
         /** Daily */
         Daily: {
             /** Dte Pct */
-            dte_pct: number[];
+            dte_pct: (number | null)[];
+            /** Sun Disk Mean */
+            sun_disk_mean: (number | null)[];
             /** Sun Pct */
-            sun_pct: number[];
+            sun_pct: (number | null)[];
         };
         /**
          * EarthStation
@@ -217,6 +219,22 @@ export interface components {
             min_el_deg: number;
             /** Name */
             name: string;
+        };
+        /** Grade */
+        Grade: {
+            /**
+             * Id
+             * @enum {string}
+             */
+            id: "L" | "C" | "DK" | "OT" | "LS" | "S" | "D";
+            /** Label */
+            label: string;
+            /** Name */
+            name: string;
+            /** Raw Label */
+            raw_label: string;
+            /** Raw Unit */
+            raw_unit: string;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -299,32 +317,64 @@ export interface components {
              * @enum {string}
              */
             mode: "event" | "judging";
+            rag: components["schemas"]["RagThresholds"];
             /** Regions */
             regions: components["schemas"]["Region"][];
+            score: components["schemas"]["ScoreConfig"];
             /** Stations */
             stations: components["schemas"]["EarthStation"][];
             /** Version */
             version: string;
+            /** Warning Catalog */
+            warning_catalog: components["schemas"]["WarningEntry"][];
         };
         /** Metrics */
         Metrics: {
             /** Both Pct */
-            both_pct: number;
+            both_pct: number | null;
+            /** Contact Mean */
+            contact_mean: number | null;
             /** Dte Pct */
-            dte_pct: number;
+            dte_pct: number | null;
+            /** Earth Any Pct */
+            earth_any_pct: number | null;
             /** Earth El Range */
             earth_el_range: [
                 number,
                 number
             ];
+            /** Earth Whole Pct */
+            earth_whole_pct: number | null;
             /** First Dark After Landing H */
-            first_dark_after_landing_h: number;
+            first_dark_after_landing_h: number | null;
+            /** First Sun H */
+            first_sun_h: number | null;
+            /** Longest Dark At Edge */
+            longest_dark_at_edge: boolean;
             /** Longest Dark H */
             longest_dark_h: number;
+            /** Longest No Contact At Edge */
+            longest_no_contact_at_edge: boolean;
             /** Longest No Contact H */
             longest_no_contact_h: number;
+            /** Sun Disk Mean */
+            sun_disk_mean: number | null;
             /** Sun Pct */
-            sun_pct: number;
+            sun_pct: number | null;
+            /** Unknown H */
+            unknown_h: number;
+            /** Window */
+            window: [
+                string,
+                string
+            ];
+        };
+        /** PctThresholds */
+        PctThresholds: {
+            /** Amber From */
+            amber_from: number;
+            /** Green From */
+            green_from: number;
         };
         /** Rag */
         Rag: {
@@ -338,9 +388,14 @@ export interface components {
              * Color
              * @enum {string}
              */
-            color: "green" | "amber" | "red";
+            color: "green" | "amber" | "red" | "unknown";
             /** Reason */
             reason: string;
+        };
+        /** RagThresholds */
+        RagThresholds: {
+            pct: components["schemas"]["PctThresholds"];
+            slope_deg: components["schemas"]["SlopeThresholds"];
         };
         /** Region */
         Region: {
@@ -366,17 +421,37 @@ export interface components {
         Scenario: {
             /** Antenna */
             antenna: number;
+            /** Colors */
+            colors: [
+                number,
+                number
+            ];
             /** Days */
             days: number;
+            /** Margin */
+            margin: number;
             /** Panel */
             panel: number;
+            /** Psr */
+            psr: boolean;
             /** Site */
             site: string;
+            /** Slope */
+            slope: [
+                number,
+                number,
+                number
+            ];
             station: components["schemas"]["StationPoint"];
+            /** Sun Req */
+            sun_req: number;
             /** T0 */
             t0: string;
             /** W */
             w: [
+                number,
+                number,
+                number,
                 number,
                 number,
                 number,
@@ -385,44 +460,105 @@ export interface components {
         };
         /** Score */
         Score: {
-            /** Base */
-            base: number;
             /**
-             * Color
+             * Category
              * @enum {string}
              */
-            color: "green" | "amber" | "red";
+            category: "green" | "amber" | "red" | "excluded";
             /** Deciding */
-            deciding: string;
+            deciding: ("L" | "C" | "DK" | "OT" | "LS" | "S" | "D")[];
+            /** Excluded Reason */
+            excluded_reason: ("psr" | "slope") | null;
+            /** Explanation */
+            explanation: string;
             /** Factors */
             factors: components["schemas"]["ScoreFactor"][];
             /** Formula */
             formula: string;
+            settings: components["schemas"]["ScoreSettings"];
+            /**
+             * Status
+             * @constant
+             */
+            status: "illustrative";
             /** Value */
             value: number;
+            /** Warnings */
+            warnings: components["schemas"]["Warning"][];
             weights: components["schemas"]["ScoreWeights"];
+        };
+        /** ScoreConfig */
+        ScoreConfig: {
+            /** Formula */
+            formula: string;
+            /** Grades */
+            grades: components["schemas"]["Grade"][];
+            /** Presets */
+            presets: components["schemas"]["WeightPreset"][];
+            /** Settings */
+            settings: components["schemas"]["SettingSpec"][];
+            /**
+             * Status
+             * @constant
+             */
+            status: "illustrative";
         };
         /** ScoreFactor */
         ScoreFactor: {
-            /** Name */
-            name: string;
-            /** Points */
-            points: number;
-            /** Reason */
-            reason: string;
+            /** Grade */
+            grade: number;
+            /**
+             * Name
+             * @enum {string}
+             */
+            name: "L" | "C" | "DK" | "OT" | "LS" | "S" | "D";
+            /** Points Lost */
+            points_lost: number;
+            /** Raw */
+            raw: number | null;
             /** Weight */
             weight: number;
+            /** Weight Share */
+            weight_share: number;
+        };
+        /** ScoreSettings */
+        ScoreSettings: {
+            /** Colors */
+            colors: [
+                number,
+                number
+            ];
+            /** Custom */
+            custom: boolean;
+            /** Margin H */
+            margin_h: number;
+            /** Reject Psr */
+            reject_psr: boolean;
+            /** Slope Deg */
+            slope_deg: [
+                number,
+                number,
+                number
+            ];
+            /** Sun Req H */
+            sun_req_h: number;
         };
         /** ScoreWeights */
         ScoreWeights: {
-            /** Dte */
-            dte: number;
-            /** Dust */
-            dust: number;
-            /** Slope */
-            slope: number;
-            /** Sun */
-            sun: number;
+            /** C */
+            C: number;
+            /** D */
+            D: number;
+            /** Dk */
+            DK: number;
+            /** L */
+            L: number;
+            /** Ls */
+            LS: number;
+            /** Ot */
+            OT: number;
+            /** S */
+            S: number;
         };
         /** SeriesResponse */
         SeriesResponse: {
@@ -471,6 +607,23 @@ export interface components {
             /** Sun Vis El */
             sun_vis_el: number[];
         };
+        /** SettingSpec */
+        SettingSpec: {
+            /** Default */
+            default: number[];
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /** Max */
+            max: number;
+            /** Min */
+            min: number;
+            /** Step */
+            step: number;
+            /** Unit */
+            unit: string;
+        };
         /** Site */
         Site: {
             /** Category */
@@ -479,6 +632,8 @@ export interface components {
             elevation_m: number;
             /** Id */
             id: string;
+            /** In Psr */
+            in_psr?: boolean | null;
             /** Is Placeholder */
             is_placeholder: boolean;
             /** Lat Deg */
@@ -506,6 +661,13 @@ export interface components {
             /** Sites */
             sites: components["schemas"]["Site"][];
         };
+        /** SlopeThresholds */
+        SlopeThresholds: {
+            /** Amber Max */
+            amber_max: number;
+            /** Green Max */
+            green_max: number;
+        };
         /** StationPoint */
         StationPoint: {
             /** Alt M */
@@ -526,10 +688,7 @@ export interface components {
             score: components["schemas"]["Score"];
             /** Version */
             version: string;
-            /**
-             * Warnings
-             * @default []
-             */
+            /** Warnings */
             warnings: components["schemas"]["Warning"][];
             windows: components["schemas"]["Windows"];
         };
@@ -560,10 +719,48 @@ export interface components {
         };
         /** Warning */
         Warning: {
+            /**
+             * Affects
+             * @enum {string}
+             */
+            affects: "score" | "sun" | "contact" | "skyline" | "slope" | "all";
             /** Code */
             code: string;
+            /**
+             * Severity
+             * @enum {string}
+             */
+            severity: "info" | "caution" | "blocking";
             /** Text */
             text: string;
+        };
+        /** WarningEntry */
+        WarningEntry: {
+            /**
+             * Affects
+             * @enum {string}
+             */
+            affects: "score" | "sun" | "contact" | "skyline" | "slope" | "all";
+            /** Code */
+            code: string;
+            /**
+             * Severity
+             * @enum {string}
+             */
+            severity: "info" | "caution" | "blocking";
+            /** Standing */
+            standing: boolean;
+            /** Text */
+            text: string;
+        };
+        /** WeightPreset */
+        WeightPreset: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Weights */
+            weights: number[];
         };
         /** Windows */
         Windows: {
@@ -579,6 +776,11 @@ export interface components {
             ][];
             /** Sun */
             sun: [
+                string,
+                string
+            ][];
+            /** Unknown */
+            unknown: [
                 string,
                 string
             ][];
@@ -635,15 +837,20 @@ export interface operations {
     get_series_api_v1_scenario_series_get: {
         parameters: {
             query: {
+                month: string;
+                v?: string;
                 site: string;
                 t0: string;
-                month: string;
                 days?: number;
                 panel?: number;
                 antenna?: number;
-                w?: string;
                 station?: string;
-                v?: string;
+                w?: string;
+                sun_req?: number;
+                slope?: string;
+                psr?: number;
+                margin?: number;
+                colors?: string;
             };
             header?: never;
             path?: never;
@@ -674,14 +881,19 @@ export interface operations {
     get_summary_api_v1_scenario_summary_get: {
         parameters: {
             query: {
+                v?: string;
                 site: string;
                 t0: string;
                 days?: number;
                 panel?: number;
                 antenna?: number;
-                w?: string;
                 station?: string;
-                v?: string;
+                w?: string;
+                sun_req?: number;
+                slope?: string;
+                psr?: number;
+                margin?: number;
+                colors?: string;
             };
             header?: never;
             path?: never;
