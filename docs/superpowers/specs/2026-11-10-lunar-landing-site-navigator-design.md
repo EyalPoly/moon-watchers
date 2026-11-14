@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Status | Draft for team review. The physics team's review is applied, and so are the decisions in their prototype (`MenasimMoon`, 11–12 Nov). Only P6 and P7 are still placeholders (§12.3). |
+| Status | Draft for team review. The physics team's review is applied, and so are the decisions in their prototype (`MenasimMoon`, 11–12 Nov), including the new score and the 12 h landing margin from `MenasimMoonV2` (14 Nov). Only P6 and P7 are still placeholders (§12.3). |
 | Date | 2026-11-14 |
 | Event | NASA Space Apps Challenge 2026, Tel Aviv. Build days: 14–15 Nov 2026 |
 | Deadline | 15 Nov 2026, 23:59 local time, in English |
@@ -111,8 +111,8 @@ Condensed from the challenge page:
 
 | Priority | Features |
 |---|---|
-| **Must** | <ul><li>**Screen 2:**<ul><li>A South Pole map: NASA layers when zoomed out, live shadows near catalog sites when zoomed in.</li><li>Up to 3 mission cards. A site can come from the catalog, from typed lat/lon, or from a click on the map.</li><li>Each card has: a panel height and an antenna height, each 1–10 m (defaults 2 m and 3 m; **P10**); a landing date plus a per-card offset; a mission length of 1–365 days (default: 30 days; **P4**); "+1 Lunar Day"; red, amber or green chips for Sun, Earth contact and slope; a live panel with solar elevation, clearance and countdowns; a sky view.</li><li>A split map and "Compare Timelines".</li></ul></li><li>**Screen 4:** Gantt rows for Sun, Earth contact and both; the score with its breakdown; CSV and Horizons export.</li><li>Custom points with numbers, inside 84–90°S.</li><li>Shareable URLs.</li><li>A minimal "How we know it's right" page.</li><li>The demo snapshot.</li><li>An open-source license and a README.</li></ul> |
-| **Should** | <ul><li>**Site finder** on Screen 2: enter the mission and spacecraft parameters (everything except a site) and get suggested sites and landing dates (§7.6). How it looks is decided at implementation.</li><li>An elevation-over-time graph on each mission card: the Sun, the Earth and the terrain in their direction across the mission (§9.3).</li><li>Screen 3 surface view: 3D, time-lapse shadows and gauges.</li><li>Landing calendar, with "Next good landing".</li><li>Nearby alternatives: the user draws an area (a polygon) around a site and gets a score for each point inside it, with the best points ranked (**P11**).</li><li>A weights panel for the score, with presets (§7.5).</li><li>"Explain": insights built from templates, including comparisons.</li><li>Uncertainty ranges.</li><li>Example scenarios on the start screen.</li><li>The full validation page: Horizons, PSR, QuickMap side by side, GMAT, and how the calculations work.</li><li>Shadows for custom points, only when a GPU server is available.</li><li>A topographic layer on the map (elevation colors).</li><li>Choosing a different Earth station for contact: typed coordinates, or a preset (§7.3).</li><li>Data warnings on the card when the elevation data looks suspicious (**P8**).</li><li>The Screen 1 globe with recommended sites.</li></ul> |
+| **Must** | <ul><li>**Screen 2:**<ul><li>A South Pole map: NASA layers when zoomed out, live shadows near catalog sites when zoomed in.</li><li>Up to 3 mission cards. A site can come from the catalog, from typed lat/lon, or from a click on the map.</li><li>Each card has: a panel height and an antenna height, each 1–10 m (defaults 2 m and 3 m; **P10**); a landing date plus a per-card offset; a mission length of 1–365 days (default: 30 days; **P4**); "+1 Lunar Day"; red, amber or green chips for Sun, Earth contact and slope; a live panel with solar elevation, clearance and countdowns; a sky view.</li><li>A split map and "Compare Timelines".</li></ul></li><li>**Screen 4:** Gantt rows for Sun, Earth contact and both; the score with its breakdown; CSV and Horizons export.</li><li>**Score settings panel** (top bar): the 7 weights with presets, and every other number the score uses, each user-changeable (§7.5, §9.3).</li><li>**Warnings strip** on every card, comparison column and ranked point: every data and score warning is shown in plain words, never only in a tooltip (§7.8).</li><li>Custom points with numbers, inside 84–90°S.</li><li>Shareable URLs.</li><li>A minimal "How we know it's right" page.</li><li>The demo snapshot.</li><li>An open-source license and a README.</li></ul> |
+| **Should** | <ul><li>**Site finder** on Screen 2: enter the mission and spacecraft parameters (everything except a site) and get suggested sites and landing dates (§7.6). How it looks is decided at implementation.</li><li>An elevation-over-time graph on each mission card: the Sun, the Earth and the terrain in their direction across the mission (§9.3).</li><li>Screen 3 surface view: 3D, time-lapse shadows and gauges.</li><li>Landing calendar, with "Next good landing".</li><li>Nearby alternatives: the user draws an area (a polygon) around a site and gets a score for each point inside it, with the best points ranked (**P11**).</li><li>"Explain": insights built from templates, including comparisons.</li><li>Uncertainty ranges.</li><li>Example scenarios on the start screen.</li><li>The full validation page: Horizons, PSR, QuickMap side by side, GMAT, and how the calculations work.</li><li>Shadows for custom points, only when a GPU server is available.</li><li>A topographic layer on the map (elevation colors).</li><li>Choosing a different Earth station for contact: typed coordinates, or a preset (§7.3).</li><li>The Screen 1 globe with recommended sites.</li></ul> |
 | **Could** | <ul><li>A power model: panels always facing the Sun, plus a battery.</li><li>The "Ask the Navigator" command bar, which also covers plain-English search.</li><li>Checking the Sun's elevation at historical Apollo landings.</li></ul> |
 | **Nice** | <ul><li>Requirements read from a pasted document or a PDF.</li><li>A mission brief.</li><li>A dust map layer, drawn from the simulated (mock) dust index and labeled "simulated" everywhere. The index itself is part of the score, so it is built with the score (§7.5).</li></ul> |
 | **Out** | <ul><li>Non-polar sites, such as Apollo (the architecture can add regions later).</li><li>Relay satellites: Earth contact means direct to Earth only.</li><li>Fixed (non-tracking) panels.</li><li>Accounts and a database.</li><li>Searching the terrain for new sites.</li><li>A guided tour.</li><li>Voice input.</li><li>A backup server.</li><li>A browser GPU shader for shadows (kept as a future upgrade path).</li></ul> |
@@ -134,7 +134,7 @@ Condensed from the challenge page:
 - **Educators and the public:** need the simple view and explanations.
 - **Judges:** watch a short demo, or open the link with no guidance.
 
-**The unit of everything is a scenario.** A scenario is a site (catalog or custom), a landing time, a mission length, a panel height and an antenna height. If the Could power feature is built, it also includes power settings. The **spacecraft settings** (the Earth station and the score weights) are shared by all cards, because the cards compare sites for the same spacecraft.
+**The unit of everything is a scenario.** A scenario is a site (catalog or custom), a landing time, a mission length, a panel height and an antenna height. If the Could power feature is built, it also includes power settings. The **spacecraft settings** (the Earth station and the score settings) are shared by all cards, because the cards compare sites for the same spacecraft.
 
 | Flow | What the user does |
 |---|---|
@@ -162,7 +162,7 @@ Condensed from the challenge page:
 - **`vis_el`:** for each body at each step, the elevation that must clear the terrain for the body to count as visible. The visibility rule is encoded in this number (§7.3).
 - **Window:** a stretch of time when something is true: Sun visible, Earth contact, or both.
 - **Verdict vs. live status:** the red/amber/green chips judge the whole mission. The live panel shows the moment being viewed: elevation, clearance and countdowns.
-- **Weights:** how much each factor (sunlight, Earth contact, slope, dust) counts in the score. The default set is the physics team's (§7.5); users can change it. Weights change the score and its color, never the chips.
+- **Weights:** how much each grade (sunlight, Earth contact, longest darkness, longest outage, sunlight at landing, slope, dust) counts in the score. The default set is the physics team's (§7.5); users can change it. Weights change the score and its color, never the chips.
 - **Unknown time:** time when the data can't say whether a body is visible, for example because a skyline ray crosses missing terrain. It is never counted as darkness or as no contact (§7.3).
 - **Mission elapsed time (MET):** the time since a scenario's landing. Cards are synchronized by MET (§9.2).
 - **Lunar day:** 29.53 days (one synodic month), from sunrise to sunrise.
@@ -265,7 +265,7 @@ The mode is a setting. The API reports it in `/meta.capabilities`, and the UI fo
 | Moon Trek elevation service | NASA Moon Trek, ArcGIS ImageServer for the 5 m south-pole LOLA DEM (`identify` and `getSamples`) | Validation only: our local DEM against NASA's own service at 20–50 points (§11.4). Never used at runtime, never for horizon masks (about 200 points per call, so thousands of calls per site) | Worked on 13 Nov. Height reference *verify* |
 | Topographic layer | Rendered by the build from the LOLA DEMs above | Elevation colors on the map, and on the globe if it's built | From the DEMs |
 | Globe assets (Screen 1, Should) | Prepared at kickoff from public sources, as in the 3D teammate's test: LOLA LDEM_16 and 240 m polar DEMs; an LROC-WAC-based color map (CC BY-SA 4.0, via Stellarium); NASA Blue Marble | Visual context only | §9.3 |
-| Dust | Simulated (mock) index from the physics team: a fixed formula (§7.5), no data file | Dust factor in the score (weight 0.10 by default); the dust map layer (Nice) | Labeled "simulated" everywhere. LADEE/LDEX orbital dust data is not a surface map, so it isn't used. |
+| Dust | Simulated (mock) index from the physics team: a fixed formula (§7.5), no data file | Dust grade in the score (weight 0 by default, users can raise it); the dust map layer (Nice) | Labeled "simulated" everywhere. LADEE/LDEX orbital dust data is not a surface map, so it isn't used. |
 | JPL Horizons answers | JPL Horizons API (`ssd.jpl.nasa.gov/api/horizons.api`) | Validation only: Sun and Earth azimuth and elevation at test sites, fetched once and saved under `data/sources/horizons/` with checksums. Never called at runtime (§11.4) | Request recipe checked by hand on 13 Nov; see §11.4 |
 | GMAT checks | Physics team | Validation only: basic checks of the Sun and Earth positions | §12.3 |
 | Catalog | Physics team (`catalog/sites.yaml`), with a source link per site | Site list (south-polar, inside the 20 m DEM coverage) | To build |
@@ -475,7 +475,14 @@ The physics team defines these rules (**P2**, **P3**). They come from their prot
   | `EFFECTIVE_RESOLUTION` | The data's effective resolution at the site is coarser than the 240 m slope baseline |
   | `EARTH_ORIENTATION_PREDICTED` | The mission runs past 2026-08-06, so the Earth's orientation is predicted, not observed |
 
-  Three notes are true of every result. They are shown once, on the validation page and in the export, instead of on every card:
+  The score adds two more, with the same treatment (§7.5):
+
+  | Code | When |
+  |---|---|
+  | `NULL_GRADE:<grade>` | A grade with a weight above 0 could not be computed and counts as 0 |
+  | `PSR_UNKNOWN` | The PSR map has no value at the site, so the PSR gate wasn't applied |
+
+  Three notes are true of every result. They are not repeated on every card. They are shown on the validation page, in the export, and behind the "Always true" link in the warnings strip (§7.8):
   - `DEM_RESOLUTION`: rocks and relief smaller than a cell are not modeled.
   - `GEOMETRIC_CONTACT`: contact uses instantaneous positions.
   - `DISK_QUADRATURE`: the disks use 128-strip sampling and a small-angle approximation.
@@ -492,7 +499,11 @@ The physics team defines these rules (**P2**, **P3**). They come from their prot
 
 ### 7.4 Metrics, verdict and live status
 
-- **Mission metrics:** computed over [landing, landing + mission length]: sunlight at panel height, contact at antenna height. The physics team's default mission length is **30 Earth days** (**P4**); users can set 1–365.
+- **Mission window:** [landing − 12 h, landing + mission length].
+  - The 12 h before landing is the physics team's landing margin: the actual landing can come a few hours before the planned time, so the window starts early enough to cover it.
+  - The margin is `landing_margin_h` in `config/score.yaml` (default 12; 0 gives the old forward-only window). It is not a URL parameter.
+  - In their prototype the margin is `delta_t_before_s` and the mission length is `delta_t_after_s`.
+- **Mission metrics:** computed over the mission window: sunlight at panel height, contact at antenna height. The physics team's default mission length is **30 Earth days** (**P4**); users can set 1–365.
 
   | Metric | Meaning |
   |---|---|
@@ -502,13 +513,14 @@ The physics team defines these rules (**P2**, **P3**). They come from their prot
   | `sun_disk_mean` (**L**) | The physics team's sunlight measure: the average visible fraction of the Sun's disk, averaged per day and then over the days. A half-hidden Sun counts half |
   | `contact_mean` (**C**) | The physics team's contact measure: the share of each day with contact, averaged over the days |
   | `earth_any_pct`, `earth_whole_pct` | Share of mission time with part of / all of the Earth's disk above the terrain (information only, §7.3) |
-  | `longest_dark_h` | Longest period without sunlight. It is cut off at the mission edges and flagged if it continues past them. |
-  | `longest_no_contact_h` | Longest period without Earth contact |
-  | `first_dark_after_landing_h` | Hours until the first darkness. 0 means the lander arrives in darkness. |
+  | `longest_dark_h` | Longest period without sunlight. It is cut off at the window edges and flagged if it continues past them. Unknown time is not darkness, so it breaks a dark period. |
+  | `longest_no_contact_h` | Longest period without Earth contact, counted the same way |
+  | `first_sun_h` | Hours of sunlight from the window start: the length of the sunlit stretch that is under way at the window start (cut off at the window end). 0 if the window starts in darkness. Used by the `landing_sunlight` grade (§7.5) |
+  | `first_dark_after_landing_h` | Hours from landing until the first darkness. 0 means the lander arrives in darkness. |
   | `earth_el_range` | The Earth's lowest and highest elevation during the mission, which shows libration |
   | `daily_sun_pct`, `daily_dte_pct`, `daily_sun_disk_mean` | Per day: the share with the Sun visible, the share with contact, and the mean visible disk fraction (the physics team's "% per day") |
 
-- **Days (the physics team's definition):** consecutive **24-hour bins from landing**, not lunar days or calendar dates. Day edges are set in UTC and converted to the engine's time scale, so a 30-day mission always has exactly 30 bins. Full days count equally; a shorter last day counts in proportion to its length.
+- **Days (the physics team's definition):** consecutive **24-hour bins from the window start**, not lunar days or calendar dates. Day edges are set in UTC and converted to the engine's time scale, so the bin count is exact: a 30-day mission with the 12 h margin has 30 full bins plus a last 12 h bin. Full days count equally; a shorter last day counts in proportion to its length.
 - **Unknown time:** a percentage, or a day's value, that includes unknown time is **unavailable**, not lowered. The hours known to be visible are still reported.
 - **Verdict:** the red/amber/green chips in the card header. There is one chip each for:
   - Sun, from `sun_pct`
@@ -528,38 +540,47 @@ The physics team defines these rules (**P2**, **P3**). They come from their prot
 
 ### 7.5 Score and weights (P5: the physics team's formula)
 
-The physics team owns the score. This is the formula from their prototype (agreed 12 Nov). Their own label applies: the weights and the 0–15° slope scale are **illustrative, not validated landing criteria**, and the UI says so next to the score.
+The physics team owns the score. This is the additive formula from their second prototype (`MenasimMoonV2`, 14 Nov), which replaces the four-factor version of 12 Nov. Their own label applies: the weights, the 6 h sunlight requirement and the 0–15° slope scale are **illustrative, not validated landing criteria**, and the UI says so next to the score.
 
-**Four factors, each a suitability from 0 (bad) to 1 (good):**
+**Seven grades, each from 0 (bad) to 1 (good), all over the mission window (§7.4):**
 
-| Factor | Suitability |
-|---|---|
-| **L**, sunlight | `sun_disk_mean` (§7.4): the average daily visible fraction of the Sun's disk |
-| **C**, Earth contact | `contact_mean` (§7.4): the average daily share of time with contact to the chosen station |
-| **S**, slope | 1 at or below `slope_good_deg` (0°), falling in a straight line to 0 at or above `slope_bad_deg` (15°) |
-| **D**, dust | `1 − D`, where D is the simulated dust index (0–1) at the site, so more dust lowers suitability |
+| Grade | Name in their code | How it is computed |
+|---|---|---|
+| **L**, sunlight | `light` | `sun_disk_mean`: the average daily visible fraction of the Sun's disk |
+| **C**, Earth contact | `communication` | `contact_mean`: the average daily share of time with contact to the chosen station |
+| **DK**, longest darkness | `dark_time` | `1 − longest_dark_h / window length`. A 15-day night in a 30.5-day window gives 0.51 |
+| **OT**, longest outage | `outage_time` | `1 − longest_no_contact_h / window length` |
+| **LS**, sunlight at landing | `landing_sunlight` | 1 if `first_sun_h` ≥ `required_sunlight_h` (default **6 h**), otherwise 0. It is pass/fail, not graded |
+| **S**, slope | `slope` | 1 at or below `slope_good_deg` (0°), falling in a straight line to 0 at or above `slope_bad_deg` (15°) |
+| **D**, dust | `dust` | `1 − D`, where D is the simulated dust index (0–1) at the site, so more dust lowers the grade |
 
 **Formula:**
 
 ```
-score = 100 × (w_L·L + w_C·C + w_S·S + w_D·(1 − D)) / (w_L + w_C + w_S + w_D)
+score = 100 × Σ w·grade / Σ w        over the 7 grades
 ```
 
 - **Weights** are relative: only their ratios matter. The default set:
 
-  | Preset | `w_L` sunlight | `w_C` contact | `w_S` slope | `w_D` dust |
-  |---|---|---|---|---|
-  | **Default** (the physics team's) | 0.35 | 0.35 | 0.20 | 0.10 |
-  | Sunlight first (their second example) | 0.60 | 0.20 | 0.10 | 0.10 |
-  | Custom | user-set | | | |
+  | Preset | L | C | DK | OT | LS | S | D |
+  |---|---|---|---|---|---|---|---|
+  | **Default** (the physics team's) | 0.25 | 0.25 | 0.15 | 0.15 | 0.10 | 0.10 | 0 |
+  | Sunlight first (their rescoring example) | 0.60 | 0.20 | 0 | 0 | 0 | 0.10 | 0.10 |
+  | Custom | user-set | | | | | | |
 
-  Each weight runs from 0 to 1 in steps of 0.05, and at least one must be above 0. A weight of 0 switches its factor off: it neither adds nor costs points, and missing data for it doesn't matter. The presets live in `config/score.yaml`.
-- **Penalties:** each factor loses `100 × w / Σw × (1 − suitability)` points. For any valid score, the penalties add up to `100 − score`.
-- **Deciding factor (P12):** the factor with the largest penalty. **Ties are all reported.** The explanation gives that factor's raw value, its suitability, its share of the weights, and the points it lost, for example "station contact (average daily contact-time fraction 0.18; weight share 0.35; lost 28.7 points)".
+  Each weight runs from 0 to 1 in steps of 0.05, and at least one must be above 0. A weight of 0 switches its grade off: it neither adds nor costs points, and a missing value for it raises no warning. The user sets every weight (§7.5 "Settings the user can change"). The presets and all defaults live in `config/score.yaml`.
+- **Penalties:** each grade loses `100 × w / Σw × (1 − grade)` points. For a site that is not excluded, the penalties add up to `100 − score`.
+- **Deciding factor (P12):** the grade with the largest penalty. **Ties are all reported.** The explanation gives that grade's raw value, the grade, its share of the weights, and the points it lost, for example "station contact (average daily contact-time fraction 0.18; weight share 0.25; lost 20.5 points)".
 - **The Sun-and-Earth overlap is not in the score.** `both_pct` is still computed and shown (chips, Gantt "both" row, §7.4).
-- **Hard slope limit (optional):** `maximum_slope_deg` is off by default. When set, a steeper site gets no score and the category "excluded", with the reason.
-- **Missing data:** if an active factor (weight above 0) is unavailable, for example sunlight with unknown time in it (§7.4), there is no score and the category is "unknown", with the missing factor named. A missing value never turns into a good score.
-- **Colors:** green ≥ 70, amber ≥ 40, red below 40 (the physics team's values; their prototype calls amber "yellow").
+- **Missing data:** a missing grade with a weight above 0 counts as **0**, and the score carries the warning `NULL_GRADE:<grade>` naming it. Sunlight with unknown time in it is an example (§7.4). The score is still given, so a missing value can only lower it, never raise it. The warning is shown in the warnings strip (§7.8) and as a badge on the score.
+- **Hard gates.** A gated site gets score **0** and the category "excluded", with the reason shown on the score and in the warnings strip. Two gates:
+  - **Inside a PSR (`excluded_reason: "psr"`):** the site lies in a permanently shadowed region according to NASA's PSR map (§6.1). **Every grade is set to 0**, whatever its raw value, so the breakdown shows 0 for all seven and the score is 0. The raw values (for example the sunlight fraction) are still listed next to the grades, so the user can see what was overridden. Each grade then loses its full weight share, and the penalties add up to 100. No deciding factor is named; the reason "inside a PSR" is the headline.
+    - The prototype takes this as a flag the user types (`in_psr`). We read it from the map at the site, for catalog, custom and alternatives points alike. A point on the edge of a PSR counts as inside.
+    - It is on by default and the user can switch it off (`psr`, §7.5 settings). Switched off, the site is scored normally.
+    - Where the map has no value at the site, the gate is not applied and the warning `PSR_UNKNOWN` is added.
+  - **Slope (`excluded_reason: "slope"`):** `slope_deg` above the maximum slope (default **15°**). The score is forced to 0; the grades keep their real values. An unknown slope doesn't trip the gate; its grade counts as 0 with `NULL_GRADE:slope`.
+  - If both apply, the reason is "psr".
+- **Colors:** green ≥ 70, amber ≥ 40, red below 40 (the physics team's values; their prototype calls amber "yellow"). "Excluded" has its own color.
 - **The dust index (simulated; the physics team's model).** A fixed formula over the map position (x, y in the region's projection):
 
   ```
@@ -567,10 +588,27 @@ score = 100 × (w_L·L + w_C·C + w_S·S + w_D·(1 − D)) / (w_L + w_C + w_S + 
   ```
 
   It uses 6 waves (k = 1…6) and a length scale L = 5 km. The angles `a_k` and then the phases `p_k` are drawn uniformly from [0, 2π) by NumPy's `default_rng(42)`, in that order, so every run gives the same map. D has no unit and is not a measured density. Everywhere it appears, it is labeled "simulated", including the score breakdown ("dust: simulated").
-- **Shape:** `score = {value, category, status, weights, factors: [{name, weight, weight_share, raw, suitability, points_lost}], deciding: [names], explanation, formula}`, where `category` is green, amber, red, unknown or excluded and `status` is "illustrative". The tooltip shows the breakdown, as the product spec asks.
-- **Rescoring is free:** changing the weights needs no new physics. The engine rescores the metrics it already has (the prototype's `score_metrics`).
+- **Shape:** `score = {value, category, status, weights, factors: [{name, weight, weight_share, raw, grade, points_lost}], deciding: [names], excluded_reason, warnings, explanation, formula}`. `category` is green, amber, red or excluded. `excluded_reason` is `slope` or `psr`, or null. `warnings` holds the `NULL_GRADE:*` and `PSR_UNKNOWN` codes. `status` is "illustrative". The tooltip shows the breakdown, as the product spec asks.
+- **Rescoring is free** for everything except the landing margin: changing a weight, a threshold, the PSR switch or the colors needs no new physics. The engine rescores the metrics it already has (the prototype's `score_metrics`); for example, `sun_req` only re-reads `first_sun_h`, and the slope numbers only re-read `slope_deg`. Changing the landing margin moves the window, so the metrics are re-read from the stored series (still no new terrain or ephemeris work).
+
+**Settings the user can change.** Every number the score uses is a setting. `config/score.yaml` holds the defaults and the allowed ranges, `/meta` publishes them (§8.2), and the UI builds its controls from that list, so no number is hard-coded in the browser. The settings are shared by all cards (§4, spacecraft settings) and live in the URL (§8.1).
+
+| Setting | URL key | Default | Range, step | Notes |
+|---|---|---|---|---|
+| Weights L, C, DK, OT, LS, S, D | `w` | 0.25, 0.25, 0.15, 0.15, 0.10, 0.10, 0 | 0–1, 0.05; at least one above 0 | Presets: Default, Sunlight first, Custom |
+| Required sunlight at landing | `sun_req` | 6 h | 0–72 h, 0.5 | Sets LS |
+| Slope: fully good at / fully bad at | `slope` (1st, 2nd) | 0°, 15° | 0–90°, 0.5; good ≤ bad | Sets S |
+| Maximum slope (hard gate) | `slope` (3rd) | 15° | 0–90°, 0.5 | Set to 90 to switch off |
+| Reject sites inside a PSR | `psr` | on | on / off | |
+| Landing margin before landing | `margin` | 12 h | 0–48 h, 1 | Moves the window (§7.4) |
+| Colors: green from / amber from | `colors` | 70, 40 | 0–100, 1; amber ≤ green | |
+| Mission length | `days` | 30 | 1–365 days | Scenario parameter |
+| Panel height, antenna height | `panel`, `antenna` | 2 m, 3 m | whole meters, 1–10 | Whole meters because masks are stored per meter (§7.2) |
+| Earth station | `station` | Houston, 0 m, 0° | latitude −90–90°, longitude −180–180°, altitude −500–9,000 m, minimum elevation 0–45° | |
+
+The panel offers "Reset to defaults" per setting and for all, marks every changed setting, and shows next to the score "custom settings" when any differ from the defaults. Out-of-range values are refused with 422 `INVALID_PARAM` naming the setting. A settings panel that changes the slope scale or the 6 h requirement keeps the "illustrative" label: the score is the user's own policy, not a validated criterion.
 - **Speed:** a formula over numbers the engine already has, and it works on arrays. It is fast enough for everything it feeds: the card color, the Screen 4 score, the landing calendar (every day of 2026–2030, for each site), search and the alternatives map.
-- **Still open for the physics team (P5):** does "doesn't want sunlight" mean `w_L` = 0, or a preference for darkness? The formula supports only the first.
+- **Still open for the physics team (P5):** does "doesn't want sunlight" mean `w_L` = 0 (and DK and LS at 0), or a preference for darkness? The formula supports only the first.
 
 ### 7.6 Search, landing calendar and alternatives
 
@@ -583,7 +621,11 @@ score = 100 × (w_L·L + w_C·C + w_S·S + w_D·(1 − D)) / (w_L + w_C + w_S + 
   - sort order and result limit
 - **Algorithm:**
   1. **Candidates:** every site at every landing time in the window.
-  2. **Running totals:** each site's visibility series is computed **once** over the window plus the mission length. Running totals then give every candidate's `sun_pct`, `dte_pct`, `both_pct`, L and C in O(1), so every score is **exact**. This works for L and C because a duration-weighted average of daily means equals the plain time average over the mission: L is the mean of `f` over the mission, and C equals `dte_pct` / 100. A running count of unknown steps marks candidates whose values are unavailable.
+  2. **Running totals:** each site's visibility series is computed **once** over the landing window, widened by the 12 h margin before it and the mission length after it.
+     - Running totals give every candidate's `sun_pct`, `dte_pct`, `both_pct`, L and C in O(1). This works for L and C because a duration-weighted average of daily means equals the plain time average over the mission window: L is the mean of `f` over the window, and C equals `dte_pct` / 100.
+     - A running count of unknown steps marks candidates whose values are unavailable.
+     - The dark and no-contact periods are kept as sorted lists. A candidate's `longest_dark_h` and `longest_no_contact_h` are the periods that lie wholly inside its window, found with a range-maximum table in O(1), plus the two periods cut by its edges, found by binary search. Its `first_sun_h` is one binary search.
+     - So every score, DK, OT and LS included, is **exact**.
   3. **Power limits (Could):** checked only on the shortlist.
   4. **Grouping:** consecutive passing landing times at one site become one "landing opportunity", with a start, an end and a best time.
   5. **No dead ends:** if nothing passes, the search returns the closest misses and which limit each one failed.
@@ -603,7 +645,7 @@ score = 100 × (w_L·L + w_C·C + w_S·S + w_D·(1 − D)) / (w_L + w_C + w_S + 
   3. **The card's site is always included** at its exact coordinates, not replaced by the nearest cell. If it coincides with a cell center at the same heights, it is ranked once.
   4. **Each point is exact:** it gets its own masks at panel and antenna height (§7.2) and the full scenario evaluation, with the card's landing time, mission length and spacecraft settings. There is no approximate screening.
   5. **Score:** the score function (§7.5) runs on all points at once. Changing the weights rescores without new physics.
-  6. **Result:** a score map over the cells, plus every point ranked by score, each with its metrics, penalties, deciding factor and warnings. Cells inside the polygon whose data is missing are reported as "unknown", never dropped. Unsampled ground between cells is not certified, and the UI says so.
+  6. **Result:** a score map over the cells, plus every point ranked by score, each with its metrics, penalties, deciding factor and warnings. A cell that can't be evaluated at all (no terrain at its center) has no score and is listed with the reason, never dropped; missing grades follow §7.5 (counted as 0, with a warning). Unsampled ground between cells is not certified, and the UI says so.
   7. **Refinement:** a new call with a smaller polygon and a finer spacing (the physics team's example: 300 m).
   - **Cost:** one mask per point. On the GPU, masks for 2,500 points take seconds (*est.*). On a CPU the cap is lowered and set at kickoff from measured speed (§5.3). The physics team's prototype measured about 9 s per point on a CPU, and its demo used 16 cells.
   - Opening a point creates a custom point, which reuses the mask already computed.
@@ -631,7 +673,30 @@ The headline and the "why" sentences use the deciding factor: the factor with th
 - **Why templates rather than AI:** they are instant, free and deterministic. They always match the numbers, work offline and can be unit-tested.
 - **Optional later:** an AI rewording layer. It must pass a check that every number it writes appears in the facts.
 
-### 7.8 Power model (Could)
+### 7.8 Warnings the user must see
+
+The engine's functions return warnings with their results (data warnings, §7.3, and score warnings, §7.5). The rule: **a warning that changes how a number should be read is shown on screen, next to that number.**
+
+- **One list.** Every result carries one `warnings` list, data and score warnings together. Each entry is `{code, text, severity, affects}`:
+  - `text` is plain words from `config/warnings.yaml`, with the numbers filled in: for example "Sunlight is unknown for 3 h 20 min at the start, so its grade counts as 0." (`NULL_GRADE:light`).
+  - `severity` is `info`, `caution` or `blocking`. `blocking` is only the PSR gate and the slope gate ("excluded").
+  - `affects` names what it changes: `score`, `sun`, `contact`, `skyline`, `slope`, `all`.
+- **The warnings strip** sits on the card under the verdict chips, always open and never collapsed into an icon alone.
+  - It lists the warnings, `blocking` first, each with an icon, a color and a shape (not color alone), and its text.
+  - At most 2 show in full; the rest are behind "+N more", which opens the full list. The count is always visible.
+  - A link "Always true" opens the three standing notes.
+  - With no warnings, the strip shows nothing, not an "OK" badge.
+- **On the score.** A score with any warning shows a badge ("score uses missing data" or "excluded: inside a PSR"). The badge is part of the score box, so it is in every screenshot and every place the score appears. The tooltip repeats the full breakdown.
+- **On other numbers.** A percentage or window affected by unknown time shows "unavailable" with the reason, never a number (§7.4). A Sun range that can't be computed shows "range unavailable" (`UNCERTAINTY_UNAVAILABLE`).
+- **Everywhere a result is listed.**
+  - Screen 4: each comparison column has its own strip, and the insights name the warning when it explains a difference.
+  - Nearby alternatives: a ranked point with a warning shows a count and an icon, and the same strip opens when it is selected. Cells whose point is excluded or has `NULL_GRADE` are drawn with a hatch on the score map.
+  - Landing calendar: a day whose best candidate carries a warning is marked, and the tooltip names it.
+  - Search results and "Next good landing": the warning count is in the row.
+  - Exports (CSV and Horizons): the warnings are written as comment lines at the top, and the CSV has a `warnings` column.
+- **Never silent.** A warning the UI can't display (an unknown code) is shown with its raw code and `text`, rather than dropped. A test fails if a code the engine can return has no entry in `config/warnings.yaml`.
+
+### 7.9 Power model (Could)
 
 - **Solar power:** `power = 1361 W/m² × (1 AU / d)² × panel area × efficiency × f_sun`.
   - Panels always face the Sun.
@@ -649,7 +714,7 @@ The headline and the "why" sentences use the deciding factor: the factor with th
 - **Not modeled:** heaters and temperature, light reflected from the ground, dust on the panels, aging, sleep mode.
 - **No effect on the score** (§7.5).
 
-### 7.9 AI features (Could and Nice)
+### 7.10 AI features (Could and Nice)
 
 - **"Ask the Navigator" command bar (Could):**
   - Claude must fill in our form, which is generated from the Pydantic models. It returns one of:
@@ -685,21 +750,25 @@ The headline and the "why" sentences use the deciding factor: the factor with th
 ```
 site=<id> & t0=<YYYY-MM-DDTHH:MMZ, minutes in steps of 10> & days=<1–365, default 30>
 & panel=<1–10 m, default 2> & antenna=<1–10 m, default 3>
-& w=<L>,<C>,<S>,<D>                                 (weights, 0–1 in steps of 0.05; default 0.35,0.35,0.20,0.10)
+& w=<L>,<C>,<DK>,<OT>,<LS>,<S>,<D>                  (weights, 0–1 in steps of 0.05; default 0.25,0.25,0.15,0.15,0.10,0.10,0)
 & station=<lat>,<lon>,<alt_m>,<min_el_deg>          (default: Houston 29.7604,-95.3698,0,0)
-[& max_slope=<deg>]                                 (optional hard slope limit; off by default)
+& sun_req=<h>                                       (sunlight required at landing, for LS; 0–72, default 6)
+& slope=<good_deg>,<bad_deg>,<max_deg>              (slope scale and hard limit; default 0,15,15)
+& psr=<0|1>                                         (reject sites inside a PSR; default 1)
+& margin=<h>                                        (window start before landing; 0–48, default 12)
+& colors=<green_from>,<amber_from>                  (default 70,40)
 [& panel_area_m2=<m²> & battery=<preset id>]        (power, Could)
 & v=<bundle_id>.<engine_sha>
 ```
 
-The client always writes parameters in the same order with the same rounding, so the same scenario always gives the same URL. That URL is both the cache key and the shareable link.
+Every setting is always written, with its default when unchanged, so the same scenario never has two URLs. The client always writes parameters in the same order with the same rounding, so the same scenario always gives the same URL. That URL is both the cache key and the shareable link.
 
 ### 8.2 Endpoints
 
 | Endpoint | Purpose | Priority |
 |---|---|---|
 | `GET /health` | Wake-up ping; uptime monitor | Must |
-| `GET /meta` | <ul><li>Version, landing and data ranges, step, lunar-day length, allowed heights.</li><li>Regions: projection, extent, tile template, tile grid, layers with legends, custom area.</li><li>Red/amber/green thresholds, score config (factors, slope scale, colors, the "illustrative" status), weight presets, the default station and station presets, power presets, capabilities, limits.</li></ul> | Must |
+| `GET /meta` | <ul><li>Version, landing and data ranges, step, lunar-day length, allowed heights.</li><li>Regions: projection, extent, tile template, tile grid, layers with legends, custom area.</li><li>Red/amber/green thresholds, score config (grades, every score setting with its default, range and step, the "illustrative" status), weight presets, the warning catalog (code, text, severity), the default station and station presets, power presets, capabilities, limits.</li></ul> | Must |
 | `GET /sites` | The catalog | Must |
 | `GET /sites/{id}` | One site, catalog or custom (a missing custom site is recomputed) | Must |
 | `POST /sites/custom {lat, lon}` | Create a custom point. Idempotent; synchronous for the numbers. | Must |
@@ -707,7 +776,7 @@ The client always writes parameters in the same order with the same rounding, so
 | `GET /scenario/summary?<scenario>` | Metrics, verdict, score, windows. Optional parts: `insights` (Should), `uncertainty` (Should), `power` (Could). | Must |
 | `GET /scenario/series?<scenario>&month=YYYY-MM` | 10-minute series for one month | Must |
 | `GET /scenario/export?<scenario>&format=csv\|horizons` | The series, windows and daily percentages as CSV, or a ready-made JPL Horizons query (batch text plus API URL, built with the recipe in §11.4) for the same site and period, so anyone can check our numbers | Must |
-| `GET /scenario/calendar?site=&days=&panel=&antenna=&w=&station=&v=&year=` | Best score for each landing day of the year | Should |
+| `GET /scenario/calendar?site=&days=&panel=&antenna=&w=&station=&sun_req=&slope=&psr=&margin=&colors=&v=&year=` | Best score for each landing day of the year | Should |
 | `POST /scenario/alternatives {scenario, polygon: [[lon, lat], …], spacing_m}` | The score map of the area the user drew, plus every point ranked (§7.6). A POST because the polygon is too long for a URL; answers are cached by the request body's hash | Should |
 | `GET /search?<requirements>` | Ranked landing opportunities, plus the closest misses | Should; powers the calendar and "Next good landing" |
 | `GET /compare/insights?s=<scenario>&s=<scenario>` | Comparison sentences for Screen 4 | Should |
@@ -733,17 +802,23 @@ The client always writes parameters in the same order with the same rounding, so
   "metrics": { "sun_pct": 0, "dte_pct": 0, "both_pct": 0,            // null when unknown time is included
                "sun_disk_mean": 0, "contact_mean": 0,                // L and C (§7.5)
                "earth_any_pct": 0, "earth_whole_pct": 0,
-               "longest_dark_h": 0, "longest_no_contact_h": 0, "first_dark_after_landing_h": 0,
+               "longest_dark_h": 0, "longest_no_contact_h": 0, "first_sun_h": 0,
+               "first_dark_after_landing_h": 0, "window": ["t", "t"],      // landing − 12 h, landing + days
                "earth_el_range": [0, 0], "unknown_h": 0 },
   "rag": { "sun": {"color": "green", "reason": "…"}, "dte": {…}, "slope": {…} },
-  "score": { "value": 0, "category": "amber", "status": "illustrative",   // value null when unknown/excluded
-             "weights": {"L": 0.35, "C": 0.35, "S": 0.2, "D": 0.1},
-             "factors": [{"name": "C", "weight": 0.35, "weight_share": 0.35, "raw": 0.18,
-                          "suitability": 0.18, "points_lost": 28.7}],
-             "deciding": ["C"], "explanation": "…", "formula": "…" },
+  "score": { "value": 0, "category": "amber", "status": "illustrative",   // value 0 when excluded
+             "weights": {"L": 0.25, "C": 0.25, "DK": 0.15, "OT": 0.15, "LS": 0.1, "S": 0.1, "D": 0},
+             "factors": [{"name": "C", "weight": 0.25, "weight_share": 0.25, "raw": 0.18,
+                          "grade": 0.18, "points_lost": 20.5}],
+             "deciding": ["C"], "excluded_reason": null,                  // "slope" | "psr" | null
+             "settings": {"sun_req_h": 6, "slope_deg": [0, 15, 15], "reject_psr": true,
+                          "margin_h": 12, "colors": [70, 40], "custom": false},  // as used; custom = differs from defaults
+             "warnings": [{"code": "NULL_GRADE:light", "severity": "caution", "affects": "score", "text": "…"}],
+             "explanation": "…", "formula": "…" },
   "windows": { "sun": [["t", "t"]], "dte": [], "both": [], "unknown": [] },
   "daily": { "sun_pct": [], "dte_pct": [], "sun_disk_mean": [] },   // one per 24-hour bin; null when unknown
-  "warnings": [{"code": "DEM_GAPS", "text": "…"}],    // Should; P8 codes in §7.3
+  "warnings": [{"code": "DEM_GAPS", "severity": "caution", "affects": "skyline", "text": "…"}],
+                                                      // all data and score warnings, one list (§7.8)
   "insights": [{"text": "…", "facts": {…}}],          // Should
   "uncertainty": {"sun_pct": [0, 0], "sun_disk_mean": [0, 0]},   // Should; sensitivity bounds (P9)
   "power": {…} }                                        // Could; only when enabled
@@ -761,7 +836,7 @@ The client always writes parameters in the same order with the same rounding, so
 // POST /scenario/alternatives                          // Should
 { "scenario": {…}, "polygon": [[0, 0], …], "spacing_m": 1000,     // spacing actually used
   "grid": { "size": [0, 0], "x0_m": 0, "y0_m": 0, "inside": [] }, // cells in the region's projection
-  "scores": [],                       // row by row; null outside the polygon, or unknown
+  "scores": [],                       // row by row; null outside the polygon, or when the cell can't be evaluated
   "ranked": [{"id": "grid:3:4", "source": "grid", "lat": 0, "lon": 0, "score": 0, "category": "green",
               "deciding": ["C"], "metrics": {…}, "warnings": []}],       // the card's site: "selected"
   "note": "Points between cells are not certified." }
@@ -858,14 +933,18 @@ The client always writes parameters in the same order with the same rounding, so
 - **Site finder (Should):** an entry point on Screen 2 where the user enters parameters but no site, and gets suggested sites (§7.6). Its layout is open until implementation.
 - **Spacecraft settings** (top bar), applied to every card:
   - The Earth station: Houston by default, labeled "demonstration location, not an operational antenna". Typed coordinates or a preset are a Should.
-  - Score weights (Should): presets (Default, Sunlight first, Custom) and four sliders for sunlight, contact, slope and dust. The dust slider is marked "simulated". Until the panel is built, the default weights apply. The score always carries the physics team's note that the weights are illustrative.
+  - Score settings (Must): a panel built from the `/meta` list (§7.5, "Settings the user can change").
+    - Presets (Default, Sunlight first, Custom), and seven weight sliders for sunlight, contact, longest darkness, longest outage, sunlight at landing, slope and dust. The dust slider is marked "simulated".
+    - Every other number as a slider with a number field: required sunlight hours, the slope scale and maximum slope, the landing margin, the green and amber limits, and the switch for rejecting PSR sites. Mission length, heights and the station fields sit in the card and the station panel.
+    - Changed settings are marked, each has a reset, and a "custom settings" note appears next to the score.
+    - The score always carries the physics team's note that the weights and thresholds are illustrative.
 - **Mission card contents:**
   - site picker
   - panel height and antenna height sliders
   - landing date and offset, with "+1 Lunar Day"
   - mission length
   - verdict chips, each with an icon as well as a color
-  - data warnings, if any: an icon with the reason (Should, **P8**)
+  - the warnings strip (Must, §7.8): every data and score warning in plain words, `blocking` ones first
   - live panel: elevation, clearance, countdowns
   - **sky view**
   - **elevation-over-time graph** (Should)
@@ -1012,7 +1091,7 @@ One input at the top. While it works, it shows its interpretation line and a spi
 - **Rate limits per visitor on the expensive actions:** custom points, search and calendar, nearby alternatives, the command bar and uploads. The numbers are set at kickoff.
 - **Server load:** the GPU computes one grid at a time, and every request has a timeout.
 - **Secrets:** the API key is only on the server, never in the app's code or the repo.
-- **AI:** it can only fill in a form (§7.9).
+- **AI:** it can only fill in a form (§7.10).
 - **Supply chain:** downloads are verified against checksums, and dependency versions are pinned.
 - **Licenses:**
   - The code gets an open-source license.
@@ -1045,10 +1124,12 @@ One input at the top. While it works, it shows its interpretation line and a spi
   - The disk fraction at 0, ½ and 1, a skyline that changes within the disk, and an Earth eclipse of the Sun.
   - The contact rule: the station direction against the antenna skyline, and no contact while the station sees the Moon below its mask.
   - Unknown terrain gives unknown time, never darkness, and makes the affected percentages unavailable.
-  - Daily bins: exactly 30 bins for a 30-day mission (the prototype's day-31 regression), and a partial last day weighted by its length.
+  - Daily bins: exactly 31 bins for a 30-day mission with the 12 h margin, the last one 12 h long (the prototype's day-31 regression, now with the margin), and a partial last day weighted by its length.
   - Windows that cross the mission edges.
   - Countdowns.
-  - The score: penalties add up to `100 − score`; a weight of 0 removes its factor; ties in the deciding factor are all reported; a missing active factor gives no score; the slope limit gives "excluded". The physics team's demo points A (−89°, 0°) and B (−89°, 8°), landing 2026-11-15 for 30 days with Houston, panel 2 m and antenna 3 m, score 38.56 and 20.98 in their prototype, with contact the largest penalty (28.71 and 33.04 points).
+  - The score: penalties add up to `100 − score`; a weight of 0 removes its grade; ties in the deciding factor are all reported; a missing active grade counts as 0 with `NULL_GRADE`; a slope above the limit gives score 0 and "excluded"; a site inside a PSR sets all seven grades to 0 and the penalties add up to 100, and turning the PSR switch off scores it normally; `PSR_UNKNOWN` when the map has no value; every setting outside its range gives 422; changing a setting changes the URL and the cache key; LS flips from 0 to 1 exactly at `required_sunlight_h`; DK and OT are cut at the window edges.
+  - The physics team's demo points A (−89°, 0°) and B (−89°, 8°) with Houston, panel 2 m and antenna 3 m: the reference scores under the new formula are still to come from the physics team (their saved notebook predates it). The old-formula values, 38.56 and 20.98, no longer apply.
+  - Warnings: every code the engine can return has an entry in `config/warnings.yaml`; every result carries its warnings in one list; an unknown code is shown raw.
   - Search's running totals against brute force.
   - The calendar against single evaluations.
   - Power energy balance (Could).
@@ -1165,7 +1246,7 @@ On day 2, a teammate times one realistic comparison (one site, two landing dates
 - **Terrain stays separate from the rules.** The functions take the skyline as an input instead of reading the DEM on every call, so the terrain is computed once, on the GPU.
 - **The score must be fast** (§7.5): a formula over numbers the engine already has, because it runs for every card, every calendar day and every point of the alternatives map.
 
-**The reference script (P1) has arrived:** the physics team's prototype `MenasimMoon` (package `lunar_nav`, retrieved 11–12 Nov, 37 tests). Its public functions are `compute_illumination`, `compute_communication`, `score_point`, `score_metrics` and `score_polygon`. It analyzes one site at a time, calling SPICE per sample (about 9 s per point on a CPU), so the API does not call it. It is the reference the engine is tested against (§11.1), and its outputs (`point_scores.csv`, `point_daily_scores.csv`, `visibility_windows.csv`) are the first golden cases.
+**The reference script (P1) has arrived:** the physics team's prototype, now `MenasimMoonV2` (package `lunar_nav`, first retrieved 11–12 Nov, updated 14 Nov, 60 tests). Its public functions are `compute_illumination`, `compute_communication`, `score_point`, `score_metrics` and `score_polygon`. It analyzes one site at a time, calling SPICE per sample (about 9 s per point on a CPU), so the API does not call it. It is the reference the engine is tested against (§11.1), and its outputs (`point_scores.csv`, `point_daily_scores.csv`, `visibility_windows.csv`) are the first golden cases.
 
 **The engine's array functions,** matching the prototype's rules. NumPy arrays go in and out; `horizon_el` is the skyline (720 elevations, 0.5° apart) at panel height for the Sun and at antenna height for contact:
 
@@ -1179,11 +1260,11 @@ score(metrics, slope_deg, dust, weights, policy) -> {value, category, factors, d
 
 | # | Question | Used in | Decision | Status |
 |---|---|---|---|---|
-| P1 | The reference script | Engine tests (§11.1) | The `MenasimMoon` prototype | Received 12 Nov |
+| P1 | The reference script | Engine tests (§11.1) | The `MenasimMoonV2` prototype | Received 12 Nov, updated 14 Nov |
 | P2 | When the Sun counts as visible, and when contact is possible | §7.3 | Sun: any part of the disk, 128-strip disk against the skyline, Earth eclipses included. Contact: the direction to the station clears the skyline at antenna height, and the station sees the Moon above its mask | Decided (prototype) |
 | P3 | Earth stations and the minimum elevation | §7.3 | One station, given by coordinates; default Houston (29.7604, −95.3698, 0 m), minimum elevation 0° | Decided (prototype) |
-| P4 | The time window of each calculation | §2, §7.4 | Default 30 Earth days; days are 24-hour bins from landing; landing years 2026–2030 | Decided (prototype) |
-| P5 | The score | §7.5 | `100 × Σ w·suitability / Σ w` over L, C, S and 1 − D; weights 0.35, 0.35, 0.20, 0.10; colors 70 and 40; no Sun-and-Earth overlap term. Still open: whether "doesn't want sunlight" means `w_L` = 0 | Decided (prototype), labeled illustrative |
+| P4 | The time window of each calculation | §2, §7.4 | From 12 h before landing (landing can come early) to landing + mission length, default 30 Earth days; days are 24-hour bins from the window start; landing years 2026–2030 | Decided (prototype) |
+| P5 | The score | §7.5 | `100 × Σ w·grade / Σ w` over L, C, DK, OT, LS, S and 1 − D; weights 0.25, 0.25, 0.15, 0.15, 0.10, 0.10, 0; 6 h sunlight requirement; missing grades count as 0 with a warning; slope > 15° gives score 0 and "excluded"; inside a PSR sets every grade to 0 (score 0, "excluded"); every number is user-configurable; colors 70 and 40; no Sun-and-Earth overlap term. Still open: whether "doesn't want sunlight" means `w_L` = 0 | Decided (prototype V2, 14 Nov), labeled illustrative |
 | P6 | Red/amber/green thresholds for the chips | §7.4 | Interim: green ≥ 60%, amber 30–59%, red < 30%. Slope: green ≤ 5°, amber 5–10°, red > 10° | **Open** |
 | P7 | What makes a landing time "good" | Calendar, "Next good landing" (§7.6) | Interim: a green score | **Open** |
 | P8 | Suspicious elevation data | Data warnings (§7.3) | The warning list in §7.3 | Decided (prototype) |
@@ -1248,7 +1329,7 @@ score(metrics, slope_deg, dust, weights, policy) -> {value, category, factors, d
 |---|---|---|
 | **G1: Skeleton** | Kickoff + ~4 h | <ul><li>The repo exists and CI is green.</li><li>The API serves sample answers in the agreed format.</li><li>The app shell shows the polar map with one NASA layer.</li><li>The data is downloaded.</li><li>GPU timings are measured, and we know the hosting.</li></ul> |
 | **G2: First real numbers** | Kickoff + ~12 h | <ul><li>One catalog site works end to end: real mask → summary and series → a card with its verdict, live panel, sky view and slider.</li><li>The Horizons check passes.</li></ul> |
-| **G3: Must complete** | Day 2, morning | <ul><li>All catalog sites are built.</li><li>Screens 2 and 4 work on real data, with score and export.</li><li>Custom points return numbers.</li><li>The minimal validation page exists.</li><li>A test URL is online.</li></ul> |
+| **G3: Must complete** | Day 2, morning | <ul><li>All catalog sites are built.</li><li>Screens 2 and 4 work on real data, with score and export, the warnings strip and the score settings panel.</li><li>Custom points return numbers.</li><li>The minimal validation page exists.</li><li>A test URL is online.</li></ul> |
 | **G4: Feature freeze** | Day 2, ~15:00 | <ul><li>Each chosen Should and Could is done or cut.</li><li>The app is deployed to the judging host.</li><li>The demo snapshot exists.</li><li>Rehearsal 1 is done.</li></ul> |
 | **G5: Submitted** | Day 2, ~21:00 (buffer before 23:59) | <ul><li>All six parts are in.</li><li>Rehearsal 2 and the recording are done.</li></ul> |
 
@@ -1259,7 +1340,7 @@ score(metrics, slope_deg, dust, weights, policy) -> {value, category, factors, d
 3. **Should,** in this order:
    1. Uncertainty ranges
    2. The Screen 1 globe
-   3. Choosing another Earth station; the weights panel; data warnings
+   3. Choosing another Earth station (the score settings panel and the warnings strip are Must and are not cut)
    4. The topographic layer
    5. Nearby alternatives
    6. Screen 3 (the sky view already covers the core need)
@@ -1306,12 +1387,12 @@ score(metrics, slope_deg, dust, weights, policy) -> {value, category, factors, d
 | The server computes scenarios | One physics; a lightweight browser | A running server is needed (the snapshot covers the demo) |
 | Horizons are precomputed; the browser only compares | Exact physics in every shadow | Shadows for new custom points need a GPU |
 | Earth contact = the line to one chosen station clears the terrain, and the station sees the Moon (the physics team's rule) | Matches a real link to a real place | Depends on the station chosen; the Houston default is a demonstration location, not an antenna |
-| The physics team's weighted-sum score (§7.5) | One agreed formula, simple to explain, weights users can change, free rescoring | Doesn't reward having the Sun and Earth up at the same time; the weights are illustrative; ignores power |
+| The physics team's weighted-sum score (§7.5) | One agreed formula, simple to explain, weights users can change, free rescoring | Doesn't reward having the Sun and Earth up at the same time; the weights are illustrative; ignores power; a missing grade lowers the score instead of withholding it |
 | Panels always face the Sun | Simpler power math | Too optimistic for landers with fixed panels |
 | Times shown in 10-minute steps | Honest precision; the same step as the engine | Nothing |
 | No accounts or database; all state in the URL | Simple, secure, shareable | No saved workspaces |
 | Insights from templates | Reliable, free, testable | Less natural wording |
-| Mock dust in the default score (weight 0.10), labeled "simulated" | Shows the dust capability the physics team wants | Simulated data moves every default score by up to 10 points; disclosed in the breakdown and the Data and AI disclosure |
+| Mock dust in the score, weight 0 by default, labeled "simulated" | Shows the dust capability the physics team wants, without simulated data moving default scores | Only users who raise the dust weight see its effect; disclosed in the breakdown and the Data and AI disclosure |
 | No relay satellites | Focus on the challenge's direct-to-Earth question | Missions that rely on a relay aren't modeled |
 | Custom points only in 84–90°S | Bounded storage and compute | No clicking outside the cap |
 | Exact masks for every alternatives point (the physics team's design) | No approximate screening | Needs a GPU for large areas; capped on a CPU host |
@@ -1395,14 +1476,15 @@ score(metrics, slope_deg, dust, weights, policy) -> {value, category, factors, d
 | Site finder | A Screen 2 entry point: mission and spacecraft parameters in, suggested sites and landing dates out |
 | Site frame | East, north and up at the site ("the site's compass") |
 | Skyline | The horizon actually seen from a point: for each direction, how many degrees above the flat horizon the highest terrain reaches. Stored as a horizon mask (one point) or a horizon grid (many points) |
-| Spacecraft settings | The Earth station and the score weights; shared by all cards |
+| Spacecraft settings | The Earth station and the score settings (weights and thresholds); shared by all cards |
 | SPICE | NASA/JPL's toolkit and data for planetary positions and orientations |
 | SpiceyPy | The Python library for SPICE |
 | Topographic layer | A map layer that colors the ground by its elevation |
 | `vis_el` | The elevation that must clear the terrain for a body to count as "visible" |
-| Weights | How much each factor counts in the score. Default: the physics team's 0.35 / 0.35 / 0.20 / 0.10 (P5) |
+| Weights | How much each grade counts in the score. Default: the physics team's 0.25 / 0.25 / 0.15 / 0.15 / 0.10 / 0.10 / 0 (P5) |
 | Unknown time | Time when missing data means visibility can't be decided. Never counted as dark or as no contact |
-| L, C, S, D | The score's factors: mean visible Sun-disk fraction, mean daily contact fraction, slope suitability, simulated dust index |
+| L, C, DK, OT, LS, S, D | The score's grades: mean visible Sun-disk fraction, mean daily contact fraction, longest darkness, longest contact outage, sunlight at landing (pass/fail), slope, simulated dust index |
+| Mission window | From 12 h before landing to landing + mission length. All metrics and the score use it |
 | Window | A stretch of time when something is true: Sun, Earth contact, or both |
 
 ---

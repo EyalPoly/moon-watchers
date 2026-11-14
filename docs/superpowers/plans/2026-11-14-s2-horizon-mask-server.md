@@ -4,7 +4,7 @@
 
 **Goal:** For every catalog site, compute the terrain skyline from real LOLA terrain: 720 elevation angles with nominal, low and high variants, plus blocking distances, for heights 1–10 m and a far-only variant. Store it in a versioned bundle and serve it at `GET /api/v1/sites/{id}/horizon`.
 
-**Architecture:** Contract first: the Pydantic model and sample answers land before any engine code (build approach §5). The engine is pure NumPy functions: `engine/terrain.py` for projection and DEM reads, `engine/horizons.py` for the ray-march. A build script writes `masks.npy` / `blocking.npy` per site into `bundle/<bundle_id>/server/`. The API loads the bundle at startup and refuses to start on a version mismatch or a missing site file. The physics team's prototype (`MenasimMoon/lunar_nav`, P1) is the test reference for the skyline.
+**Architecture:** Contract first: the Pydantic model and sample answers land before any engine code (build approach §5). The engine is pure NumPy functions: `engine/terrain.py` for projection and DEM reads, `engine/horizons.py` for the ray-march. A build script writes `masks.npy` / `blocking.npy` per site into `bundle/<bundle_id>/server/`. The API loads the bundle at startup and refuses to start on a version mismatch or a missing site file. The physics team's prototype (`MenasimMoonV2/lunar_nav`, P1; untracked and git-ignored) is the test reference for the skyline.
 
 **Tech Stack:** Python 3.12, NumPy, rasterio (windowed GeoTIFF reads), pyproj (tests), scipy + shapely (only to import the reference prototype in tests), FastAPI, Pydantic v2, pytest, mypy strict.
 
@@ -30,6 +30,28 @@ Slices S0 and S1, server side, are done and merged (plan `2026-11-14-g1-skeleton
 | GPU timing not measured | Mac is Intel (`x86_64`): PyTorch has no wheel for it. Run `build/gpu_spike.py` on the 4060 and fill `docs/spikes/gpu-timing.md`. |
 | Hosting undecided | `docs/spikes/hosting.md`; nothing here depends on it. |
 | `engine/` is empty (`__version__` only); no `/scenario/*`, no `/sites/custom` | These are S3 onwards. |
+
+## Physics team update (`MenasimMoonV2/`, 14 Nov)
+
+The physics team sent a new version of their prototype. It replaces `MenasimMoon/` as the reference; both folders are git-ignored.
+
+**The skyline didn't change, so S2's algorithm stays as written.** `lunar_nav/terrain.py` (`build_horizon`, `RasterTerrain`), `lunar_nav/geometry.py` and `Settings` are byte-identical to the first version. The demo still uses 0.5° azimuths, 40 m steps to 10 km, 240 m steps to 300 km, and a 20 km ceiling.
+
+What changed, and where it lands in our slices:
+
+| Change in V2 | Where | Effect on us |
+|---|---|---|
+| Sunlight and contact are computed separately (`products`). Sunlight uses the panel-height skyline; contact and Earth visibility use the antenna-height skyline. | `analysis.py` | S2: none, since one pass already covers heights 1–10 m. S3/S4: same split, already in the spec. |
+| The time window can be centered on a chosen moment: `delta_t_before_s` and `delta_t_after_s`, each ≥ 0, give `[selected − before, selected + after]`. Without them, the window is the old `duration_days` forward from landing. Days are 24 h bins from the window start. | `analysis.py`, `timing.py` | S3 (`/scenario/series`). Spec §7.4: the window is [landing − 12 h, landing + mission length]. |
+| The score has 3 new grades: `dark_time` = 1 − longest darkness / window length; `outage_time` = 1 − longest contact outage / window length; `landing_sunlight` = 1 if the first sunlit stretch from the window start lasts at least `required_sunlight_hours` (demo: 6 h), else 0. | `scoring.py`, `models.py` | S4. Spec §7.5. |
+| New demo weights: light 0.25, contact 0.25, dark_time 0.15, outage_time 0.15, landing_sunlight 0.10, slope 0.10, dust 0. | notebook | S4. Spec §7.5, URL `w=` (7 values), P5. |
+| A missing grade now counts as 0 and adds a `NULL_GRADE:<factor>` warning. Before, a missing grade meant no score and the category "unknown". | `scoring.py` | S4. Spec §7.5 "Missing data". |
+| Hard gates: a slope above `maximum_slope_deg` (demo: 15°) or a site inside a permanently shadowed region (`Site.in_psr`, `reject_psr=True`) gets score **0** and the category "excluded". Before, an excluded site had no score. | `scoring.py`, `models.py` | S4. Needs a PSR source per site: their `in_psr` is a flag the user types, and our app must compute it (NASA PSR map, spec §5 "To find"). |
+| A JPL Horizons version of the ephemeris (`lunar_nav_resources`). Against SPICE, the gap is 0.0001″ for the Sun and 0.0019″ for the Earth, and scores differ by under 4e-8 points. Sunlight uses Horizons `APPARENT=AIRLESS` at the observer: `coord@301` at DEM height + panel height, in km. | `lunar_nav_resources/`, `RESOURCE_ALTERNATIVE.md` | S3 Horizons comparison: copy their request settings and use their residuals as the expected scale. |
+
+**Settled (14 Nov):** the window starts 12 h before landing on purpose, because the actual landing can come a few hours before the planned time. `landing_sunlight` therefore counts from that earlier start. The spec now uses the window [landing − 12 h, landing + mission length] (§7.4) and the new score (§7.5, §8.1, §8.3, §11.1, P4, P5).
+
+**Still open for the physics team (before S4, not blocking S2):** their saved notebook stops at cell 6, and its outputs still come from the old weights (A 38.56, B 20.98). We need reference scores for points A and B under the new formula before S4 can test against them.
 
 **Next step per the spec:** slice S2 (build approach §9), the first slice on the road to gate G2 ("one catalog site works end to end with real numbers", spec §13.2). This plan is its server track. The web track (sky view silhouette) is the web owner's and reads only this plan's contract (Task 1).
 
@@ -57,7 +79,7 @@ Slices S0 and S1, server side, are done and merged (plan `2026-11-14-g1-skeleton
 - Commit messages carry no Co-Authored-By trailer and PR descriptions no "Generated with" line.
 - Comments only for non-obvious *why*; no spec section references in code.
 - Run `make typecheck` after each series of code changes; `make check` before each commit.
-- Never copy estimates, decisions or code from `github-project/`. `MenasimMoon/` is the physics team's prototype: its decisions are already in the spec, and its code is a test reference, never imported by `engine/` or `api/`.
+- Never copy estimates, decisions or code from `github-project/`. `MenasimMoonV2/` is the physics team's current prototype: its decisions are in the spec (the new score and the 12 h landing margin since 14 Nov), and its code is a test reference, never imported by `engine/` or `api/`.
 
 ## Review Focus
 
@@ -293,12 +315,21 @@ tests/test_engine_cli.py  tests/test_reference_horizon.py  tests/test_converge.p
 - [ ] **Step 1: Write failing tests:**
   - `test_max_mask_change_zero_for_identical`; `test_max_mask_change_ignores_nan`.
   - `test_converges_on_synthetic_dem`: relief within 8 km gives a change < 0.001° between 10 km and 20 km windows.
-  - `tests/test_reference_horizon.py::test_matches_prototype_build_horizon`. It skips unless `MenasimMoon/lunar_nav` imports and the 80 m and 240 m DEMs are present.
-    - Build the prototype's `RasterTerrain` from the same windows, with `Settings(horizon_step_deg=0.5, near_step_m=40, near_radius_m=10_000, far_step_m=240, horizon_radius_m=300_000, terrain_ceiling_m=20_000)`.
-    - Run its `build_horizon` for the prototype's demo point A (−89°, 0°) at 2 m and 3 m.
+  - `tests/test_reference_horizon.py::test_matches_prototype_build_horizon`. It skips unless `MenasimMoonV2/lunar_nav` imports (prepend `MenasimMoonV2` to `sys.path`) and its cached terrain crops exist.
+    - **Terrain: the prototype's own cached LOLA crops, so the test runs on the Mac without the 7.9 GB fetch.** They are in `MenasimMoonV2/data/terrain/`:
+      - `fine-*.tif`: 20 m, 1482 × 1352 cells
+      - `near-*.tif`: 80 m, 371 × 339
+      - `far-*.tif`: 240 m, about ±303 km
+      - the matching `*_error-*.tif` files
+      - each `.tif.json` sidecar has its source URL and sha256
+    - The crops cover demo points A and B. They are in the PGDA south-polar sphere projection, so `load_dem` must accept them as they are. If it rejects them, the CRS check is too strict.
+    - Load them with our `load_dem`. Load them again for the prototype as `RasterLayer(values, transform, resolution_m, label)` with rasterio, the same way `lunar_data.acquisition.load_terrain` does, then build `RasterTerrain(layers, error_layers, version="ref", provenance={})`.
+    - Wrap the terrain in `Context(terrain=..., geometry=None)`. `build_horizon` never reads `geometry`.
+    - Use `Settings(horizon_step_deg=0.5, near_step_m=40, near_radius_m=10_000, far_step_m=240, horizon_radius_m=300_000, terrain_ceiling_m=20_000)`.
+    - Run its `build_horizon(site, height_m, context, settings)` for demo point A (−89°, 0°) and B (−89°, 8°), at 2 m (panel) and 3 m (antenna).
     - Our nominal mask agrees within 0.01° wherever both are finite, and NaN appears in the same directions.
 - [ ] **Step 2–4: Fail, implement, pass** (`uv sync --group reference` for the reference test).
-- [ ] **Step 5: On the GPU PC with the 20 m files** (`make fetch ONLY=lola/LDEM_80S_20MPP_ADJ`), run `python -m build.converge` and the reference test. Record both in `docs/spikes/horizon-check.md`.
+- [ ] **Step 5: Run the reference test on the Mac (cached crops), then on the GPU PC with the full 20 m files** (`make fetch ONLY=lola/LDEM_80S_20MPP_ADJ`), run `python -m build.converge`. Record both in `docs/spikes/horizon-check.md`.
   - The spec's acceptance is `sun_pct` / `dte_pct` changing by less than 0.5 percentage points. Mask change is the proxy until S4 exists, and S4 re-runs the check on percentages.
   - Then commit `test(engine): horizon reference comparison and convergence check`.
 
@@ -327,7 +358,7 @@ tests/test_engine_cli.py  tests/test_reference_horizon.py  tests/test_converge.p
   - slope from the 240 m tangent-plane fit (S4, where the slope chip and the score use it)
   - the `/meta` bundle fields: `bundle_id` stays the sample value until S3 needs `v=`
 - **Types:** `Dem`, `March`, `SiteMasks` and `HorizonResponse` keep the same names and fields in every task that uses them; the query parameter is `height` throughout.
-- **Open for the user:** decisions 1–3 above.
+- **Open for the user:** decisions 1–3 above; the new reference scores for points A and B ("Physics team update").
 
 ## What follows (separate plans, written when S2 is merged)
 
@@ -335,10 +366,11 @@ tests/test_engine_cli.py  tests/test_reference_horizon.py  tests/test_converge.p
   - The ephemeris table, 2026–2031 hourly: Sun and Earth with CN+S, the Earth geometric, and the ITRF93 → MOON_ME rotation (`earth_rotation.npy`).
   - The Earth-station placement (`georec`, default Houston).
   - The Sun disk fraction with 128 strips and Earth eclipses.
-  - `/scenario/series` with panel and antenna heights.
-  - The Horizons comparison fixtures.
+  - `/scenario/series` with panel and antenna heights, and the V2 window: a selected moment with independent before/after spans, or the default forward mission length.
+  - The Horizons comparison fixtures, using V2's request settings (`AIRLESS`, `coord@301`, DEM + panel height).
 - **S4 Summary:**
-  - visibility with unknown time, metrics (including L and C), the physics team's score with penalties and the deciding factor, and slope
-  - the remaining warnings
+  - visibility with unknown time, metrics (L, C, longest darkness and outage, first sunlit stretch), the physics team's V2 score with penalties and the deciding factor, and slope
+  - hard gates (slope limit, inside a PSR) forcing score 0 and "excluded", with a per-site PSR flag from the NASA PSR map
+  - the remaining warnings, plus `NULL_GRADE:<factor>`
   - `/scenario/summary`
   - the JPL Horizons check passing, which completes gate G2
