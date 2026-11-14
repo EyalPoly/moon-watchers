@@ -82,17 +82,6 @@ function skylineOf(h: Horizon, leftAz: number, x: (az: number) => number, y: (el
 
 const known = (values: readonly (number | null)[]) => values.filter((v): v is number => v !== null)
 
-/** Circular mean of azimuths, so the view can be centered on where the Earth sits. */
-function meanAzimuth(values: number[]): number {
-  let x = 0
-  let y = 0
-  for (const v of values) {
-    x += Math.cos((v * Math.PI) / 180)
-    y += Math.sin((v * Math.PI) / 180)
-  }
-  return wrap((Math.atan2(y, x) * 180) / Math.PI)
-}
-
 export function SkyView({ horizon, antennaHorizon, series, startMs, endMs, nowMs, stationLabel = 'the Earth station' }: SkyViewProps) {
   const [hoverAz, setHoverAz] = useState<number | null>(null)
   // React's ids may contain characters that break url(#…) references.
@@ -105,13 +94,9 @@ export function SkyView({ horizon, antennaHorizon, series, startMs, endMs, nowMs
     return { i0, i1 }
   }, [series, startMs, endMs])
 
-  // Center the view on the Earth's mean direction: it barely moves, so its libration loop
-  // never splits across the left and right edges.
-  const centerAz = useMemo(() => {
-    if (!series || !range) return 180
-    return Math.round(meanAzimuth(series.earth_az.slice(range.i0, range.i1 + 1)) / 10) * 10
-  }, [series, range])
-  const leftAz = wrap(centerAz - 180)
+  // A fixed compass from north to north with south in the middle (UI design: "N 000° …
+  // S 180° … N 000°"). Paths that cross north wrap from the right edge to the left.
+  const leftAz = 0
 
   const [elMin, elMax] = useMemo(() => {
     let lo = Math.min(-5, ...known(horizon.elevation_deg), ...known(antennaHorizon?.elevation_deg ?? []))
@@ -256,15 +241,18 @@ export function SkyView({ horizon, antennaHorizon, series, startMs, endMs, nowMs
             className="sky-axis-tick"
           />
         ))}
-        {COMPASS.map((label, k) => {
+        {[...COMPASS, 'N'].map((label, k) => {
           const az = k * 45
+          // 360° sits on the right edge; x() would wrap it back to the left.
+          const px = k === COMPASS.length ? PAD.left + PLOT_W : x(az)
+          const anchor = k === 0 ? 'start' : k === COMPASS.length ? 'end' : 'middle'
           return (
-            <g key={label}>
-              <line x1={x(az)} x2={x(az)} y1={PAD.top} y2={H - PAD.bottom} className="sky-grid" />
-              <text x={x(az)} y={H - PAD.bottom + 15} className="sky-label sky-degrees" textAnchor="middle">
-                {az}°
+            <g key={`${label}-${az}`}>
+              <line x1={px} x2={px} y1={PAD.top} y2={H - PAD.bottom} className="sky-grid" />
+              <text x={px} y={H - PAD.bottom + 15} className="sky-label sky-degrees" textAnchor={anchor}>
+                {String(az % 360).padStart(3, '0')}°
               </text>
-              <text x={x(az)} y={H - 4} className="sky-label sky-compass" textAnchor="middle">
+              <text x={px} y={H - 4} className={az % 90 === 0 ? 'sky-label sky-compass sky-cardinal' : 'sky-label sky-compass'} textAnchor={anchor}>
                 {label}
               </text>
             </g>
