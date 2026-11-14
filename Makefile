@@ -1,4 +1,7 @@
-.PHONY: test typecheck check contract
+.PHONY: test typecheck check contract fetch
+
+fetch:
+	uv run python -m build.fetch_sources
 
 contract:
 	uv run python -m api.contract generate
