@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime
 
 import numpy as np
 
@@ -31,3 +31,7 @@ def synthetic_ephemeris(start: datetime, days: int, step_s: int = 3600) -> Ephem
     rotation[:, 1, 1] = np.cos(theta)
     rotation[:, 2, 2] = 1.0
     return Ephemeris(start=start, step_s=step_s, vectors_km=vectors, earth_rotation=rotation)
+
+
+def default_ephemeris() -> Ephemeris:
+    return synthetic_ephemeris(datetime(2027, 2, 27, tzinfo=UTC), 35)

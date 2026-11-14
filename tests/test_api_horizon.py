@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 from api.bundle import BundleError
 from api.main import create_app
 from build.make_masks import build_bundle
+from tests.ephemeris_helpers import default_ephemeris
 from engine.terrain import project
 from tests.test_masks_build import CATALOG, DEM_240
 from tests.tif_helpers import write_tif
@@ -46,7 +47,7 @@ def catalog_yaml(path: Path) -> Path:
 def bundle_dir(tmp_path_factory: pytest.TempPathFactory) -> Path:
     root = tmp_path_factory.mktemp("world")
     write_world(root / "sources")
-    return build_bundle(CATALOG, root / "sources", root / "bundle")
+    return build_bundle(CATALOG, root / "sources", root / "bundle", default_ephemeris())
 
 
 @pytest.fixture(scope="module")
@@ -54,7 +55,7 @@ def holed_bundle_dir(tmp_path_factory: pytest.TempPathFactory) -> Path:
     root = tmp_path_factory.mktemp("holed")
     east_x, east_y = project(-89.0, 0.0)
     write_world(root / "sources", hole_at=(52_000.0, float(east_y)))
-    return build_bundle(CATALOG, root / "sources", root / "bundle")
+    return build_bundle(CATALOG, root / "sources", root / "bundle", default_ephemeris())
 
 
 @pytest.fixture(scope="module")

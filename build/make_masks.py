@@ -1,3 +1,4 @@
+import argparse
 import hashlib
 import json
 import shutil
@@ -11,6 +12,7 @@ import numpy as np
 from api.catalog import load_catalog
 from api.models import Site
 from build.fetch_sources import sha256_of
+from build.make_ephemeris import KERNELS, build_ephemeris
 from engine.horizons import (
     FAR_ONLY_HEIGHT_M,
     FAR_ONLY_START_M,
@@ -19,6 +21,7 @@ from engine.horizons import (
     compute_site_masks,
     ray_distances,
 )
+from engine.geometry import MOON_FRAME, Ephemeris
 from engine.terrain import Dem, load_dem, project
 
 FRAME_NOTE = (
@@ -69,7 +72,45 @@ def load_windows(
     return terrain, errors
 
 
-def build_bundle(catalog: dict[str, Site], sources: Path, out_dir: Path) -> Path:
+def _write_tables(server: Path, eph: Ephemeris) -> dict[str, object]:
+    server.mkdir(parents=True, exist_ok=True)
+    np.save(server / "ephemeris.npy", eph.vectors_km)
+    np.save(server / "earth_rotation.npy", eph.earth_rotation)
+    return {
+        "start_utc": eph.start.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "step_s": eph.step_s,
+        "rows": int(eph.vectors_km.shape[0]),
+        "frame": MOON_FRAME,
+        "corrections": {"sun": "CN+S", "earth_occultor": "CN+S", "earth_contact": "NONE"},
+        "kernels": {},
+        "sha256": {
+            "ephemeris.npy": hashlib.sha256(eph.vectors_km.tobytes()).hexdigest(),
+            "earth_rotation.npy": hashlib.sha256(eph.earth_rotation.tobytes()).hexdigest(),
+        },
+    }
+
+
+def _seal(staging: Path, out_dir: Path, manifest: dict[str, object]) -> Path:
+    digest = hashlib.sha256(json.dumps(manifest, sort_keys=True).encode()).hexdigest()[:8]
+    now = datetime.now(UTC)
+    bundle_id = f"{now:%Y%m%d}-{digest}"
+    manifest = {"bundle_id": bundle_id, "created": now.isoformat(timespec="seconds"), **manifest}
+    (staging / "manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
+    target = out_dir / bundle_id
+    if target.exists():
+        shutil.rmtree(staging)
+    else:
+        staging.rename(target)
+    return target
+
+
+def build_bundle(
+    catalog: dict[str, Site],
+    sources: Path,
+    out_dir: Path,
+    ephemeris: Ephemeris,
+    kernel_hashes: dict[str, str] | None = None,
+) -> Path:
     present = [layer for layer in LAYERS if (sources / layer.dem).is_file()]
     if not present:
         raise FileNotFoundError(f"no LOLA DEM found under {sources}")
@@ -94,6 +135,8 @@ def build_bundle(catalog: dict[str, Site], sources: Path, out_dir: Path) -> Path
             np.save(folder / "blocking.npy", masks.blocking_km)
             site_warnings[site.id] = masks.warnings
 
+        entry = _write_tables(staging / "server", ephemeris)
+        entry["kernels"] = kernel_hashes or {}
         manifest: dict[str, object] = {
             "algo_version": HORIZON_ALGO_VERSION,
             "frame_note": FRAME_NOTE,
@@ -106,28 +149,66 @@ def build_bundle(catalog: dict[str, Site], sources: Path, out_dir: Path) -> Path
                 "sites": {s.id: [s.lat_deg, s.lon_deg] for s in catalog.values()},
             },
             "sites": {site_id: {"warnings": w} for site_id, w in site_warnings.items()},
+            "ephemeris": entry,
         }
-        digest = hashlib.sha256(json.dumps(manifest, sort_keys=True).encode()).hexdigest()[:8]
-        now = datetime.now(UTC)
-        bundle_id = f"{now:%Y%m%d}-{digest}"
-        manifest = {"bundle_id": bundle_id, "created": now.isoformat(timespec="seconds"), **manifest}
-        (staging / "manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
-
-        target = out_dir / bundle_id
-        if target.exists():
-            shutil.rmtree(staging)
-        else:
-            staging.rename(target)
-        return target
+        return _seal(staging, out_dir, manifest)
     except BaseException:
         shutil.rmtree(staging, ignore_errors=True)
         raise
 
 
-def main() -> None:
+def add_ephemeris(
+    bundle_dir: Path,
+    out_dir: Path,
+    ephemeris: Ephemeris,
+    kernel_hashes: dict[str, str] | None = None,
+) -> Path:
+    """Turns a bundle without an ephemeris into a new one, keeping its masks as they are."""
+    manifest: dict[str, object] = json.loads((bundle_dir / "manifest.json").read_text())
+    if manifest.get("algo_version") != HORIZON_ALGO_VERSION:
+        raise ValueError(
+            f"bundle has algo_version {manifest.get('algo_version')!r}, "
+            f"this engine is {HORIZON_ALGO_VERSION!r}: rebuild the masks"
+        )
+    if "ephemeris" in manifest:
+        raise ValueError(f"bundle {bundle_dir.name} already has an ephemeris")
+    manifest.pop("bundle_id", None)
+    manifest.pop("created", None)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    staging = Path(tempfile.mkdtemp(prefix=".building-", dir=out_dir))
+    try:
+        shutil.copytree(bundle_dir / "server" / "sites", staging / "server" / "sites")
+        entry = _write_tables(staging / "server", ephemeris)
+        entry["kernels"] = kernel_hashes or {}
+        manifest["ephemeris"] = entry
+        return _seal(staging, out_dir, manifest)
+    except BaseException:
+        shutil.rmtree(staging, ignore_errors=True)
+        raise
+
+
+def spice_hashes(spice_dir: Path) -> dict[str, str]:
+    return {name: sha256_of(spice_dir / name) for name in KERNELS}
+
+
+def main(argv: list[str] | None = None) -> None:
+    parser = argparse.ArgumentParser(prog="build.make_masks")
+    parser.add_argument("--ephemeris-only", action="store_true", help="add the ephemeris to the newest bundle")
+    args = parser.parse_args(argv)
+    spice_dir = Path("data/sources/spice")
+    try:
+        spice_hash = spice_hashes(spice_dir)
+    except FileNotFoundError as error:
+        raise SystemExit(f"SPICE kernels are missing from {spice_dir} ({error.filename}): run make fetch") from error
+    ephemeris = build_ephemeris(spice_dir)
+    if args.ephemeris_only:
+        candidates = sorted(p for p in Path("bundle").glob("*") if (p / "manifest.json").is_file())
+        if not candidates:
+            raise SystemExit("no bundle under bundle/: run make masks first")
+        print(add_ephemeris(candidates[-1], Path("bundle"), ephemeris, spice_hash))
+        return
     catalog = load_catalog(Path("catalog/sites.yaml"))
-    path = build_bundle(catalog, Path("data/sources"), Path("bundle"))
-    print(path)
+    print(build_bundle(catalog, Path("data/sources"), Path("bundle"), ephemeris, spice_hash))
 
 
 if __name__ == "__main__":

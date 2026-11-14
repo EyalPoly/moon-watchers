@@ -21,6 +21,7 @@ dev = [
     "mypy",
     "types-pyyaml",
     "pyproj>=3.8.0",
+    "spiceypy>=8.4.0",
 ]
 reference = [
     "scipy>=1.18.1",

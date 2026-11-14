@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 
 from api.main import create_app
 from build.make_masks import build_bundle
+from tests.ephemeris_helpers import default_ephemeris
 from engine.cli import main
 from tests.test_api_horizon import catalog_yaml, write_world
 from tests.test_masks_build import CATALOG
@@ -21,7 +22,7 @@ def read_csv(path: Path) -> tuple[str, list[dict[str, str]]]:
 def bundle_dir(tmp_path_factory: pytest.TempPathFactory) -> Path:
     root = tmp_path_factory.mktemp("cli")
     write_world(root / "sources")
-    return build_bundle(CATALOG, root / "sources", root / "bundle")
+    return build_bundle(CATALOG, root / "sources", root / "bundle", default_ephemeris())
 
 
 def run(bundle_dir: Path, out: Path, *extra: str) -> None:
@@ -64,7 +65,7 @@ def test_cli_far_part(bundle_dir: Path, tmp_path: Path) -> None:
 def test_cli_unknown_is_empty_cell(tmp_path: Path) -> None:
     root = tmp_path / "holed"
     write_world(root / "sources", hole_at=(52_000.0, 30_300.0))
-    bundle = build_bundle(CATALOG, root / "sources", root / "bundle")
+    bundle = build_bundle(CATALOG, root / "sources", root / "bundle", default_ephemeris())
     out = tmp_path / "h.csv"
     run(bundle, out)
     _, rows = read_csv(out)
