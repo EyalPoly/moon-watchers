@@ -38,6 +38,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sites": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Sites */
+        get: operations["list_sites_api_v1_sites_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sites/{site_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Site */
+        get: operations["get_site_api_v1_sites__site_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -73,6 +107,11 @@ export interface components {
             max_lat_deg: number;
             /** Min Lat Deg */
             min_lat_deg: number;
+        };
+        /** HTTPValidationError */
+        HTTPValidationError: {
+            /** Detail */
+            detail?: components["schemas"]["ValidationError"][];
         };
         /** Health */
         Health: {
@@ -147,6 +186,41 @@ export interface components {
             proj4: string;
             tile_grid: components["schemas"]["TileGrid"];
         };
+        /** Site */
+        Site: {
+            /** Category */
+            category: string;
+            /** Elevation M */
+            elevation_m: number;
+            /** Id */
+            id: string;
+            /** Is Placeholder */
+            is_placeholder: boolean;
+            /** Lat Deg */
+            lat_deg: number;
+            /** Lon Deg */
+            lon_deg: number;
+            /** Name */
+            name: string;
+            /** Region */
+            region: string;
+            /** Slope Baseline M */
+            slope_baseline_m: number;
+            /** Slope Deg */
+            slope_deg: number;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "catalog" | "custom";
+            /** Source Url */
+            source_url: string;
+        };
+        /** SitesResponse */
+        SitesResponse: {
+            /** Sites */
+            sites: components["schemas"]["Site"][];
+        };
         /** TileGrid */
         TileGrid: {
             /** Origin */
@@ -158,6 +232,19 @@ export interface components {
             resolutions_m: number[];
             /** Tile Size Px */
             tile_size_px: number;
+        };
+        /** ValidationError */
+        ValidationError: {
+            /** Context */
+            ctx?: Record<string, never>;
+            /** Input */
+            input?: unknown;
+            /** Location */
+            loc: (string | number)[];
+            /** Message */
+            msg: string;
+            /** Error Type */
+            type: string;
         };
     };
     responses: never;
@@ -204,6 +291,57 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Meta"];
+                };
+            };
+        };
+    };
+    list_sites_api_v1_sites_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SitesResponse"];
+                };
+            };
+        };
+    };
+    get_site_api_v1_sites__site_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Site"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
