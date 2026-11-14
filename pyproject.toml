@@ -35,7 +35,7 @@ strict = true
 files = ["api", "engine", "build"]
 
 [[tool.mypy.overrides]]
-module = ["torch"]
+module = ["torch", "rasterio", "rasterio.*"]
 ignore_missing_imports = true
 
 [[tool.uv.index]]

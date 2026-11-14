@@ -1,7 +1,10 @@
-.PHONY: test typecheck check contract fetch
+.PHONY: test typecheck check contract fetch masks
 
 fetch:
-	uv run python -m build.fetch_sources
+	uv run python -m build.fetch_sources $(if $(ONLY),--only $(ONLY))
+
+masks:
+	uv run python -m build.make_masks
 
 contract:
 	uv run python -m api.contract generate

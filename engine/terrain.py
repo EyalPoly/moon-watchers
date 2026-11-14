@@ -1,7 +1,10 @@
 from collections.abc import Sequence
 from dataclasses import dataclass
+from pathlib import Path
 
 import numpy as np
+import rasterio
+from rasterio.windows import Window
 from numpy.typing import ArrayLike, NDArray
 
 MOON_RADIUS_M: float = 1_737_400.0
@@ -68,3 +71,53 @@ def sample_stack(
         values = sample(dem, np.asarray(x_m)[missing], np.asarray(y_m)[missing])
         result[missing] = values
     return result
+
+
+def _is_moon_south_polar(proj4: str) -> bool:
+    parts: dict[str, str] = {}
+    for token in proj4.split():
+        key, _, value = token.lstrip("+").partition("=")
+        parts[key] = value
+    radius = parts.get("R", parts.get("a"))
+    return (
+        parts.get("proj") == "stere"
+        and radius is not None
+        and float(radius) == MOON_RADIUS_M
+        and float(parts.get("lat_0", "nan")) == -90.0
+        and float(parts.get("lon_0", "0")) == 0.0
+        and float(parts.get("x_0", "0")) == 0.0
+        and float(parts.get("y_0", "0")) == 0.0
+        and float(parts.get("k", parts.get("k_0", "1"))) == 1.0
+    )
+
+
+def load_dem(
+    path: Path,
+    dem_id: str,
+    window_m: tuple[float, float, float, float] | None = None,
+) -> Dem:
+    with rasterio.open(path) as ds:
+        if ds.crs is None or not _is_moon_south_polar(ds.crs.to_proj4()):
+            raise ValueError(f"{path}: CRS is not the Moon south-polar stereographic sphere")
+        transform = ds.transform
+        cell = abs(transform.a)
+        col0, row0, col1, row1 = 0, 0, ds.width, ds.height
+        if window_m is not None:
+            x_min, y_min, x_max, y_max = window_m
+            col0 = max(0, int(np.floor((x_min - transform.c) / cell)))
+            col1 = min(ds.width, int(np.ceil((x_max - transform.c) / cell)))
+            row0 = max(0, int(np.floor((transform.f - y_max) / cell)))
+            row1 = min(ds.height, int(np.ceil((transform.f - y_min) / cell)))
+            if col1 <= col0 or row1 <= row0:
+                raise ValueError(f"{path}: window is outside the file")
+        raw = ds.read(1, window=Window(col0, row0, col1 - col0, row1 - row0))
+        data = raw.astype(np.float32)
+        nodata = ds.nodata
+        if nodata is not None and not np.isnan(nodata):
+            data[raw == nodata] = np.nan
+        scale, offset = ds.scales[0], ds.offsets[0]
+        if scale != 1.0 or offset != 0.0:
+            data = data * np.float32(scale) + np.float32(offset)
+        x0 = transform.c + col0 * cell + cell / 2
+        y0 = transform.f - row0 * cell - cell / 2
+    return Dem(dem_id, data, float(x0), float(y0), float(cell))

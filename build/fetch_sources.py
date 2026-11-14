@@ -1,3 +1,4 @@
+import argparse
 import hashlib
 import json
 import shutil
@@ -48,6 +49,7 @@ def fetch_all(
     dest: Path,
     fetch: Callable[[str, Path], None] = download,
     on_unpinned: Callable[[str, str], None] | None = None,
+    only: str | None = None,
 ) -> list[str]:
     """An entry with an empty sha256 is pinned on first download: it is accepted and
     its hash reported through `on_unpinned`, to be written into the lockfile."""
@@ -57,6 +59,8 @@ def fetch_all(
         relative: str = entry["path"]
         expected: str = entry["sha256"]
         size: int = entry["bytes"]
+        if only is not None and not relative.startswith(only):
+            continue
         target = dest / relative
         if expected == "" and target.is_file() and target.stat().st_size == size:
             continue
@@ -82,10 +86,14 @@ def fetch_all(
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(prog="build.fetch_sources")
+    parser.add_argument("--only", help="download only lock entries whose path starts with this prefix")
+    args = parser.parse_args()
     fetched = fetch_all(
         LOCK_PATH,
         DEST,
         on_unpinned=lambda path, sha: print(f"unpinned {path}: add sha256 {sha} to the lockfile"),
+        only=args.only,
     )
     print(f"fetched {len(fetched)} file(s)" + "".join(f"\n  {p}" for p in fetched))
 
