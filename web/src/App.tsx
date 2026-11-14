@@ -3,7 +3,7 @@ import meta from '@samples/meta.json'
 import { resolveSource, type AppConfig } from './api/config'
 import type { Meta, Region, Site } from './api/types'
 import { isPointId } from './api/points'
-import { parseScoreSettings } from './api/scoreSettings'
+import { parseScoreSettings, serializeScoreSettings, type ScoreSettings } from './api/scoreSettings'
 import { useCustomSites, useMeta, useSites } from './state/queries'
 import { useTicketRanking } from './state/ranking'
 import { presetsFrom, stationLabel } from './api/stations'
@@ -118,6 +118,25 @@ export default function App({ config }: { config: AppConfig }) {
     [apply],
   )
 
+  // Dragging a weight replaces the URL; on release the pre-drag URL is restored first so
+  // that the one history entry added is the change as a whole.
+  const settingsDragFrom = useRef<string | null>(null)
+  const lastSettingsWrite = useRef(0)
+  const onSettingsChange = useCallback((next: ScoreSettings) => {
+    settingsDragFrom.current ??= window.location.search
+    const now = performance.now()
+    if (now - lastSettingsWrite.current < URL_WRITE_MS) return
+    lastSettingsWrite.current = now
+    writeUrl(serializeScoreSettings(next, window.location.search), 'replace')
+  }, [])
+  const onSettingsCommit = useCallback((next: ScoreSettings) => {
+    const from = settingsDragFrom.current
+    settingsDragFrom.current = null
+    if (from !== null) writeUrl(from, 'replace')
+    writeUrl(serializeScoreSettings(next, window.location.search), 'push')
+    setSearch(window.location.search)
+  }, [])
+
   // One panel can be expanded to full size; this is a view choice, not part of the link.
   const [expanded, setExpanded] = useState<number | null>(null)
 
@@ -174,7 +193,13 @@ export default function App({ config }: { config: AppConfig }) {
 
   return (
     <div className="app" style={{ '--side-w': `${Math.min(sideWidth, sideMax)}px` } as CSSProperties}>
-      <TopBar sample={showBanner} />
+      <TopBar
+        sample={showBanner}
+        scoreSpec={metaQuery.data?.score}
+        settings={settings}
+        onSettingsChange={onSettingsChange}
+        onSettingsCommit={onSettingsCommit}
+      />
 
       <main className="main" aria-label="South pole">
         {screen.compare ? (
