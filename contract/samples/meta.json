@@ -7,23 +7,42 @@
       "id": "south_pole",
       "crs": "MOON:SP",
       "proj4": "+proj=stere +lat_0=-90 +lat_ts=-90 +lon_0=0 +k=1 +x_0=0 +y_0=0 +R=1737400 +units=m +no_defs",
-      "extent_m": [-303240, -303240, 303240, 303240],
+      "extent_m": [
+        -457440,
+        -457440,
+        457440,
+        457440
+      ],
       "tile_grid": {
-        "origin": [-303240, 303240],
-        "resolutions_m": [1185, 592.5, 296.25],
+        "origin": [
+          -1095930,
+          1095930
+        ],
+        "resolutions_m": [
+          8561.953,
+          4280.976,
+          2140.488,
+          1070.244,
+          535.122,
+          267.561,
+          133.78
+        ],
         "tile_size_px": 256
       },
       "layers": [
         {
-          "id": "hillshade",
-          "title": "Moon Trek (placeholder URL)",
+          "id": "LRO_LOLA_ClrShade_SPole75_30mp_v04",
+          "title": "LOLA color hillshade (Moon Trek)",
           "kind": "wmts",
-          "url_template": "https://example.invalid/{z}/{y}/{x}.png",
+          "url_template": "https://trek.nasa.gov/tiles/Moon/SP/LRO_LOLA_ClrShade_SPole75_30mp_v04/1.0.0//default/default028mm/{z}/{y}/{x}.png",
           "attribution": "NASA Moon Trek / LOLA",
           "legend_url": null
         }
       ],
-      "custom_area": {"min_lat_deg": -90, "max_lat_deg": -84}
+      "custom_area": {
+        "min_lat_deg": -90,
+        "max_lat_deg": -84
+      }
     }
   ],
   "capabilities": {
@@ -39,5 +58,9 @@
     "power": false,
     "nl": false
   },
-  "limits": {"max_cards": 3, "max_days": 30, "max_search_window_d": 90}
+  "limits": {
+    "max_cards": 3,
+    "max_days": 30,
+    "max_search_window_d": 90
+  }
 }
