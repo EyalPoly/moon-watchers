@@ -18,7 +18,8 @@ const appConfigSchema = z
   })
 
 export type AppConfig = z.infer<typeof appConfigSchema>
-export type SourceName = 'sites' | 'horizon' | 'summary' | 'meta'
+// meta follows sites, and series follows summary: each pair comes from one engine piece.
+export type SourceName = 'sites' | 'horizon' | 'summary' | 'meta' | 'series'
 export type SourceMode = z.infer<typeof sourceMode>
 
 const ALL_SAMPLE: AppConfig = {
@@ -43,7 +44,7 @@ function forcedSample(search: string): boolean {
 
 export function resolveSource(config: AppConfig, name: SourceName, search: string): SourceMode {
   if (forcedSample(search)) return 'sample'
-  return config.sources[name === 'meta' ? 'sites' : name]
+  return config.sources[name === 'meta' ? 'sites' : name === 'series' ? 'summary' : name]
 }
 
 export function anySample(config: AppConfig, search: string): boolean {

@@ -13,12 +13,12 @@ test('pins select a site, update the URL and history, and are labeled as sample'
 
   await page.getByTestId('pin-sample_b').click()
   await expect(page.getByRole('heading', { name: 'Sample site B' })).toBeVisible()
-  await expect(page).toHaveURL(/site=sample_b/)
+  await expect(page).toHaveURL(/tk=sample_b/)
   await expect(page.getByTestId('sample-tag')).toBeVisible()
   await expect(page.getByText('Sample data', { exact: true }).first()).toBeVisible()
 
   await page.goBack()
-  await expect(page).not.toHaveURL(/site=/)
+  await expect(page).not.toHaveURL(/tk=/)
   await expect(page.getByRole('heading', { name: 'Sample site B' })).toHaveCount(0)
 })
 
@@ -55,7 +55,7 @@ test('a server that never answers does not hide the map and ends in Server unava
   await expect(page.getByText('Server unavailable')).toBeVisible({ timeout: 20_000 })
 })
 
-test('the banner and tags disappear for real catalog data even while other sources are sample', async ({
+test('with a real catalog the banner shows only once a card uses sample horizon or summary', async ({
   page,
   context,
 }) => {
@@ -64,10 +64,15 @@ test('the banner and tags disappear for real catalog data even while other sourc
   await useConfig(page, realSites)
   await page.goto('/')
   await expect(page.getByTestId(/^pin-/)).toHaveCount(3)
-  await page.getByTestId('pin-sample_a').click()
-  await expect(page.getByRole('heading', { name: 'Sample site A' })).toBeVisible()
+  // Only the catalog is visible: it is real, so nothing is labeled.
   await expect(page.getByText('Sample data', { exact: true })).toHaveCount(0)
   await expect(page.getByTestId('sample-tag')).toHaveCount(0)
+
+  // The card's horizon and verdict are still sample answers, so both labels appear.
+  await page.getByTestId('pin-sample_a').click()
+  await expect(page.getByRole('heading', { name: 'Sample site A' })).toBeVisible()
+  await expect(page.getByTestId('sample-tag')).toBeVisible()
+  await expect(page.getByRole('status').filter({ hasText: 'Sample data' })).toBeVisible()
 })
 
 test('failing tiles show Basemap unavailable while pins keep working', async ({ page, context }) => {

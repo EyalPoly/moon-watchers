@@ -8,19 +8,22 @@ test('sample banner shows and the map canvas is not blank', async ({ page, conte
   const canvas = page.locator('.polar-map canvas').first()
   await expect(canvas).toBeVisible()
 
+  // Not blank: the stubbed tiles (half-transparent red) were drawn, so most sample points
+  // have some alpha. An empty canvas is fully transparent. Counting colors instead would depend on whether the dashed
+  // circle happens to cross a sample point, which changes with the panel's size.
   await expect
     .poll(async () =>
       canvas.evaluate((el) => {
         const c = el as HTMLCanvasElement
         const ctx = c.getContext('2d')!
-        const seen = new Set<string>()
+        let drawn = 0
         for (let i = 0; i < 25; i++) {
           const x = Math.floor((c.width * (i % 5 + 0.5)) / 5)
           const y = Math.floor((c.height * (Math.floor(i / 5) + 0.5)) / 5)
-          seen.add(Array.from(ctx.getImageData(x, y, 1, 1).data).join(','))
+          if (ctx.getImageData(x, y, 1, 1).data[3] > 0) drawn += 1
         }
-        return seen.size
+        return drawn
       }),
     )
-    .toBeGreaterThanOrEqual(2)
+    .toBeGreaterThanOrEqual(13)
 })

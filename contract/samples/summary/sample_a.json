@@ -1,0 +1,178 @@
+{
+  "scenario": {
+    "site": "sample_a",
+    "t0": "2027-03-01T00:00Z",
+    "days": 29.53,
+    "mast": 2,
+    "w": [
+      1,
+      1,
+      1,
+      0
+    ],
+    "station": "any"
+  },
+  "version": "sample",
+  "metrics": {
+    "sun_pct": 58.5,
+    "dte_pct": 84.4,
+    "both_pct": 42.9,
+    "longest_dark_h": 294,
+    "longest_no_contact_h": 110.3,
+    "first_dark_after_landing_h": 36,
+    "earth_el_range": [
+      -2.2,
+      11.2
+    ]
+  },
+  "rag": {
+    "sun": {
+      "color": "amber",
+      "reason": "Sun visible 58.5% of the mission (green ≥ 60%, red < 30%)"
+    },
+    "dte": {
+      "color": "green",
+      "reason": "Earth in contact 84.4% of the mission (green ≥ 60%, red < 30%)"
+    },
+    "slope": {
+      "color": "green",
+      "reason": "Slope 4.2° (green ≤ 5°, red > 10°)"
+    }
+  },
+  "score": {
+    "value": 42.9,
+    "base": 42.9,
+    "weights": {
+      "sun": 1,
+      "dte": 1,
+      "slope": 1,
+      "dust": 0
+    },
+    "factors": [
+      {
+        "name": "sun",
+        "weight": 1,
+        "points": -41.5,
+        "reason": "Sun visible 58.5% of the mission"
+      },
+      {
+        "name": "dte",
+        "weight": 1,
+        "points": -15.6,
+        "reason": "Earth in contact 84.4% of the mission"
+      },
+      {
+        "name": "slope",
+        "weight": 1,
+        "points": 0,
+        "reason": "Slope 4.2°"
+      }
+    ],
+    "deciding": "sun",
+    "formula": "interim: base = share of time with every weighted body visible; score = base − slope penalty",
+    "color": "amber"
+  },
+  "windows": {
+    "sun": [
+      [
+        "2027-03-01T00:00Z",
+        "2027-03-02T12:00Z"
+      ],
+      [
+        "2027-03-14T18:00Z",
+        "2027-03-30T12:40Z"
+      ]
+    ],
+    "dte": [
+      [
+        "2027-03-01T00:00Z",
+        "2027-03-17T01:50Z"
+      ],
+      [
+        "2027-03-21T16:10Z",
+        "2027-03-30T12:40Z"
+      ]
+    ],
+    "both": [
+      [
+        "2027-03-01T00:00Z",
+        "2027-03-02T12:00Z"
+      ],
+      [
+        "2027-03-14T18:00Z",
+        "2027-03-17T01:50Z"
+      ],
+      [
+        "2027-03-21T16:10Z",
+        "2027-03-30T12:40Z"
+      ]
+    ]
+  },
+  "daily": {
+    "sun_pct": [
+      100,
+      50,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      25,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100
+    ],
+    "dte_pct": [
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      7.6,
+      0,
+      0,
+      0,
+      32.6,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100
+    ]
+  },
+  "warnings": []
+}
