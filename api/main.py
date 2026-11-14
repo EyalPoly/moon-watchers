@@ -5,6 +5,7 @@ from typing import Annotated, Literal
 import numpy as np
 from fastapi import FastAPI, Query, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from numpy.typing import NDArray
 
 from api.bundle import Bundle, load_bundle
@@ -18,10 +19,13 @@ from api.models import (
     SeriesResponse,
     Site,
     SitesResponse,
-    Station,
     SummaryResponse,
 )
+from api.series_json import series_response, site_series
+from api.scenario import DEFAULT_STATION, Antenna, Days, Mast, MonthParam, Panel, StationParam, parse_station
 from engine import __version__
+from engine.geometry import OutOfRange
+from engine.horizons import mask_at_height
 
 SHORT_CACHE = "public, max-age=60"
 IMMUTABLE_CACHE = "public, max-age=31536000, immutable"
@@ -30,18 +34,7 @@ FAR_MAST_M = 2.0
 ENGINE_PENDING = "the engine for this endpoint is not built yet; the web app uses sample answers"
 
 T0 = Annotated[str, Query(pattern=r"^\d{4}-\d{2}-\d{2}T\d{2}:\d0Z$")]
-Days = Annotated[float, Query(ge=1, le=365)]
-Mast = Annotated[float, Query(ge=1, le=10)]
 Weights = Annotated[str, Query(pattern=r"^(0(\.\d)?|1(\.0)?)(,(0(\.\d)?|1(\.0)?)){3}$")]
-Month = Annotated[str, Query(pattern=r"^\d{4}-\d{2}$")]
-StationLat = Annotated[float | None, Query(ge=-90, le=90)]
-StationLon = Annotated[float | None, Query(ge=-180, le=180)]
-
-
-def check_station(station: Station, lat: float | None, lon: float | None) -> None:
-    """A custom station needs both coordinates; a named one takes none."""
-    if (station == "custom") != (lat is not None and lon is not None) or (lat is None) != (lon is None):
-        raise ApiError(422, "INVALID_PARAM", "station=custom needs station_lat and station_lon, and only then")
 
 
 def create_app(
@@ -57,6 +50,7 @@ def create_app(
     app = FastAPI(title="CLPS Lunar Mission Browser API", version=__version__, redirect_slashes=False)
     install_error_handlers(app)
     app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["GET"])
+    app.add_middleware(GZipMiddleware, minimum_size=1000)
 
     @app.get("/api/v1/health")
     def health(response: Response) -> Health:
@@ -112,52 +106,66 @@ def create_app(
             raise ApiError(503, "FEATURE_DISABLED", "no horizon bundle is configured")
         if v:
             response.headers["Cache-Control"] = IMMUTABLE_CACHE
-        # The bundle holds whole-metre masts; mast_m reports the one served.
-        served = min(10, max(1, int(mast + 0.5)))
-        row = FAR_ROW if part == "far" else served - 1
         masks = bundle.masks[site_id]
+        if part == "far":
+            row = FAR_ROW
+            shown = masks[:, row]
+        else:
+            # Blocking distances don't blend: they come from the nearer whole-metre row.
+            row = min(10, max(1, int(mast + 0.5))) - 1
+            shown = mask_at_height(masks, mast)
         return HorizonResponse(
             site_id=site_id,
-            mast_m=FAR_MAST_M if part == "far" else float(served),
+            mast_m=FAR_MAST_M if part == "far" else mast,
             part=part,
             az_step_deg=0.5,
-            elevation_deg=_nullable(masks[0, row], 4),
+            elevation_deg=_nullable(shown[0], 4),
             distance_km=_nullable(bundle.blocking[site_id][row], 3),
-            low_deg=_nullable(masks[1, row], 4),
-            high_deg=_nullable(masks[2, row], 4),
+            low_deg=_nullable(shown[1], 4),
+            high_deg=_nullable(shown[2], 4),
             algo_version=bundle.algo_version,
             warnings=bundle.warnings.get(site_id, []),
         )
 
     @app.get("/api/v1/scenario/series")
     def get_series(
+        response: Response,
         site: str,
         t0: T0,
-        month: Month,
-        days: Days = 29.53,
-        mast: Mast = 2,
+        month: MonthParam,
+        days: Days = 30,
+        panel: Panel = 2,
+        antenna: Antenna = 3,
         w: Weights = "1,1,1,0",
-        station: Station = "any",
-        station_lat: StationLat = None,
-        station_lon: StationLon = None,
+        station: StationParam = DEFAULT_STATION,
         v: str = "",
     ) -> SeriesResponse:
-        check_station(station, station_lat, station_lon)
-        raise ApiError(503, "FEATURE_DISABLED", ENGINE_PENDING)
+        point = parse_station(station)
+        entry = catalog.get(site)
+        if entry is None:
+            raise ApiError(404, "INVALID_PARAM", "unknown site id")
+        if bundle is None:
+            raise ApiError(503, "FEATURE_DISABLED", "no horizon bundle is configured")
+        try:
+            arrays, start, n = site_series(bundle, entry, month, panel, antenna, point)
+        except (OutOfRange, ValueError, OverflowError) as error:
+            raise ApiError(422, "OUT_OF_TIME_RANGE", f"no ephemeris for month {month}") from error
+        if v:
+            response.headers["Cache-Control"] = IMMUTABLE_CACHE
+        return series_response(arrays, start, n)
 
     @app.get("/api/v1/scenario/summary")
     def get_summary(
         site: str,
         t0: T0,
-        days: Days = 29.53,
-        mast: Mast = 2,
+        days: Days = 30,
+        panel: Panel = 2,
+        antenna: Antenna = 3,
         w: Weights = "1,1,1,0",
-        station: Station = "any",
-        station_lat: StationLat = None,
-        station_lon: StationLon = None,
+        station: StationParam = DEFAULT_STATION,
         v: str = "",
     ) -> SummaryResponse:
-        check_station(station, station_lat, station_lon)
+        parse_station(station)
         raise ApiError(503, "FEATURE_DISABLED", ENGINE_PENDING)
 
     return app

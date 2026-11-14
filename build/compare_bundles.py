@@ -4,8 +4,9 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
+from numpy.typing import NDArray
 
-from api.bundle import load_bundle
+from api.bundle import MASKS_SHAPE
 from build.converge import max_mask_change
 
 # Rows of masks.npy: the panel and antenna masts the physics team uses, and the far-only row.
@@ -32,6 +33,15 @@ def _sites(bundle_dir: Path) -> dict[str, object]:
     return sites
 
 
+def _masks(bundle_dir: Path, site_id: str) -> NDArray[np.float32]:
+    # Only the masks: a comparison has no use for the ephemeris tables load_bundle insists on.
+    path = bundle_dir / "server" / "sites" / site_id / "masks.npy"
+    masks: NDArray[np.float32] = np.load(path, allow_pickle=False)
+    if masks.shape != MASKS_SHAPE or masks.dtype != np.float32:
+        raise ValueError(f"{path} has shape {masks.shape} {masks.dtype}, expected {MASKS_SHAPE} float32")
+    return masks
+
+
 def _label(bundle_dir: Path) -> str:
     manifest = _manifest(bundle_dir)
     parameters = manifest.get("parameters")
@@ -44,13 +54,12 @@ def compare(base_dir: Path, other_dir: Path) -> list[Change]:
     base_sites = list(_sites(base_dir))
     if set(base_sites) != set(_sites(other_dir)):
         raise ValueError(f"{base_dir.name} and {other_dir.name} cover different sites")
-    base = load_bundle(base_dir, base_sites)
-    other = load_bundle(other_dir, base_sites)
     changes: list[Change] = []
     for site_id in base_sites:
+        base, other = _masks(base_dir, site_id), _masks(other_dir, site_id)
         for label, row in ROWS.items():
-            a = base.masks[site_id][0, row]
-            b = other.masks[site_id][0, row]
+            a = base[0, row]
+            b = other[0, row]
             try:
                 change: float | None = max_mask_change(a, b)
             except ValueError:

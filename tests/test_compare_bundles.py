@@ -83,3 +83,11 @@ def test_main_prints_one_line_per_site_and_row(tmp_path: Path, capsys: pytest.Ca
     out = capsys.readouterr().out
     assert "40m (b40) vs 20m (b20)" in out
     assert out.count("a: ") == len(ROWS)
+
+
+def test_mask_of_the_wrong_shape_is_rejected(tmp_path: Path) -> None:
+    base = write_bundle(tmp_path, "b20", "20m", {"a": skyline_rows()})
+    other = write_bundle(tmp_path, "b40", "40m", {"a": skyline_rows()})
+    np.save(other / "server" / "sites" / "a" / "masks.npy", np.zeros((3, 10, 720), np.float32))
+    with pytest.raises(ValueError, match="shape"):
+        compare(base, other)

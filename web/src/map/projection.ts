@@ -13,6 +13,8 @@ export function registerRegionProjection(region: Region): Projection {
 }
 
 export function parallelRadiusM(region: Region, latDeg: number): number {
+  // Callers may run before any map has registered the region's projection.
+  if (get(region.crs) === null) registerRegionProjection(region)
   const [x, y] = transform([0, latDeg], 'EPSG:4326', region.crs)
   return Math.hypot(x, y)
 }

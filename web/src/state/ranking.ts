@@ -23,10 +23,9 @@ export function useTicketRanking(tickets: readonly Ticket[], sitesById: Readonly
             site: { id: site.id, lat_deg: site.lat_deg, lon_deg: site.lon_deg, elevation_m: site.elevation_m, slope_deg: site.slope_deg },
             t0: t.t0,
             days: t.days,
-            mast: t.mast,
+            panel: t.panel,
+            antenna: t.antenna,
             station: t.station,
-            station_lat: t.lat,
-            station_lon: t.lon,
           },
         ]
       }),

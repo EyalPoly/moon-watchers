@@ -169,9 +169,6 @@
   max-height: 100%;
 }
 
-.panel-graph .sky-view svg {
-  max-height: calc(100% - 40px);
-}
 
 .panel-empty {
   padding: 16px;
@@ -625,10 +622,39 @@
 
 .station-custom {
   display: grid;
-  grid-template-columns: 1fr 1fr auto;
+  grid-template-columns: 1fr 1fr;
   align-items: end;
   gap: 8px;
   margin-top: 8px;
+}
+
+.station-custom button {
+  grid-column: 1 / -1;
+  justify-self: start;
+}
+
+.height-control .control-row {
+  align-items: center;
+}
+
+.height-control .control-row input[type="range"] {
+  flex: 1;
+}
+
+.control-row input.height-input {
+  flex: 0 0 4.5em;
+  box-sizing: border-box;
+  padding: 3px 6px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  text-align: right;
+}
+
+.control-row input.height-input[aria-invalid="true"] {
+  border-color: var(--red);
 }
 
 .station-custom input {

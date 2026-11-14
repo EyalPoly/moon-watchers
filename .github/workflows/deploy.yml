@@ -4,15 +4,14 @@ on:
     branches: [main]
 permissions: {}
 concurrency:
-  group: pages
+  group: deploy
   cancel-in-progress: true
 jobs:
-  build:
+  firebase:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    env:
-      REPO_NAME: ${{ github.event.repository.name }}
+      id-token: write
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
@@ -24,32 +23,9 @@ jobs:
           cache: pnpm
           cache-dependency-path: web/pnpm-lock.yaml
       - run: pnpm --dir web install --frozen-lockfile
-      - name: Build product preview
-        run: |
-          VITE_BASE="/${REPO_NAME}/product/" pnpm --dir web build --outDir ../site/product --emptyOutDir
-          node web/scripts/write-config.mjs site/product product
-      - name: Build integrated preview
-        run: |
-          VITE_BASE="/${REPO_NAME}/integrated/" pnpm --dir web build --outDir ../site/integrated --emptyOutDir
-          node web/scripts/write-config.mjs site/integrated integrated
-      - name: Add 404 page
-        run: |
-          cat > site/404.html <<EOF
-          <!doctype html><meta charset="utf-8"><title>Not found</title>
-          <p>Page not found. Try the <a href="/${REPO_NAME}/product/">product preview</a> or the <a href="/${REPO_NAME}/integrated/">integrated preview</a>.</p>
-          EOF
-      - uses: actions/upload-pages-artifact@v3
+      - run: pnpm --dir web build
+      - uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
         with:
-          path: site
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    permissions:
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - id: deployment
-        uses: actions/deploy-pages@v4
+          workload_identity_provider: projects/982577966589/locations/global/workloadIdentityPools/github/providers/moon-watchers
+          service_account: firebase-deployer@clps-514710.iam.gserviceaccount.com
+      - run: npx --yes firebase-tools@15.36.0 deploy --only hosting --project clps-514710

@@ -42,28 +42,32 @@ test.each([
   '?days=0',
   '?days=400',
   '?days=abc',
-  '?mast=0',
-  '?mast=99',
+  '?panel=0',
+  '?panel=99',
+  '?antenna=0',
+  '?antenna=99',
   '?tau=-10',
 ])('garbage %j falls back to defaults', (search) => {
   expect(parseMission(search)).toEqual(MISSION_DEFAULTS)
 })
 
 test('values are rounded to their steps and tau stays inside the mission', () => {
-  expect(parseMission('?mast=2.7&tau=1234&days=14')).toEqual({
+  expect(parseMission('?panel=2.555&antenna=2.7&tau=1234&days=14')).toEqual({
     ...MISSION_DEFAULTS,
     days: 14,
-    mast: 2.5,
+    panel: 2.56,
+    antenna: 2.7,
     tau: 1230,
   })
+  expect(parseMission('?mast=3').panel).toBe(3)
   expect(parseMission('?days=7&tau=99999').tau).toBe(7 * 1440)
 })
 
 test('serialize writes only non-defaults, in a fixed order, and keeps other parameters', () => {
   expect(serializeMission(MISSION_DEFAULTS)).toBe('')
-  const state = { t0: '2027-06-01T00:00Z', days: 14, mast: 3, tau: 60 }
+  const state = { t0: '2027-06-01T00:00Z', days: 14, panel: 3, antenna: 4.5, tau: 60 }
   expect(serializeMission(state, '?site=sample_a&data=sample')).toBe(
-    '?site=sample_a&data=sample&t0=2027-06-01T00%3A00Z&days=14&mast=3&tau=60',
+    '?site=sample_a&data=sample&t0=2027-06-01T00%3A00Z&days=14&panel=3&antenna=4.5&tau=60',
   )
   expect(parseMission(serializeMission(state))).toEqual(state)
 })

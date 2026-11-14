@@ -1,11 +1,15 @@
+import json
 from collections.abc import Iterable
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 from numpy.typing import NDArray
 from pydantic import BaseModel, ConfigDict, ValidationError
 
+from engine.geometry import Ephemeris
 from engine.horizons import HORIZON_ALGO_VERSION
 
 MASKS_SHAPE = (3, 11, 720)
@@ -20,12 +24,21 @@ class SiteEntry(BaseModel):
     warnings: list[str]
 
 
+class EphemerisEntry(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    start_utc: str
+    step_s: int
+    rows: int
+
+
 class Manifest(BaseModel):
     model_config = ConfigDict(extra="allow")
 
     bundle_id: str
     algo_version: str
     sites: dict[str, SiteEntry]
+    ephemeris: EphemerisEntry | None = None
 
 
 @dataclass
@@ -35,18 +48,27 @@ class Bundle:
     masks: dict[str, NDArray[np.float32]]
     blocking: dict[str, NDArray[np.float32]]
     warnings: dict[str, list[str]]
+    ephemeris: Ephemeris
 
 
-def _load_array(path: Path, shape: tuple[int, ...]) -> NDArray[np.float32]:
+def _load_raw(path: Path, shape: tuple[int, ...], dtype: str) -> NDArray[Any]:
     if not path.is_file():
         raise BundleError(f"bundle is missing {path}")
     try:
-        array: NDArray[np.float32] = np.load(path, allow_pickle=False)
+        array: NDArray[Any] = np.load(path, allow_pickle=False)
     except (OSError, ValueError, EOFError) as error:
         raise BundleError(f"{path} is unreadable: {error}") from error
-    if array.shape != shape or array.dtype != np.float32:
-        raise BundleError(f"{path} has shape {array.shape} {array.dtype}, expected {shape} float32")
+    if array.shape != shape or array.dtype != np.dtype(dtype):
+        raise BundleError(f"{path} has shape {array.shape} {array.dtype}, expected {shape} {dtype}")
     return array
+
+
+def _load_array(path: Path, shape: tuple[int, ...]) -> NDArray[np.float32]:
+    return _load_raw(path, shape, "float32")
+
+
+def _load_table(path: Path, shape: tuple[int, ...]) -> NDArray[np.float64]:
+    return _load_raw(path, shape, "float64")
 
 
 def load_bundle(bundle_dir: Path, site_ids: Iterable[str]) -> Bundle:
@@ -60,6 +82,10 @@ def load_bundle(bundle_dir: Path, site_ids: Iterable[str]) -> Bundle:
             f"bundle {manifest.bundle_id} has algo_version {manifest.algo_version!r}, "
             f"this engine is {HORIZON_ALGO_VERSION!r}: rebuild the bundle"
         )
+    if manifest.ephemeris is None:
+        raise BundleError(
+            f"bundle {manifest.bundle_id} has no ephemeris entry in {manifest_path}: rebuild the bundle"
+        )
     absent = [site_id for site_id in site_ids if site_id not in manifest.sites]
     if absent:
         raise BundleError(f"{manifest_path} has no entry for site(s) {', '.join(absent)}")
@@ -70,4 +96,25 @@ def load_bundle(bundle_dir: Path, site_ids: Iterable[str]) -> Bundle:
         masks[site_id] = _load_array(folder / "masks.npy", MASKS_SHAPE)
         blocking[site_id] = _load_array(folder / "blocking.npy", BLOCKING_SHAPE)
     warnings = {site_id: manifest.sites[site_id].warnings for site_id in masks}
-    return Bundle(manifest.bundle_id, manifest.algo_version, masks, blocking, warnings)
+    rows = manifest.ephemeris.rows
+    server = bundle_dir / "server"
+    try:
+        start = datetime.fromisoformat(manifest.ephemeris.start_utc).astimezone(UTC)
+    except ValueError as error:
+        raise BundleError(f"{manifest_path} has a bad ephemeris start_utc: {error}") from error
+    vectors = _load_table(server / "ephemeris.npy", (rows, 9))
+    rotation = _load_table(server / "earth_rotation.npy", (rows, 3, 3))
+    ephemeris = Ephemeris(start, manifest.ephemeris.step_s, vectors, rotation)
+    return Bundle(manifest.bundle_id, manifest.algo_version, masks, blocking, warnings, ephemeris)
+
+
+def newest_bundle(root: Path) -> Path | None:
+    """The bundle under `root` with the latest `created` time. Names only sort by day."""
+    found: list[tuple[str, Path]] = []
+    for folder in root.glob("*") if root.is_dir() else []:
+        try:
+            created = json.loads((folder / "manifest.json").read_text()).get("created", "")
+        except (OSError, ValueError):
+            continue
+        found.append((str(created), folder))
+    return max(found)[1] if found else None

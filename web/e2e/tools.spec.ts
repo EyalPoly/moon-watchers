@@ -1,41 +1,55 @@
 import { expect, test, type Page } from '@playwright/test'
-import { stubTiles, pinSampleConfig } from './helpers'
+import { pinSampleConfig, stubTiles } from './helpers'
 
 test.beforeEach(async ({ page }) => {
   await pinSampleConfig(page)
 })
 
-const panels = (page: Page) => page.getByRole('region', { name: / view$/ })
+const card = (page: Page, letter: string) => page.getByRole('region', { name: new RegExp(`^Point ${letter}(:|$)`) })
 
-test('a ticket can be named, and the name shows everywhere and stays in the link', async ({ page, context }) => {
+test('a point can be named, and the name shows on its card and stays in the link', async ({ page, context }) => {
   await stubTiles(context)
   await page.goto('/?site=sample_a')
-  await page.getByRole('textbox', { name: 'Ticket name' }).fill('Shackleton plan B')
-  await page.getByRole('textbox', { name: 'Ticket name' }).press('Enter')
+  await expect(page.getByRole('heading', { name: /Sample site A/ })).toBeVisible()
+  await page.getByRole('textbox', { name: 'Point name' }).fill('Shackleton plan B')
+  await page.getByRole('button', { name: /Apply point A/ }).click()
   await expect(page).toHaveURL(/n%3AShackleton\+plan\+B/)
-  await expect(page.getByRole('region', { name: 'Shackleton plan B view' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: /^Shackleton plan B/ })).toBeVisible()
   await page.reload()
-  await expect(page.getByRole('region', { name: 'Shackleton plan B: Sample site A' })).toBeVisible()
+  await expect(page.getByRole('region', { name: 'Point A: Shackleton plan B' })).toBeVisible()
 })
 
 test('a new site can be added by latitude and longitude', async ({ page, context }) => {
   await stubTiles(context)
   await page.goto('/')
-  await page.getByRole('combobox', { name: 'Site' }).selectOption('custom')
-  await page.getByRole('textbox', { name: 'Site latitude' }).fill('-80')
-  await expect(page.getByText(/Latitude -90° to -84°/)).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Add site' })).toBeDisabled()
+  const a = card(page, 'A')
+  await expect(a.getByText('Awaiting a landing point')).toBeVisible()
+  await a.getByRole('textbox', { name: 'Latitude' }).fill('80° S')
+  await a.getByRole('textbox', { name: 'Longitude' }).fill('0')
+  await expect(a.getByText(/south-pole area, 84°S to 90°S/)).toBeVisible()
+  await expect(a.getByRole('button', { name: /Apply point A/ })).toBeDisabled()
 
-  await page.getByRole('textbox', { name: 'Site latitude' }).fill('-87.5')
-  await page.getByRole('textbox', { name: 'Site longitude' }).fill('45')
-  await page.getByRole('button', { name: 'Add site' }).click()
+  await a.getByRole('textbox', { name: 'Latitude' }).fill('87.5 S')
+  await a.getByRole('textbox', { name: 'Longitude' }).fill('45° E')
+  await a.getByRole('button', { name: /Apply point A/ }).click()
   await expect(page).toHaveURL(/tk=pt_s87500_e045000/)
-  await expect(page.getByRole('heading', { name: 'Point 87.500°S 45.000°E' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: /^Point 87\.500°S 45\.000°E/ })).toBeVisible()
   // The new site gets a verdict like any catalog site.
   await expect(page.getByLabel(/^Sun: \d+%/)).toBeVisible()
 })
 
-test('mission time on the Moon is set in days and hours, and updates the numbers', async ({ page, context }) => {
+test('clicking the map places a new point', async ({ page, context }) => {
+  await stubTiles(context)
+  await page.goto('/')
+  await expect(page.getByText('Click the map to place a point', { exact: false })).toBeVisible()
+  // With no site the map is centered on the pole, inside the custom-point area.
+  const map = (await page.locator('.panel .polar-map').first().boundingBox())!
+  await page.mouse.click(map.x + map.width / 2 - 40, map.y + map.height / 2 + 30)
+  await expect(page).toHaveURL(/tk=pt_s\d+_[ew]\d+/)
+  await expect(page.getByRole('heading', { name: /^Point \d/ })).toBeVisible()
+})
+
+test('time on the Moon is set in days and hours, and updates the numbers once applied', async ({ page, context }) => {
   await stubTiles(context)
   await page.goto('/?site=sample_a')
   const sun = page.getByLabel(/^Sun: \d+%/)
@@ -45,20 +59,22 @@ test('mission time on the Moon is set in days and hours, and updates the numbers
   await page.getByRole('spinbutton', { name: 'Mission days' }).fill('3')
   await page.getByRole('spinbutton', { name: 'Mission hours' }).fill('6')
   await page.getByRole('spinbutton', { name: 'Mission hours' }).press('Enter')
+  await page.getByRole('button', { name: /Apply point A/ }).click()
   await expect(page).toHaveURL(/%7E3\.25%7E/)
   await expect(page.getByText('3 d 6 h on the Moon')).toBeVisible()
   await expect.poll(() => sun.getAttribute('aria-label')).not.toBe(before)
 
   await page.getByRole('combobox', { name: 'Mission length preset' }).selectOption('90')
+  await page.getByRole('button', { name: /Apply point A/ }).click()
   await expect(page).toHaveURL(/%7E90%7E/)
 })
 
-test('panels and the ticket column can be resized by dragging', async ({ page, context }) => {
+test('panels and the site calculator can be resized by dragging', async ({ page, context }) => {
   await stubTiles(context)
   await page.goto('/?tk=sample_a&tk=sample_b')
-  const first = panels(page).first()
+  const first = page.getByRole('region', { name: 'Point A view' })
   const startH = (await first.boundingBox())!.height
-  const handle = page.getByRole('separator', { name: 'Resize Ticket 1' })
+  const handle = page.getByRole('separator', { name: 'Resize point A' })
   const hb = (await handle.boundingBox())!
   await page.mouse.move(hb.x + hb.width / 2, hb.y + hb.height / 2)
   await page.mouse.down()
@@ -66,9 +82,9 @@ test('panels and the ticket column can be resized by dragging', async ({ page, c
   await page.mouse.up()
   await expect.poll(async () => (await first.boundingBox())!.height).toBeGreaterThan(startH + 100)
 
-  const side = page.getByRole('complementary', { name: 'Mission tickets' })
+  const side = page.getByRole('complementary', { name: 'Site calculator' })
   const startW = (await side.boundingBox())!.width
-  const divider = page.getByRole('separator', { name: 'Resize the ticket column' })
+  const divider = page.getByRole('separator', { name: 'Resize the site calculator' })
   const db = (await divider.boundingBox())!
   await page.mouse.move(db.x + db.width / 2, db.y + db.height / 2)
   await page.mouse.down()
@@ -77,12 +93,13 @@ test('panels and the ticket column can be resized by dragging', async ({ page, c
   await expect.poll(async () => (await side.boundingBox())!.width).toBeGreaterThan(startW + 100)
 })
 
-test('an area outlined on the map grid gives ranked spots that open as tickets', async ({ page, context }) => {
+test('Freehand Select outlines an area on the grid and opens the best spots as points', async ({ page, context }) => {
   await stubTiles(context)
   await page.goto('/?tk=~2027-03-01T00:00Z~29.53~2~n:Survey')
-  await page.getByRole('button', { name: 'Select area' }).click()
+  await card(page, 'A').getByRole('button', { name: /Freehand Select/ }).click()
   const tool = page.getByRole('dialog', { name: 'Select an area' })
   await expect(tool).toBeVisible()
+  await expect(page.getByText('FREEHAND SELECT', { exact: true })).toBeVisible()
 
   // With no site the map is centered on the pole, well inside the custom-point area.
   const map = (await page.locator('.panel .polar-map').first().boundingBox())!
@@ -97,7 +114,7 @@ test('an area outlined on the map grid gives ranked spots that open as tickets',
   await list.getByRole('checkbox').nth(1).check()
   await tool.getByRole('button', { name: 'Open 2 tickets' }).click()
 
-  await expect(page.getByRole('region', { name: /^Survey · area #1: Point / })).toBeVisible()
-  await expect(page.getByRole('region', { name: /^Survey · area #2: Point / })).toBeVisible()
+  await expect(page.getByRole('region', { name: /^Point B: Survey · area #1/ })).toBeVisible()
+  await expect(page.getByRole('region', { name: /^Point C: Survey · area #2/ })).toBeVisible()
   await expect(page).toHaveURL(/tk=pt_s\d+_[ew]\d+/)
 })

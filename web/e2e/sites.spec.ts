@@ -12,14 +12,14 @@ test('pins select a site, update the URL and history, and are labeled as sample'
   await expect(page.getByTestId(/^pin-/)).toHaveCount(3)
 
   await page.getByTestId('pin-sample_b').click()
-  await expect(page.getByRole('heading', { name: 'Sample site B' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: /^Sample site B/ })).toBeVisible()
   await expect(page).toHaveURL(/tk=sample_b/)
   await expect(page.getByTestId('sample-tag')).toBeVisible()
   await expect(page.getByText('Sample data', { exact: true }).first()).toBeVisible()
 
   await page.goBack()
   await expect(page).not.toHaveURL(/tk=/)
-  await expect(page.getByRole('heading', { name: 'Sample site B' })).toHaveCount(0)
+  await expect(page.getByRole('heading', { name: /^Sample site B/ })).toHaveCount(0)
 })
 
 test('a broken link opens the map on defaults without an error screen', async ({ page, context }) => {
@@ -68,9 +68,10 @@ test('with a real catalog the banner shows only once a card uses sample horizon 
   await expect(page.getByText('Sample data', { exact: true })).toHaveCount(0)
   await expect(page.getByTestId('sample-tag')).toHaveCount(0)
 
-  // The card's horizon and verdict are still sample answers, so both labels appear.
-  await page.getByTestId('pin-sample_a').click()
-  await expect(page.getByRole('heading', { name: 'Sample site A' })).toBeVisible()
+  // The card's horizon and verdict are still sample answers, so both labels appear. (Site B:
+  // nearer the pole, so its pin is inside the map at the test's window size.)
+  await page.getByTestId('pin-sample_b').click()
+  await expect(page.getByRole('heading', { name: /^Sample site B/ })).toBeVisible()
   await expect(page.getByTestId('sample-tag')).toBeVisible()
   await expect(page.getByRole('status').filter({ hasText: 'Sample data' })).toBeVisible()
 })

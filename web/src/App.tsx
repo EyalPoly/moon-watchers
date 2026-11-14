@@ -5,7 +5,7 @@ import type { Meta, Region, Site } from './api/types'
 import { isPointId } from './api/points'
 import { useCustomSites, useMeta, useSites } from './state/queries'
 import { useTicketRanking } from './state/ranking'
-import { stationLabel } from './state/scenario'
+import { presetsFrom, stationLabel } from './api/stations'
 import {
   addTicket,
   addTicketsFor,
@@ -23,7 +23,8 @@ import {
 import { CompareView } from './ui/CompareView'
 import { ResizeHandle } from './ui/ResizeHandle'
 import { ServerUnavailable } from './ui/ServerUnavailable'
-import { TicketCard } from './ui/TicketCard'
+import { LayersBox } from './ui/LayersBox'
+import { PointCard } from './ui/PointCard'
 import { TicketPanel } from './ui/TicketPanel'
 import { panelId } from './ui/ticketStyle'
 import { TopBar } from './ui/TopBar'
@@ -36,7 +37,7 @@ const NO_SITES: readonly Site[] = []
 const URL_WRITE_MS = 500
 
 const SIDE_W_KEY = 'moon-watchers.side-width'
-const DEFAULT_SIDE_W = 420
+const DEFAULT_SIDE_W = 500
 const SIDE_MIN_W = 300
 const SIDE_MAX_W = 760
 
@@ -55,6 +56,14 @@ function writeUrl(search: string, mode: 'push' | 'replace') {
   else window.history.replaceState({}, '', url)
 }
 
+/** "02 POINTS", or "1 SAVED  /  1 DRAFT" while a point has no location yet. */
+function pointCount(tickets: readonly Ticket[]): string {
+  const drafts = tickets.filter((t) => t.site === null).length
+  const saved = tickets.length - drafts
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return drafts > 0 ? `${saved} SAVED  /  ${drafts} DRAFT` : `${pad(saved)} ${saved === 1 ? 'POINT' : 'POINTS'}`
+}
+
 function formatClock(ms: number): string {
   return new Date(ms).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
 }
@@ -71,6 +80,7 @@ export default function App({ config }: { config: AppConfig }) {
   const sitesQuery = useSites(config, search)
   const sites = sitesQuery.data?.sites ?? NO_SITES
   const stations = metaQuery.data?.stations ?? FALLBACK_STATIONS
+  const presets = presetsFrom(stations)
   const screen = parseScreen2(search)
   // Custom points (new sites by lat/lon) come from POST /sites/custom, one per point.
   const customIds = [...new Set(screen.tickets.flatMap((t) => (t.site !== null && isPointId(t.site) ? [t.site] : [])))]
@@ -117,6 +127,8 @@ export default function App({ config }: { config: AppConfig }) {
 
   // One panel can be expanded to full size; this is a view choice, not part of the link.
   const [expanded, setExpanded] = useState<number | null>(null)
+  // The point whose map has Freehand Select on, if any.
+  const [freehand, setFreehand] = useState<number | null>(null)
 
   // Sizes the user dragged: each panel's height (until the tickets are reordered) and the
   // ticket column's width (remembered in this browser).
@@ -174,6 +186,10 @@ export default function App({ config }: { config: AppConfig }) {
       <TopBar sample={showBanner} />
 
       <main className="main" aria-label="South pole">
+        <header className="col-head">
+          <p className="eyebrow mono">02&nbsp;&nbsp;/&nbsp;&nbsp;SOUTH POLE</p>
+          <h1>South pole explorer</h1>
+        </header>
         {screen.compare ? (
           <CompareView
             tickets={screen.tickets}
@@ -186,9 +202,9 @@ export default function App({ config }: { config: AppConfig }) {
           />
         ) : visibleIndexes.length === 0 ? (
           <div className="panels-empty">
-            <p>No tickets are shown here.</p>
+            <p>No points are shown here.</p>
             <button type="button" className="secondary" onClick={() => apply((s) => showAll(s, true))}>
-              Show all tickets
+              Show all points
             </button>
           </div>
         ) : (
@@ -202,11 +218,12 @@ export default function App({ config }: { config: AppConfig }) {
                   ticket={t}
                   site={siteOf(t)}
                   sites={allSites}
+                  catalog={sites}
                   region={region}
                   config={config}
                   search={search}
                   tau={tau}
-                  stationLabel={stationLabel(t, stations)}
+                  stationLabel={stationLabel(t.station, presets)}
                   best={ranking.byIndex.get(i)?.best ?? false}
                   stacked={stacked}
                   expanded={expanded === i}
@@ -215,6 +232,8 @@ export default function App({ config }: { config: AppConfig }) {
                   onView={(view) => changeTicket(i, { view })}
                   onFocus={() => apply((s) => ({ ...s, open: i }))}
                   onExpand={() => setExpanded((e) => (e === i ? null : i))}
+                  freehand={freehand === i && t.view === 'map'}
+                  onFreehandClose={() => setFreehand(null)}
                   height={panelHeights[i]}
                   onResize={(h) => resizePanel(i, h)}
                   onOpenAreas={(points) => {
@@ -226,11 +245,12 @@ export default function App({ config }: { config: AppConfig }) {
             })}
           </div>
         )}
+        {!screen.compare && <LayersBox />}
       </main>
 
       <ResizeHandle
         orientation="vertical"
-        label="Resize the ticket column"
+        label="Resize the site calculator"
         value={Math.min(sideWidth, sideMax)}
         min={SIDE_MIN_W}
         max={sideMax}
@@ -240,14 +260,21 @@ export default function App({ config }: { config: AppConfig }) {
         className="side-resize"
       />
 
-      <aside className="side" aria-label="Mission tickets">
+      <aside className="side" aria-label="Site calculator">
+        <header className="col-head">
+          <p className="eyebrow mono">SITE PLANNING</p>
+          <div className="col-head-row">
+            <h1>Site calculator</h1>
+            <span className="col-meta mono">{pointCount(screen.tickets)}</span>
+          </div>
+        </header>
         {sitesQuery.isError ? (
           <ServerUnavailable onRetry={() => void sitesQuery.refetch()} />
         ) : (
           <>
             <div className="tickets-toolbar">
               <span className="muted">
-                {screen.tickets.length} {screen.tickets.length === 1 ? 'ticket' : 'tickets'} · {shownIndexes.length} shown
+                {shownIndexes.length} of {screen.tickets.length} shown in the explorer
               </span>
               <span className="toolbar-actions">
                 <button type="button" className="link-button" onClick={() => apply((s) => showAll(s, true))}>
@@ -265,7 +292,7 @@ export default function App({ config }: { config: AppConfig }) {
                     setPanelHeights({})
                     apply((s) => sortByRank(s, (i) => ranking.byIndex.get(i)?.rank))
                   }}
-                  title="Reorder the tickets from best to worst"
+                  title="Reorder the points from best to worst"
                 >
                   Sort by rank
                 </button>
@@ -279,11 +306,11 @@ export default function App({ config }: { config: AppConfig }) {
             </div>
             <div className="tickets">
               {screen.tickets.map((t, i) => (
-                <TicketCard
+                <PointCard
                   key={i}
                   index={i}
                   ticket={t}
-                  sites={sites}
+                  catalog={sites}
                   site={siteOf(t)}
                   stations={stations}
                   rank={ranking.byIndex.get(i)}
@@ -295,10 +322,24 @@ export default function App({ config }: { config: AppConfig }) {
                   search={search}
                   tau={tau}
                   sliderMaxTau={sliderMax}
-                  onToggle={() => focusTicket(i)}
+                  onToggle={() => (i === screen.open ? apply((s) => ({ ...s, open: -1 })) : focusTicket(i))}
+                  freehand={freehand === i}
+                  onFreehand={() => {
+                    if (freehand === i) {
+                      setFreehand(null)
+                      return
+                    }
+                    setExpanded(null)
+                    apply((s) => ({ ...updateTicket(s, i, { view: 'map', shown: true }), open: i, compare: false }))
+                    setFreehand(i)
+                    requestAnimationFrame(() =>
+                      document.getElementById(panelId(i))?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }),
+                    )
+                  }}
                   onDelete={() => {
                     setExpanded(null)
                     setPanelHeights({})
+                    setFreehand(null)
                     apply((s) => removeTicket(s, i))
                   }}
                   onChange={(patch, mode) => changeTicket(i, patch, mode)}
@@ -315,22 +356,25 @@ export default function App({ config }: { config: AppConfig }) {
                   setExpanded(null)
                   apply(addTicket)
                   requestAnimationFrame(() =>
-                    document.querySelector('.tickets .ticket:last-child')?.scrollIntoView({ block: 'nearest' }),
+                    document.querySelector('.tickets .point:last-child')?.scrollIntoView({ block: 'nearest' }),
                   )
                 }}
-                title="Open a new mission ticket"
+                title="Add a new point to plan"
               >
-                + New ticket
+                + Add point
               </button>
               {screen.tickets.length > 1 && (
                 <button
                   type="button"
-                  className="primary compare-button"
+                  className="compare-button"
                   onClick={() => apply((s) => ({ ...s, compare: true }))}
                   disabled={comparable < 2 || screen.compare}
-                  title={comparable < 2 ? 'Show at least two tickets that have a site' : 'Compare the shown tickets side by side'}
+                  title={comparable < 2 ? 'Show at least two points that have a location' : 'Compare the shown points side by side'}
                 >
-                  Compare tickets
+                  <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.4">
+                    <path d="M1.5 14.5h13M3 11.5h5M3 8h8M3 4.5h10" />
+                  </svg>{' '}
+                  Compare timelines
                 </button>
               )}
             </div>
