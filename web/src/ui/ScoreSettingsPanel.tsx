@@ -128,7 +128,7 @@ export function ScoreSettingsPanel({ spec, value, onChange, onCommit }: ScoreSet
   const release = () => {
     if (draft === null) return
     setDraft(null)
-    if (JSON.stringify(draft) !== JSON.stringify(value)) onCommit(draft)
+    onCommit(draft)
   }
 
   const withKey = <K extends Key>(key: K, v: ScoreSettings[K]): ScoreSettings => ({ ...shown, [key]: v })

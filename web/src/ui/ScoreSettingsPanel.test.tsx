@@ -103,3 +103,13 @@ test('the PSR switch commits straight away', () => {
   fireEvent.click(screen.getByRole('switch', { name: 'Reject sites inside a PSR' }))
   expect(onCommit).toHaveBeenCalledWith({ ...SCORE_DEFAULTS, psr: false })
 })
+
+test('a drag that returns to the starting value still reports its release', () => {
+  const { onCommit } = setup()
+  const slider = screen.getByRole('slider', { name: 'station contact' })
+  fireEvent.change(slider, { target: { value: '0.5' } })
+  fireEvent.change(slider, { target: { value: '0.25' } })
+  fireEvent.pointerUp(slider)
+  expect(onCommit).toHaveBeenCalledTimes(1)
+  expect(onCommit).toHaveBeenCalledWith(SCORE_DEFAULTS)
+})

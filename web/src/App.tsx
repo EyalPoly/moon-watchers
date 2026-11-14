@@ -132,7 +132,14 @@ export default function App({ config }: { config: AppConfig }) {
   const onSettingsCommit = useCallback((next: ScoreSettings) => {
     const from = settingsDragFrom.current
     settingsDragFrom.current = null
-    if (from !== null) writeUrl(from, 'replace')
+    if (from !== null) {
+      writeUrl(from, 'replace')
+      // A drag that ended where it began is not a change.
+      if (serializeScoreSettings(parseScoreSettings(from)) === serializeScoreSettings(next)) {
+        setSearch(window.location.search)
+        return
+      }
+    }
     writeUrl(serializeScoreSettings(next, window.location.search), 'push')
     setSearch(window.location.search)
   }, [])
