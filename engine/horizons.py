@@ -155,3 +155,40 @@ def march(
         warnings.append("UNCERTAINTY_UNAVAILABLE")
 
     return March(nominal, low, high, blocking, warnings)
+
+
+HEIGHTS_M: tuple[float, ...] = tuple(float(h) for h in range(1, 11))
+FAR_ONLY_START_M: float = 3_000.0
+FAR_ONLY_HEIGHT_M: float = 2.0
+
+
+@dataclass(frozen=True)
+class SiteMasks:
+    masks_deg: NDArray[np.float32]
+    blocking_km: NDArray[np.float32]
+    warnings: list[str]
+
+
+def compute_site_masks(
+    lat_deg: float, lon_deg: float, terrain: Sequence[Dem], errors: Sequence[Dem]
+) -> SiteMasks:
+    distances = ray_distances()
+    full = march(lat_deg, lon_deg, HEIGHTS_M, terrain, errors, distances)
+    far = march(
+        lat_deg,
+        lon_deg,
+        [FAR_ONLY_HEIGHT_M],
+        terrain,
+        errors,
+        distances[distances >= FAR_ONLY_START_M],
+    )
+    masks = np.concatenate(
+        [
+            np.stack([full.elevation_deg, full.low_deg, full.high_deg]),
+            np.stack([far.elevation_deg, far.low_deg, far.high_deg]),
+        ],
+        axis=1,
+    )
+    blocking = np.concatenate([full.blocking_km, far.blocking_km], axis=0)
+    warnings = list(dict.fromkeys([*full.warnings, *far.warnings]))
+    return SiteMasks(masks, blocking, warnings)
