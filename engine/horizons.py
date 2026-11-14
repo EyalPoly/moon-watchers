@@ -60,10 +60,17 @@ def _elevation_deg(
 
 
 def _peak(
-    target_radius: NDArray[np.float32], observer_m: float, theta: NDArray[np.float32]
+    height_m: NDArray[np.float32],
+    shift_m: NDArray[np.float32],
+    observer_m: float,
+    theta: NDArray[np.float32],
 ) -> NDArray[np.float32]:
-    delta_h = (target_radius.astype(np.float64) - MOON_RADIUS_M - observer_m).astype(np.float32)
-    return _elevation_deg(delta_h, target_radius, theta).max(axis=1)
+    # Heights, not radii: R + h in float32 is only good to 0.125 m, which
+    # near the observer is a visible fraction of a degree.
+    target = height_m.astype(np.float64) + shift_m
+    delta_h = (target - observer_m).astype(np.float32)
+    radius = (MOON_RADIUS_M + target).astype(np.float32)
+    return _elevation_deg(delta_h, radius, theta).max(axis=1)
 
 
 def march(
@@ -118,16 +125,14 @@ def march(
             raise ValueError("terrain exceeds the conservative elevation ceiling")
 
         radius_t = (MOON_RADIUS_M + h_t.astype(np.float64)).astype(np.float32)
-        radius_low = (MOON_RADIUS_M + h_t.astype(np.float64) - err).astype(np.float32)
-        radius_high = (MOON_RADIUS_M + h_t.astype(np.float64) + err).astype(np.float32)
         for i in range(n_h):
             delta_h = (h_t.astype(np.float64) - observer[i]).astype(np.float32)
             el = _elevation_deg(delta_h, radius_t, theta)
             el = np.where(np.isnan(el), -np.inf, el)
             nominal[i, sel] = np.maximum(el.max(axis=1), floor[i])
             blocking[i, sel] = distances_m[el.argmax(axis=1)] / 1000.0
-            low[i, sel] = np.maximum(_peak(radius_low, observer[i] + site_error, theta), floor[i])
-            high[i, sel] = np.maximum(_peak(radius_high, observer[i] - site_error, theta), floor[i])
+            low[i, sel] = np.maximum(_peak(h_t, -err, observer[i] + site_error, theta), floor[i])
+            high[i, sel] = np.maximum(_peak(h_t, err, observer[i] - site_error, theta), floor[i])
 
     warnings: list[str] = []
     if unknown.any():

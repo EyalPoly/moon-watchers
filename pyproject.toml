@@ -22,6 +22,10 @@ dev = [
     "types-pyyaml",
     "pyproj>=3.8.0",
 ]
+reference = [
+    "scipy>=1.18.1",
+    "shapely>=2.2.0",
+]
 
 [tool.uv]
 package = false

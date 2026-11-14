@@ -38,7 +38,7 @@ def error_path(dem: str) -> str:
     return dem.replace(".TIF", "_ERR.TIF")
 
 
-def _windows(
+def load_windows(
     site: Site, sources: Path, layers: list[Layer]
 ) -> tuple[list[Dem], list[Dem]]:
     x, y = project(site.lat_deg, site.lon_deg)
@@ -76,7 +76,7 @@ def build_bundle(catalog: dict[str, Site], sources: Path, out_dir: Path) -> Path
     try:
         site_warnings: dict[str, list[str]] = {}
         for site in catalog.values():
-            terrain, errors = _windows(site, sources, present)
+            terrain, errors = load_windows(site, sources, present)
             try:
                 masks = compute_site_masks(site.lat_deg, site.lon_deg, terrain, errors)
             except ValueError as error:
