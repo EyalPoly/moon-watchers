@@ -71,22 +71,22 @@ def test_horizon_ok(client: TestClient, bundle_dir: Path) -> None:
     response = client.get("/api/v1/sites/s1/horizon")
     body = response.json()
     assert response.status_code == 200
-    assert len(body["elevation_deg"]) == 720 and len(body["blocking_distance_km"]) == 720
-    assert body["height_m"] == 2 and body["part"] == "full"
+    assert len(body["elevation_deg"]) == 720 and len(body["distance_km"]) == 720
+    assert body["mast_m"] == 2 and body["part"] == "full"
     assert body["algo_version"] == json.loads((bundle_dir / "manifest.json").read_text())["algo_version"]
     assert all(v is not None for v in body["elevation_deg"])
 
 
 def test_far_part(client: TestClient, bundle_dir: Path) -> None:
-    body = client.get("/api/v1/sites/s1/horizon?part=far&height=7").json()
-    assert body["height_m"] is None
+    body = client.get("/api/v1/sites/s1/horizon?part=far&mast=7").json()
+    assert body["mast_m"] == 2.0
     masks = np.load(bundle_dir / "server" / "sites" / "s1" / "masks.npy")
     np.testing.assert_allclose(body["elevation_deg"], masks[0, 10], atol=1e-4)
 
 
 def test_height_changes_values(client: TestClient) -> None:
-    one = client.get("/api/v1/sites/s1/horizon?height=1").json()["elevation_deg"]
-    ten = client.get("/api/v1/sites/s1/horizon?height=10").json()["elevation_deg"]
+    one = client.get("/api/v1/sites/s1/horizon?mast=1").json()["elevation_deg"]
+    ten = client.get("/api/v1/sites/s1/horizon?mast=10").json()["elevation_deg"]
     assert one != ten
     assert all(b <= a for a, b in zip(one, ten, strict=True))
 
@@ -96,17 +96,22 @@ def test_unknown_direction_is_null(holed_bundle_dir: Path, catalog_path: Path) -
     response = client.get("/api/v1/sites/s1/horizon")
     assert "NaN" not in response.text
     body = response.json()
-    assert body["elevation_deg"][180] is None and body["blocking_distance_km"][180] is None
+    assert body["elevation_deg"][180] is None and body["distance_km"][180] is None
     assert body["elevation_deg"][540] is not None
     assert "DEM_GAPS" in body["warnings"]
 
 
-@pytest.mark.parametrize("height", ["0", "11", "2.5", "abc", ""])
-def test_bad_height(client: TestClient, height: str) -> None:
-    response = client.get(f"/api/v1/sites/s1/horizon?height={height}")
+@pytest.mark.parametrize("mast", ["0", "11", "abc", ""])
+def test_bad_mast(client: TestClient, mast: str) -> None:
+    response = client.get(f"/api/v1/sites/s1/horizon?mast={mast}")
     assert response.status_code == 422
     assert response.headers["content-type"].startswith("application/problem+json")
     assert response.json()["code"] == "INVALID_PARAM"
+
+
+def test_fractional_mast_serves_the_nearest_whole_metre(client: TestClient) -> None:
+    assert client.get("/api/v1/sites/s1/horizon?mast=2.4").json()["mast_m"] == 2.0
+    assert client.get("/api/v1/sites/s1/horizon?mast=2.6").json()["mast_m"] == 3.0
 
 
 def test_bad_part(client: TestClient) -> None:

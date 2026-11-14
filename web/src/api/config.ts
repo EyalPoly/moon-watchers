@@ -18,7 +18,16 @@ const appConfigSchema = z
   })
 
 export type AppConfig = z.infer<typeof appConfigSchema>
-export type SourceName = 'sites' | 'horizon' | 'summary' | 'meta'
+// meta follows sites, and series follows summary: each pair comes from one engine piece.
+// custom (POST /sites/custom) follows horizon: a custom point needs the terrain engine,
+// so it goes real together with the horizon, not with the catalog.
+export type SourceName = 'sites' | 'horizon' | 'summary' | 'meta' | 'series' | 'custom'
+
+const FOLLOWS: Partial<Record<SourceName, 'sites' | 'horizon' | 'summary'>> = {
+  meta: 'sites',
+  series: 'summary',
+  custom: 'horizon',
+}
 export type SourceMode = z.infer<typeof sourceMode>
 
 const ALL_SAMPLE: AppConfig = {
@@ -43,7 +52,8 @@ function forcedSample(search: string): boolean {
 
 export function resolveSource(config: AppConfig, name: SourceName, search: string): SourceMode {
   if (forcedSample(search)) return 'sample'
-  return config.sources[name === 'meta' ? 'sites' : name]
+  const key = FOLLOWS[name] ?? (name as 'sites' | 'horizon' | 'summary')
+  return config.sources[key]
 }
 
 export function anySample(config: AppConfig, search: string): boolean {

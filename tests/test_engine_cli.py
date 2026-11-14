@@ -44,9 +44,9 @@ def test_cli_matches_api(bundle_dir: Path, catalog_path: Path, tmp_path: Path) -
     run(bundle_dir, out, "--height", "5")
     _, rows = read_csv(out)
     api = TestClient(create_app(catalog_path=catalog_path, bundle_dir=bundle_dir))
-    body = api.get("/api/v1/sites/s1/horizon?height=5").json()
+    body = api.get("/api/v1/sites/s1/horizon?mast=5").json()
     assert [float(r["elevation_deg"]) for r in rows] == body["elevation_deg"]
-    assert [float(r["blocking_distance_km"]) for r in rows] == body["blocking_distance_km"]
+    assert [float(r["blocking_distance_km"]) for r in rows] == body["distance_km"]
 
 
 @pytest.fixture(scope="module")

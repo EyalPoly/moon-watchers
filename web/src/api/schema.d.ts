@@ -38,6 +38,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/scenario/series": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Series */
+        get: operations["get_series_api_v1_scenario_series_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/scenario/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Summary */
+        get: operations["get_summary_api_v1_scenario_summary_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/sites": {
         parameters: {
             query?: never;
@@ -49,6 +83,30 @@ export interface paths {
         get: operations["list_sites_api_v1_sites_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sites/custom": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Custom Site
+         * @description Contract only (slice S7): the engine builds the point's terrain and returns it as
+         *     a site whose id encodes the point, so the call is idempotent (spec §8.2).
+         *
+         *     Open decision for when the engine lands: CORS allows GET only, so a web app on
+         *     another origin cannot call this yet (tests/test_api_basic.py guards that).
+         */
+        post: operations["create_custom_site_api_v1_sites_custom_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -125,6 +183,37 @@ export interface components {
             /** Min Lat Deg */
             min_lat_deg: number;
         };
+        /**
+         * CustomPointRequest
+         * @description A point the user typed or picked, inside the region's custom-point area (spec §6.6).
+         */
+        CustomPointRequest: {
+            /** Lat Deg */
+            lat_deg: number;
+            /** Lon Deg */
+            lon_deg: number;
+        };
+        /** Daily */
+        Daily: {
+            /** Dte Pct */
+            dte_pct: number[];
+            /** Sun Pct */
+            sun_pct: number[];
+        };
+        /**
+         * EarthStation
+         * @description A ground station the lander can talk to directly (spec §7.3, P3).
+         */
+        EarthStation: {
+            /** Id */
+            id: string;
+            /** Lat Deg */
+            lat_deg: number;
+            /** Lon Deg */
+            lon_deg: number;
+            /** Name */
+            name: string;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -143,19 +232,19 @@ export interface components {
         /** HorizonResponse */
         HorizonResponse: {
             /** Algo Version */
-            algo_version: string;
+            algo_version?: string | null;
             /** Az Step Deg */
             az_step_deg: number;
-            /** Blocking Distance Km */
-            blocking_distance_km: (number | null)[];
+            /** Distance Km */
+            distance_km: (number | null)[];
             /** Elevation Deg */
             elevation_deg: (number | null)[];
-            /** Height M */
-            height_m: number | null;
             /** High Deg */
-            high_deg: (number | null)[];
+            high_deg?: (number | null)[] | null;
             /** Low Deg */
-            low_deg: (number | null)[];
+            low_deg?: (number | null)[] | null;
+            /** Mast M */
+            mast_m: number;
             /**
              * Part
              * @enum {string}
@@ -164,7 +253,7 @@ export interface components {
             /** Site Id */
             site_id: string;
             /** Warnings */
-            warnings: string[];
+            warnings?: string[] | null;
         };
         /** Layer */
         Layer: {
@@ -206,8 +295,46 @@ export interface components {
             mode: "event" | "judging";
             /** Regions */
             regions: components["schemas"]["Region"][];
+            /** Stations */
+            stations: components["schemas"]["EarthStation"][];
             /** Version */
             version: string;
+        };
+        /** Metrics */
+        Metrics: {
+            /** Both Pct */
+            both_pct: number;
+            /** Dte Pct */
+            dte_pct: number;
+            /** Earth El Range */
+            earth_el_range: [
+                number,
+                number
+            ];
+            /** First Dark After Landing H */
+            first_dark_after_landing_h: number;
+            /** Longest Dark H */
+            longest_dark_h: number;
+            /** Longest No Contact H */
+            longest_no_contact_h: number;
+            /** Sun Pct */
+            sun_pct: number;
+        };
+        /** Rag */
+        Rag: {
+            dte: components["schemas"]["RagChip"];
+            slope: components["schemas"]["RagChip"];
+            sun: components["schemas"]["RagChip"];
+        };
+        /** RagChip */
+        RagChip: {
+            /**
+             * Color
+             * @enum {string}
+             */
+            color: "green" | "amber" | "red";
+            /** Reason */
+            reason: string;
         };
         /** Region */
         Region: {
@@ -228,6 +355,109 @@ export interface components {
             /** Proj4 */
             proj4: string;
             tile_grid: components["schemas"]["TileGrid"];
+        };
+        /** Scenario */
+        Scenario: {
+            /** Days */
+            days: number;
+            /** Mast */
+            mast: number;
+            /** Site */
+            site: string;
+            /**
+             * Station
+             * @enum {string}
+             */
+            station: "any" | "goldstone" | "madrid" | "canberra" | "custom";
+            /** Station Lat Deg */
+            station_lat_deg?: number | null;
+            /** Station Lon Deg */
+            station_lon_deg?: number | null;
+            /** T0 */
+            t0: string;
+            /** W */
+            w: [
+                number,
+                number,
+                number,
+                number
+            ];
+        };
+        /** Score */
+        Score: {
+            /** Base */
+            base: number;
+            /**
+             * Color
+             * @enum {string}
+             */
+            color: "green" | "amber" | "red";
+            /** Deciding */
+            deciding: string;
+            /** Factors */
+            factors: components["schemas"]["ScoreFactor"][];
+            /** Formula */
+            formula: string;
+            /** Value */
+            value: number;
+            weights: components["schemas"]["ScoreWeights"];
+        };
+        /** ScoreFactor */
+        ScoreFactor: {
+            /** Name */
+            name: string;
+            /** Points */
+            points: number;
+            /** Reason */
+            reason: string;
+            /** Weight */
+            weight: number;
+        };
+        /** ScoreWeights */
+        ScoreWeights: {
+            /** Dte */
+            dte: number;
+            /** Dust */
+            dust: number;
+            /** Slope */
+            slope: number;
+            /** Sun */
+            sun: number;
+        };
+        /** SeriesResponse */
+        SeriesResponse: {
+            /** Earth Az */
+            earth_az: number[];
+            /** Earth El */
+            earth_el: number[];
+            /** Earth Horizon El */
+            earth_horizon_el: number[];
+            /** Earth Station Up */
+            earth_station_up: boolean[];
+            /** Earth Vis El */
+            earth_vis_el: number[];
+            /** Earth Visible */
+            earth_visible: boolean[];
+            /** N */
+            n: number;
+            /** Power W */
+            power_w?: number[] | null;
+            /** Soc Pct */
+            soc_pct?: number[] | null;
+            /** Start */
+            start: string;
+            /** Step S */
+            step_s: number;
+            /** Sun Az */
+            sun_az: number[];
+            /** Sun El */
+            sun_el: number[];
+            /** Sun Horizon El */
+            sun_horizon_el: number[];
+            /** Sun Lit Frac */
+            sun_lit_frac: number[];
+            /** Sun Vis El */
+            sun_vis_el: number[];
         };
         /** Site */
         Site: {
@@ -264,6 +494,22 @@ export interface components {
             /** Sites */
             sites: components["schemas"]["Site"][];
         };
+        /** SummaryResponse */
+        SummaryResponse: {
+            daily: components["schemas"]["Daily"];
+            metrics: components["schemas"]["Metrics"];
+            rag: components["schemas"]["Rag"];
+            scenario: components["schemas"]["Scenario"];
+            score: components["schemas"]["Score"];
+            /** Version */
+            version: string;
+            /**
+             * Warnings
+             * @default []
+             */
+            warnings: components["schemas"]["Warning"][];
+            windows: components["schemas"]["Windows"];
+        };
         /** TileGrid */
         TileGrid: {
             /** Origin */
@@ -288,6 +534,31 @@ export interface components {
             msg: string;
             /** Error Type */
             type: string;
+        };
+        /** Warning */
+        Warning: {
+            /** Code */
+            code: string;
+            /** Text */
+            text: string;
+        };
+        /** Windows */
+        Windows: {
+            /** Both */
+            both: [
+                string,
+                string
+            ][];
+            /** Dte */
+            dte: [
+                string,
+                string
+            ][];
+            /** Sun */
+            sun: [
+                string,
+                string
+            ][];
         };
     };
     responses: never;
@@ -338,6 +609,85 @@ export interface operations {
             };
         };
     };
+    get_series_api_v1_scenario_series_get: {
+        parameters: {
+            query: {
+                site: string;
+                t0: string;
+                month: string;
+                days?: number;
+                mast?: number;
+                w?: string;
+                station?: "any" | "goldstone" | "madrid" | "canberra" | "custom";
+                station_lat?: number | null;
+                station_lon?: number | null;
+                v?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SeriesResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_summary_api_v1_scenario_summary_get: {
+        parameters: {
+            query: {
+                site: string;
+                t0: string;
+                days?: number;
+                mast?: number;
+                w?: string;
+                station?: "any" | "goldstone" | "madrid" | "canberra" | "custom";
+                station_lat?: number | null;
+                station_lon?: number | null;
+                v?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SummaryResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_sites_api_v1_sites_get: {
         parameters: {
             query?: never;
@@ -354,6 +704,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SitesResponse"];
+                };
+            };
+        };
+    };
+    create_custom_site_api_v1_sites_custom_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CustomPointRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Site"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -392,9 +775,9 @@ export interface operations {
     get_horizon_api_v1_sites__site_id__horizon_get: {
         parameters: {
             query?: {
-                height?: number;
+                mast?: number;
                 part?: "full" | "far";
-                v?: string | null;
+                v?: string;
             };
             header?: never;
             path: {

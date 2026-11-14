@@ -1,5 +1,6 @@
 import argparse
 import json
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -9,7 +10,7 @@ from pathlib import Path
 from pydantic import BaseModel, ValidationError
 
 from api.main import create_app
-from api.models import Health, HorizonResponse, Meta, Site, SitesResponse
+from api.models import Health, HorizonResponse, Meta, Site, SitesResponse, SummaryResponse
 
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_OPENAPI = ROOT / "contract" / "openapi.json"
@@ -22,6 +23,7 @@ SAMPLE_MODELS: dict[str, type[BaseModel]] = {
     "sites.json": SitesResponse,
     "sites/*.json": Site,
     "horizon/*.json": HorizonResponse,
+    "summary/*.json": SummaryResponse,
 }
 
 
@@ -36,7 +38,8 @@ def render_openapi() -> str:
 def render_types(openapi_path: Path, out: Path) -> None:
     subprocess.run(
         [
-            "pnpm", "--dir", str(ROOT / "web"), "exec", "openapi-typescript",
+            # On Windows pnpm is pnpm.cmd, which CreateProcess won't find by bare name.
+            shutil.which("pnpm") or "pnpm", "--dir", str(ROOT / "web"), "exec", "openapi-typescript",
             str(openapi_path), "-o", str(out),
         ],
         check=True,

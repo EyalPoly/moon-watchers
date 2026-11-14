@@ -70,3 +70,9 @@ test('an all-sample config may have an empty api_base', async () => {
   )
   expect((await loadConfig('/config.json')).sources.sites).toBe('sample')
 })
+
+test('custom points follow the horizon switch, since they need the terrain engine', () => {
+  const config = { api_base: 'https://api.example', sources: { sites: 'real', horizon: 'sample', summary: 'sample' } } as const
+  expect(resolveSource(config, 'custom', '')).toBe('sample')
+  expect(resolveSource({ ...config, sources: { ...config.sources, horizon: 'real' } }, 'custom', '')).toBe('real')
+})

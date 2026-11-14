@@ -74,15 +74,11 @@ def test_each_site_sample_matches_the_list() -> None:
 def horizon_data(**overrides: Any) -> dict[str, Any]:
     data: dict[str, Any] = {
         "site_id": "sample_a",
-        "height_m": 2,
+        "mast_m": 2,
         "part": "full",
         "az_step_deg": 0.5,
         "elevation_deg": [0.0] * 720,
-        "low_deg": [-0.05] * 720,
-        "high_deg": [0.05] * 720,
-        "blocking_distance_km": [1.0] * 720,
-        "algo_version": "sample",
-        "warnings": [],
+        "distance_km": [1.0] * 720,
     }
     data.update(overrides)
     return data
@@ -99,15 +95,11 @@ def test_horizon_requires_720_values() -> None:
         HorizonResponse.model_validate(horizon_data(elevation_deg=[0.0] * 719))
 
 
-def test_far_part_has_no_height() -> None:
+def test_horizon_bounds_and_warnings_are_optional() -> None:
+    model = HorizonResponse.model_validate(horizon_data())
+    assert model.low_deg is None and model.warnings is None
     with pytest.raises(ValidationError):
-        HorizonResponse.model_validate(horizon_data(part="far", height_m=2))
-    HorizonResponse.model_validate(horizon_data(part="far", height_m=None))
-
-
-def test_full_part_needs_height() -> None:
-    with pytest.raises(ValidationError):
-        HorizonResponse.model_validate(horizon_data(height_m=None))
+        HorizonResponse.model_validate(horizon_data(low_deg=[0.0] * 10))
 
 
 def test_unknown_direction_is_null() -> None:
