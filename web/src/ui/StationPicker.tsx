@@ -54,9 +54,12 @@ export function StationPicker({ value, stations, onChange }: StationPickerProps)
         </select>
       </label>
       {customOpen && (
-        <form
+        // Not a <form>: the picker sits inside the point card's form, and a nested form
+        // would submit (apply) the whole card. Enter in a field uses the coordinates.
+        <div
           className="station-custom"
-          onSubmit={(e) => {
+          onKeyDown={(e) => {
+            if (e.key !== 'Enter') return
             e.preventDefault()
             apply()
           }}
@@ -85,13 +88,13 @@ export function StationPicker({ value, stations, onChange }: StationPickerProps)
               aria-label="Station longitude"
             />
           </label>
-          <button type="submit" className="secondary" disabled={!valid || !changed}>
+          <button type="button" className="secondary" onClick={apply} disabled={!valid || !changed}>
             Use
           </button>
           {(lat !== '' && latV === null) || (lon !== '' && lonV === null) ? (
             <p className="field-error">Latitude −90 to 90, longitude −180 to 180.</p>
           ) : null}
-        </form>
+        </div>
       )}
     </div>
   )

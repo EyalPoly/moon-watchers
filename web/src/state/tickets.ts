@@ -44,7 +44,7 @@ export interface Ticket extends EarthStationChoice {
 
 export interface Screen2State {
   tickets: Ticket[]
-  /** Index of the ticket shown open in the side panel. */
+  /** Index of the ticket shown open in the side panel; -1 when all are collapsed. */
   open: number
   /** Mission elapsed time being viewed, in minutes, shared by every ticket (spec §9.2). */
   tau: number
@@ -154,7 +154,7 @@ export function parseScreen2(search: string): Screen2State {
   const tau = Number.isFinite(tauRaw) && tauRaw > 0 ? Math.min(maxTau(tickets), Math.round(tauRaw / 10) * 10) : 0
   return {
     tickets,
-    open: Number.isInteger(open) && open >= 0 && open < tickets.length ? open : 0,
+    open: Number.isInteger(open) && open >= -1 && open < tickets.length ? open : 0,
     tau,
     compare: params.get('view') === 'compare' && comparableCount(tickets) >= 2,
   }

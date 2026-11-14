@@ -31,3 +31,9 @@ test('tickets for picked areas copy the source ticket and open the first new one
   expect(s.open).toBe(1)
   expect(s.tickets[1]).toEqual({ ...base, site: 'pt_s87000_e010000', name: 'Area #1', view: 'map', shown: true })
 })
+
+test('all cards can be collapsed (open = -1), and that survives the URL', () => {
+  const s: Screen2State = { tickets: [{ ...EMPTY_TICKET, site: 'sample_a' }], open: -1, tau: 0, compare: false }
+  expect(parseScreen2(serializeScreen2(s)).open).toBe(-1)
+  expect(parseScreen2('?tk=sample_a&open=-2').open).toBe(0)
+})
