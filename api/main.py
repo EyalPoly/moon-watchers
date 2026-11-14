@@ -5,6 +5,7 @@ from typing import Annotated, Literal
 import numpy as np
 from fastapi import FastAPI, Query, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from numpy.typing import NDArray
 
 from api.bundle import Bundle, load_bundle
@@ -20,8 +21,12 @@ from api.models import (
     SitesResponse,
     SummaryResponse,
 )
+from api.series_json import series_response
 from api.scenario import DEFAULT_STATION, Antenna, Days, Mast, MonthParam, Panel, StationParam, parse_station
 from engine import __version__
+from engine.geometry import OutOfRange, Station
+from engine.horizons import mask_at_height
+from engine.series import compute_series, month_times
 
 SHORT_CACHE = "public, max-age=60"
 IMMUTABLE_CACHE = "public, max-age=31536000, immutable"
@@ -46,6 +51,7 @@ def create_app(
     app = FastAPI(title="CLPS Lunar Mission Browser API", version=__version__, redirect_slashes=False)
     install_error_handlers(app)
     app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["GET"])
+    app.add_middleware(GZipMiddleware, minimum_size=1000)
 
     @app.get("/api/v1/health")
     def health(response: Response) -> Health:
@@ -101,25 +107,30 @@ def create_app(
             raise ApiError(503, "FEATURE_DISABLED", "no horizon bundle is configured")
         if v:
             response.headers["Cache-Control"] = IMMUTABLE_CACHE
-        # The bundle holds whole-metre masts; mast_m reports the one served.
-        served = min(10, max(1, int(mast + 0.5)))
-        row = FAR_ROW if part == "far" else served - 1
         masks = bundle.masks[site_id]
+        if part == "far":
+            row = FAR_ROW
+            shown = masks[:, row]
+        else:
+            # Blocking distances don't blend: they come from the nearer whole-metre row.
+            row = min(10, max(1, int(mast + 0.5))) - 1
+            shown = mask_at_height(masks, mast)
         return HorizonResponse(
             site_id=site_id,
-            mast_m=FAR_MAST_M if part == "far" else float(served),
+            mast_m=FAR_MAST_M if part == "far" else mast,
             part=part,
             az_step_deg=0.5,
-            elevation_deg=_nullable(masks[0, row], 4),
+            elevation_deg=_nullable(shown[0], 4),
             distance_km=_nullable(bundle.blocking[site_id][row], 3),
-            low_deg=_nullable(masks[1, row], 4),
-            high_deg=_nullable(masks[2, row], 4),
+            low_deg=_nullable(shown[1], 4),
+            high_deg=_nullable(shown[2], 4),
             algo_version=bundle.algo_version,
             warnings=bundle.warnings.get(site_id, []),
         )
 
     @app.get("/api/v1/scenario/series")
     def get_series(
+        response: Response,
         site: str,
         t0: T0,
         month: MonthParam,
@@ -130,8 +141,33 @@ def create_app(
         station: StationParam = DEFAULT_STATION,
         v: str = "",
     ) -> SeriesResponse:
-        parse_station(station)
-        raise ApiError(503, "FEATURE_DISABLED", ENGINE_PENDING)
+        point = parse_station(station)
+        entry = catalog.get(site)
+        if entry is None:
+            raise ApiError(404, "INVALID_PARAM", "unknown site id")
+        if bundle is None:
+            raise ApiError(503, "FEATURE_DISABLED", "no horizon bundle is configured")
+        try:
+            start, n = month_times(month)
+            masks = bundle.masks[site]
+            arrays = compute_series(
+                bundle.ephemeris,
+                entry.lat_deg,
+                entry.lon_deg,
+                entry.elevation_m,
+                mask_at_height(masks, panel)[0].astype(np.float64),
+                mask_at_height(masks, antenna)[0].astype(np.float64),
+                panel,
+                antenna,
+                Station(point.lat_deg, point.lon_deg, point.alt_m, point.min_el_deg),
+                start,
+                n,
+            )
+        except (OutOfRange, ValueError, OverflowError) as error:
+            raise ApiError(422, "OUT_OF_TIME_RANGE", f"no ephemeris for month {month}") from error
+        if v:
+            response.headers["Cache-Control"] = IMMUTABLE_CACHE
+        return series_response(arrays, start, n)
 
     @app.get("/api/v1/scenario/summary")
     def get_summary(

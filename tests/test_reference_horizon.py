@@ -4,7 +4,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from engine.horizons import march, ray_distances
+from engine.horizons import compute_site_masks, march, mask_at_height, ray_distances
 from engine.terrain import Dem, load_dem
 
 PROTOTYPE = Path("MenasimMoonV2")
@@ -81,3 +81,23 @@ def test_matches_prototype_build_horizon(
     for ours_bound, theirs in ((result.low_deg[0], reference.low_deg), (result.high_deg[0], reference.high_deg)):
         assert np.array_equal(np.isnan(ours_bound), np.isnan(theirs))
         assert np.nanmax(np.abs(ours_bound - theirs)) < 0.002
+
+
+@pytest.mark.parametrize(("lat", "lon"), [(-89.0, 0.0), (-89.0, 8.0)])
+def test_mask_at_height_on_real_terrain(lat: float, lon: float) -> None:
+    terrain, errors = ours(LAYERS["terrain"]), ours(LAYERS["error"])
+    masks = compute_site_masks(lat, lon, terrain, errors).masks_deg
+    worst = 0.0
+    for height in (2.5, 2.55):
+        direct = march(lat, lon, [height], terrain, errors, ray_distances()).elevation_deg[0]
+        blend = mask_at_height(masks, height)[0]
+        finite = np.isfinite(direct)
+        assert np.array_equal(finite, np.isfinite(blend))
+        difference = blend[finite] - direct[finite]
+        worst = max(worst, float(np.abs(difference).max()))
+        # A few directions, where the skyline switches between a near ridge and a far one as the
+        # height changes, overshoot by up to about 0.05 degrees; the rest agree within 0.01.
+        assert np.abs(difference).max() < 0.06
+        assert np.mean(np.abs(difference) < 0.01) > 0.97
+        assert difference.min() > -1e-3
+    print(f"blend error at ({lat}, {lon}): max {worst:.5f} deg")

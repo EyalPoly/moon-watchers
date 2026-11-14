@@ -110,9 +110,27 @@ def test_bad_mast(client: TestClient, mast: str) -> None:
     assert response.json()["code"] == "INVALID_PARAM"
 
 
-def test_fractional_mast_serves_the_nearest_whole_metre(client: TestClient) -> None:
-    assert client.get("/api/v1/sites/s1/horizon?mast=2.4").json()["mast_m"] == 2.0
-    assert client.get("/api/v1/sites/s1/horizon?mast=2.6").json()["mast_m"] == 3.0
+def test_centimetre_mast(client: TestClient) -> None:
+    def elevation(mast: str) -> list[float]:
+        return client.get(f"/api/v1/sites/s1/horizon?mast={mast}").json()["elevation_deg"]
+
+    body = client.get("/api/v1/sites/s1/horizon?mast=2.5").json()
+    assert body["mast_m"] == 2.5
+    two, mid, three = elevation("2"), body["elevation_deg"], elevation("3")
+    assert all(b <= m <= a for a, m, b in zip(two, mid, three, strict=True))
+    assert mid != two and mid != three
+
+
+def test_whole_metre_mast_is_the_stored_row(client: TestClient, bundle_dir: Path) -> None:
+    masks = np.load(bundle_dir / "server" / "sites" / "s1" / "masks.npy")
+    body = client.get("/api/v1/sites/s1/horizon?mast=3").json()
+    np.testing.assert_allclose(body["elevation_deg"], masks[0, 2], atol=1e-4)
+
+
+@pytest.mark.parametrize("mast", ["2.555", "2.001", "10.01", "0.99"])
+def test_mast_finer_than_cm_is_422(client: TestClient, mast: str) -> None:
+    response = client.get(f"/api/v1/sites/s1/horizon?mast={mast}")
+    assert response.status_code == 422 and response.json()["code"] == "INVALID_PARAM"
 
 
 def test_bad_part(client: TestClient) -> None:

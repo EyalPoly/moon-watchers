@@ -186,3 +186,19 @@ def compute_site_masks(
     blocking = np.concatenate([full.blocking_km, far.blocking_km], axis=0)
     warnings = list(dict.fromkeys([*full.warnings, *far.warnings]))
     return SiteMasks(masks, blocking, warnings)
+
+
+def mask_at_height(masks_deg: NDArray[np.float32], height_m: float) -> NDArray[np.float32]:
+    """Nominal, low and high skylines at any height from 1 to 10 m, blended linearly between the
+    two whole-metre rows. The terrain angles are almost linear in height, and the skyline is their
+    maximum, so the blend sits at or just above the true value. The far-only row is never read."""
+    below = min(int(np.floor(height_m)), HEIGHTS_M_COUNT - 1)
+    weight = np.float32(height_m - below)
+    first = masks_deg[:, below - 1]
+    if weight == 0:
+        return first.copy()
+    blended: NDArray[np.float32] = (1 - weight) * first + weight * masks_deg[:, below]
+    return blended.astype(np.float32)
+
+
+HEIGHTS_M_COUNT = len(HEIGHTS_M)
