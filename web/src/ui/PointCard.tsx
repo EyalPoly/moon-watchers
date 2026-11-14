@@ -176,12 +176,14 @@ export function PointCard(props: PointCardProps) {
   }, [series.data, nowMs])
   const status = statusOf(live, site)
 
-  // Edits stay in the card until applied. A new ticket from outside (Back, another card's
-  // apply) resets them: the key below changes with the ticket.
-  const ticketKey = JSON.stringify(ticket) + (site?.id ?? '')
-  const [draftState, setDraftState] = useState({ key: ticketKey, draft: draftOf(ticket, site) })
-  const draft = draftState.key === ticketKey ? draftState.draft : draftOf(ticket, site)
-  const setDraft = (patch: Partial<Draft>) => setDraftState({ key: ticketKey, draft: { ...draft, ...patch } })
+  // Edits stay in the card until applied, layered over what the ticket and site give. A new
+  // ticket from outside (Back, another card's apply) discards them; the site arriving from the
+  // catalog does not, so typing during load is not lost.
+  const ticketKey = JSON.stringify(ticket)
+  const [edits, setEdits] = useState<{ key: string; fields: Partial<Draft> }>({ key: ticketKey, fields: {} })
+  const own = edits.key === ticketKey ? edits.fields : {}
+  const draft: Draft = { ...draftOf(ticket, site), ...own }
+  const setDraft = (patch: Partial<Draft>) => setEdits({ key: ticketKey, fields: { ...own, ...patch } })
   const { patch, error } = resolve(draft)
   const pending = changed(ticket, patch)
   const canApply = pending && error === null && patch.site !== null

@@ -10,6 +10,7 @@ const card = (page: Page, letter: string) => page.getByRole('region', { name: ne
 test('a point can be named, and the name shows on its card and stays in the link', async ({ page, context }) => {
   await stubTiles(context)
   await page.goto('/?site=sample_a')
+  await expect(page.getByRole('heading', { name: /Sample site A/ })).toBeVisible()
   await page.getByRole('textbox', { name: 'Point name' }).fill('Shackleton plan B')
   await page.getByRole('button', { name: /Apply point A/ }).click()
   await expect(page).toHaveURL(/n%3AShackleton\+plan\+B/)
