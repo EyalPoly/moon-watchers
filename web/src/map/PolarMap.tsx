@@ -1,6 +1,8 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import 'ol/ol.css'
 import Feature from 'ol/Feature'
+import { platformModifierKeyOnly } from 'ol/events/condition'
+import { MouseWheelZoom, defaults as defaultInteractions } from 'ol/interaction'
 import OlMap from 'ol/Map'
 import View from 'ol/View'
 import { Circle as CircleGeometry } from 'ol/geom'
@@ -21,6 +23,9 @@ export interface PolarMapProps {
   onBasemapError?: () => void
   tileLoader?: TileLoader
   onMapReady?: (map: OlMap) => void
+  /** With several maps on a scrolling page, plain scrolling moves the page and only
+   *  Ctrl (Cmd on a Mac) + scroll zooms the map. */
+  wheelNeedsModifier?: boolean
   children?: ReactNode
 }
 
@@ -30,7 +35,14 @@ export function useMap(): OlMap | null {
   return useContext(MapContext)
 }
 
-export function PolarMap({ region, onBasemapError, tileLoader, onMapReady, children }: PolarMapProps) {
+export function PolarMap({
+  region,
+  onBasemapError,
+  tileLoader,
+  onMapReady,
+  wheelNeedsModifier = false,
+  children,
+}: PolarMapProps) {
   const container = useRef<HTMLDivElement>(null)
   const [map, setMap] = useState<OlMap | null>(null)
   const [basemapFailed, setBasemapFailed] = useState(false)
@@ -40,6 +52,16 @@ export function PolarMap({ region, onBasemapError, tileLoader, onMapReady, child
   onErrorRef.current = onBasemapError
   onReadyRef.current = onMapReady
   tileLoaderRef.current = tileLoader
+  const wheelRef = useRef(wheelNeedsModifier)
+  useEffect(() => {
+    wheelRef.current = wheelNeedsModifier
+  }, [wheelNeedsModifier])
+  const [wheelHint, setWheelHint] = useState(false)
+  useEffect(() => {
+    if (!wheelHint) return
+    const timer = setTimeout(() => setWheelHint(false), 1500)
+    return () => clearTimeout(timer)
+  }, [wheelHint])
 
   useEffect(() => {
     if (!container.current) return
@@ -95,6 +117,9 @@ export function PolarMap({ region, onBasemapError, tileLoader, onMapReady, child
     const created = new OlMap({
       target: container.current,
       layers,
+      interactions: defaultInteractions({ mouseWheelZoom: false }).extend([
+        new MouseWheelZoom({ condition: (e) => !wheelRef.current || platformModifierKeyOnly(e) }),
+      ]),
       view: new View({
         projection,
         center: [0, 0],
@@ -113,11 +138,22 @@ export function PolarMap({ region, onBasemapError, tileLoader, onMapReady, child
   }, [region])
 
   return (
-    <div className="polar-map" style={{ position: 'relative', width: '100%', height: '100%', background: '#0b0d10' }}>
+    <div
+      className="polar-map"
+      style={{ position: 'relative', width: '100%', height: '100%', background: '#0b0d10' }}
+      onWheel={(e) => {
+        if (wheelNeedsModifier && !e.ctrlKey && !e.metaKey) setWheelHint(true)
+      }}
+    >
       <div ref={container} style={{ position: 'absolute', inset: 0 }} />
       {basemapFailed && (
         <div role="alert" className="basemap-unavailable" style={{ position: 'absolute', left: 12, top: 12, color: '#e5e7eb' }}>
           Basemap unavailable
+        </div>
+      )}
+      {wheelHint && (
+        <div className="map-wheel-hint" role="status">
+          Ctrl + scroll to zoom the map
         </div>
       )}
       <MapContext.Provider value={map}>{children}</MapContext.Provider>

@@ -1,0 +1,156 @@
+{
+  "scenario": {
+    "site": "sample_b",
+    "t0": "2027-03-01T00:00Z",
+    "days": 29.53,
+    "mast": 2,
+    "w": [
+      1,
+      1,
+      1,
+      0
+    ],
+    "station": "any"
+  },
+  "version": "sample",
+  "metrics": {
+    "sun_pct": 0,
+    "dte_pct": 34.7,
+    "both_pct": 0,
+    "longest_dark_h": 708.7,
+    "longest_no_contact_h": 459.2,
+    "first_dark_after_landing_h": 0,
+    "earth_el_range": [
+      -7,
+      6.2
+    ]
+  },
+  "rag": {
+    "sun": {
+      "color": "red",
+      "reason": "Sun visible 0% of the mission (green ≥ 60%, red < 30%)"
+    },
+    "dte": {
+      "color": "amber",
+      "reason": "Earth in contact 34.7% of the mission (green ≥ 60%, red < 30%)"
+    },
+    "slope": {
+      "color": "green",
+      "reason": "Slope 2.1° (green ≤ 5°, red > 10°)"
+    }
+  },
+  "score": {
+    "value": 0,
+    "base": 0,
+    "weights": {
+      "sun": 1,
+      "dte": 1,
+      "slope": 1,
+      "dust": 0
+    },
+    "factors": [
+      {
+        "name": "sun",
+        "weight": 1,
+        "points": -60.5,
+        "reason": "Sun visible 0% of the mission"
+      },
+      {
+        "name": "dte",
+        "weight": 1,
+        "points": -39.5,
+        "reason": "Earth in contact 34.7% of the mission"
+      },
+      {
+        "name": "slope",
+        "weight": 1,
+        "points": 0,
+        "reason": "Slope 2.1°"
+      }
+    ],
+    "deciding": "sun",
+    "formula": "interim: base = share of time with every weighted body visible; score = base − slope penalty",
+    "color": "red"
+  },
+  "windows": {
+    "sun": [],
+    "dte": [
+      [
+        "2027-03-01T03:20Z",
+        "2027-03-09T04:40Z"
+      ],
+      [
+        "2027-03-28T07:50Z",
+        "2027-03-30T12:40Z"
+      ]
+    ],
+    "both": []
+  },
+  "daily": {
+    "sun_pct": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "dte_pct": [
+      86.1,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      19.4,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      67.4,
+      100,
+      100
+    ]
+  },
+  "warnings": []
+}

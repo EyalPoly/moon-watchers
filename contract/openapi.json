@@ -82,6 +82,87 @@
         "title": "CustomArea",
         "type": "object"
       },
+      "CustomPointRequest": {
+        "description": "A point the user typed or picked, inside the region's custom-point area (spec \u00a76.6).",
+        "properties": {
+          "lat_deg": {
+            "maximum": 90.0,
+            "minimum": -90.0,
+            "title": "Lat Deg",
+            "type": "number"
+          },
+          "lon_deg": {
+            "maximum": 180.0,
+            "minimum": -180.0,
+            "title": "Lon Deg",
+            "type": "number"
+          }
+        },
+        "required": [
+          "lat_deg",
+          "lon_deg"
+        ],
+        "title": "CustomPointRequest",
+        "type": "object"
+      },
+      "Daily": {
+        "properties": {
+          "dte_pct": {
+            "items": {
+              "type": "number"
+            },
+            "title": "Dte Pct",
+            "type": "array"
+          },
+          "sun_pct": {
+            "items": {
+              "type": "number"
+            },
+            "title": "Sun Pct",
+            "type": "array"
+          }
+        },
+        "required": [
+          "sun_pct",
+          "dte_pct"
+        ],
+        "title": "Daily",
+        "type": "object"
+      },
+      "EarthStation": {
+        "description": "A ground station the lander can talk to directly (spec \u00a77.3, P3).",
+        "properties": {
+          "id": {
+            "pattern": "^[a-z0-9_]{1,32}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "lat_deg": {
+            "maximum": 90.0,
+            "minimum": -90.0,
+            "title": "Lat Deg",
+            "type": "number"
+          },
+          "lon_deg": {
+            "maximum": 180.0,
+            "minimum": -180.0,
+            "title": "Lon Deg",
+            "type": "number"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "lat_deg",
+          "lon_deg"
+        ],
+        "title": "EarthStation",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -112,6 +193,58 @@
           "version"
         ],
         "title": "Health",
+        "type": "object"
+      },
+      "HorizonResponse": {
+        "properties": {
+          "az_step_deg": {
+            "title": "Az Step Deg",
+            "type": "number"
+          },
+          "distance_km": {
+            "items": {
+              "type": "number"
+            },
+            "maxItems": 720,
+            "minItems": 720,
+            "title": "Distance Km",
+            "type": "array"
+          },
+          "elevation_deg": {
+            "items": {
+              "type": "number"
+            },
+            "maxItems": 720,
+            "minItems": 720,
+            "title": "Elevation Deg",
+            "type": "array"
+          },
+          "mast_m": {
+            "title": "Mast M",
+            "type": "number"
+          },
+          "part": {
+            "enum": [
+              "full",
+              "far"
+            ],
+            "title": "Part",
+            "type": "string"
+          },
+          "site_id": {
+            "title": "Site Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "site_id",
+          "mast_m",
+          "part",
+          "az_step_deg",
+          "elevation_deg",
+          "distance_km"
+        ],
+        "title": "HorizonResponse",
         "type": "object"
       },
       "Layer": {
@@ -220,6 +353,13 @@
             "title": "Regions",
             "type": "array"
           },
+          "stations": {
+            "items": {
+              "$ref": "#/components/schemas/EarthStation"
+            },
+            "title": "Stations",
+            "type": "array"
+          },
           "version": {
             "title": "Version",
             "type": "string"
@@ -231,9 +371,106 @@
           "mode",
           "regions",
           "capabilities",
-          "limits"
+          "limits",
+          "stations"
         ],
         "title": "Meta",
+        "type": "object"
+      },
+      "Metrics": {
+        "properties": {
+          "both_pct": {
+            "title": "Both Pct",
+            "type": "number"
+          },
+          "dte_pct": {
+            "title": "Dte Pct",
+            "type": "number"
+          },
+          "earth_el_range": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "title": "Earth El Range",
+            "type": "array"
+          },
+          "first_dark_after_landing_h": {
+            "title": "First Dark After Landing H",
+            "type": "number"
+          },
+          "longest_dark_h": {
+            "title": "Longest Dark H",
+            "type": "number"
+          },
+          "longest_no_contact_h": {
+            "title": "Longest No Contact H",
+            "type": "number"
+          },
+          "sun_pct": {
+            "title": "Sun Pct",
+            "type": "number"
+          }
+        },
+        "required": [
+          "sun_pct",
+          "dte_pct",
+          "both_pct",
+          "longest_dark_h",
+          "longest_no_contact_h",
+          "first_dark_after_landing_h",
+          "earth_el_range"
+        ],
+        "title": "Metrics",
+        "type": "object"
+      },
+      "Rag": {
+        "properties": {
+          "dte": {
+            "$ref": "#/components/schemas/RagChip"
+          },
+          "slope": {
+            "$ref": "#/components/schemas/RagChip"
+          },
+          "sun": {
+            "$ref": "#/components/schemas/RagChip"
+          }
+        },
+        "required": [
+          "sun",
+          "dte",
+          "slope"
+        ],
+        "title": "Rag",
+        "type": "object"
+      },
+      "RagChip": {
+        "properties": {
+          "color": {
+            "enum": [
+              "green",
+              "amber",
+              "red"
+            ],
+            "title": "Color",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "color",
+          "reason"
+        ],
+        "title": "RagChip",
         "type": "object"
       },
       "Region": {
@@ -294,6 +531,344 @@
           "custom_area"
         ],
         "title": "Region",
+        "type": "object"
+      },
+      "Scenario": {
+        "properties": {
+          "days": {
+            "maximum": 365.0,
+            "minimum": 1.0,
+            "title": "Days",
+            "type": "number"
+          },
+          "mast": {
+            "maximum": 10.0,
+            "minimum": 1.0,
+            "title": "Mast",
+            "type": "number"
+          },
+          "site": {
+            "title": "Site",
+            "type": "string"
+          },
+          "station": {
+            "enum": [
+              "any",
+              "goldstone",
+              "madrid",
+              "canberra",
+              "custom"
+            ],
+            "title": "Station",
+            "type": "string"
+          },
+          "station_lat_deg": {
+            "anyOf": [
+              {
+                "maximum": 90.0,
+                "minimum": -90.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Station Lat Deg"
+          },
+          "station_lon_deg": {
+            "anyOf": [
+              {
+                "maximum": 180.0,
+                "minimum": -180.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Station Lon Deg"
+          },
+          "t0": {
+            "title": "T0",
+            "type": "string"
+          },
+          "w": {
+            "maxItems": 4,
+            "minItems": 4,
+            "prefixItems": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "title": "W",
+            "type": "array"
+          }
+        },
+        "required": [
+          "site",
+          "t0",
+          "days",
+          "mast",
+          "w",
+          "station"
+        ],
+        "title": "Scenario",
+        "type": "object"
+      },
+      "Score": {
+        "properties": {
+          "base": {
+            "title": "Base",
+            "type": "number"
+          },
+          "color": {
+            "enum": [
+              "green",
+              "amber",
+              "red"
+            ],
+            "title": "Color",
+            "type": "string"
+          },
+          "deciding": {
+            "title": "Deciding",
+            "type": "string"
+          },
+          "factors": {
+            "items": {
+              "$ref": "#/components/schemas/ScoreFactor"
+            },
+            "title": "Factors",
+            "type": "array"
+          },
+          "formula": {
+            "title": "Formula",
+            "type": "string"
+          },
+          "value": {
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Value",
+            "type": "number"
+          },
+          "weights": {
+            "$ref": "#/components/schemas/ScoreWeights"
+          }
+        },
+        "required": [
+          "value",
+          "base",
+          "weights",
+          "factors",
+          "deciding",
+          "formula",
+          "color"
+        ],
+        "title": "Score",
+        "type": "object"
+      },
+      "ScoreFactor": {
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "points": {
+            "title": "Points",
+            "type": "number"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "weight": {
+            "title": "Weight",
+            "type": "number"
+          }
+        },
+        "required": [
+          "name",
+          "weight",
+          "points",
+          "reason"
+        ],
+        "title": "ScoreFactor",
+        "type": "object"
+      },
+      "ScoreWeights": {
+        "properties": {
+          "dte": {
+            "title": "Dte",
+            "type": "number"
+          },
+          "dust": {
+            "title": "Dust",
+            "type": "number"
+          },
+          "slope": {
+            "title": "Slope",
+            "type": "number"
+          },
+          "sun": {
+            "title": "Sun",
+            "type": "number"
+          }
+        },
+        "required": [
+          "sun",
+          "dte",
+          "slope",
+          "dust"
+        ],
+        "title": "ScoreWeights",
+        "type": "object"
+      },
+      "SeriesResponse": {
+        "properties": {
+          "earth_az": {
+            "items": {
+              "type": "number"
+            },
+            "title": "Earth Az",
+            "type": "array"
+          },
+          "earth_el": {
+            "items": {
+              "type": "number"
+            },
+            "title": "Earth El",
+            "type": "array"
+          },
+          "earth_horizon_el": {
+            "items": {
+              "type": "number"
+            },
+            "title": "Earth Horizon El",
+            "type": "array"
+          },
+          "earth_station_up": {
+            "items": {
+              "type": "boolean"
+            },
+            "title": "Earth Station Up",
+            "type": "array"
+          },
+          "earth_vis_el": {
+            "items": {
+              "type": "number"
+            },
+            "title": "Earth Vis El",
+            "type": "array"
+          },
+          "earth_visible": {
+            "items": {
+              "type": "boolean"
+            },
+            "title": "Earth Visible",
+            "type": "array"
+          },
+          "n": {
+            "title": "N",
+            "type": "integer"
+          },
+          "power_w": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Power W"
+          },
+          "soc_pct": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Soc Pct"
+          },
+          "start": {
+            "title": "Start",
+            "type": "string"
+          },
+          "step_s": {
+            "title": "Step S",
+            "type": "integer"
+          },
+          "sun_az": {
+            "items": {
+              "type": "number"
+            },
+            "title": "Sun Az",
+            "type": "array"
+          },
+          "sun_el": {
+            "items": {
+              "type": "number"
+            },
+            "title": "Sun El",
+            "type": "array"
+          },
+          "sun_horizon_el": {
+            "items": {
+              "type": "number"
+            },
+            "title": "Sun Horizon El",
+            "type": "array"
+          },
+          "sun_lit_frac": {
+            "items": {
+              "type": "number"
+            },
+            "title": "Sun Lit Frac",
+            "type": "array"
+          },
+          "sun_vis_el": {
+            "items": {
+              "type": "number"
+            },
+            "title": "Sun Vis El",
+            "type": "array"
+          }
+        },
+        "required": [
+          "start",
+          "step_s",
+          "n",
+          "sun_az",
+          "sun_el",
+          "sun_vis_el",
+          "sun_horizon_el",
+          "sun_lit_frac",
+          "earth_az",
+          "earth_el",
+          "earth_vis_el",
+          "earth_horizon_el",
+          "earth_visible",
+          "earth_station_up"
+        ],
+        "title": "SeriesResponse",
         "type": "object"
       },
       "Site": {
@@ -389,6 +964,51 @@
         "title": "SitesResponse",
         "type": "object"
       },
+      "SummaryResponse": {
+        "properties": {
+          "daily": {
+            "$ref": "#/components/schemas/Daily"
+          },
+          "metrics": {
+            "$ref": "#/components/schemas/Metrics"
+          },
+          "rag": {
+            "$ref": "#/components/schemas/Rag"
+          },
+          "scenario": {
+            "$ref": "#/components/schemas/Scenario"
+          },
+          "score": {
+            "$ref": "#/components/schemas/Score"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          },
+          "warnings": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/Warning"
+            },
+            "title": "Warnings",
+            "type": "array"
+          },
+          "windows": {
+            "$ref": "#/components/schemas/Windows"
+          }
+        },
+        "required": [
+          "scenario",
+          "version",
+          "metrics",
+          "rag",
+          "score",
+          "windows",
+          "daily"
+        ],
+        "title": "SummaryResponse",
+        "type": "object"
+      },
       "TileGrid": {
         "properties": {
           "origin": {
@@ -464,6 +1084,86 @@
         ],
         "title": "ValidationError",
         "type": "object"
+      },
+      "Warning": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "text"
+        ],
+        "title": "Warning",
+        "type": "object"
+      },
+      "Windows": {
+        "properties": {
+          "both": {
+            "items": {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "string"
+                }
+              ],
+              "type": "array"
+            },
+            "title": "Both",
+            "type": "array"
+          },
+          "dte": {
+            "items": {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "string"
+                }
+              ],
+              "type": "array"
+            },
+            "title": "Dte",
+            "type": "array"
+          },
+          "sun": {
+            "items": {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "string"
+                }
+              ],
+              "type": "array"
+            },
+            "title": "Sun",
+            "type": "array"
+          }
+        },
+        "required": [
+          "sun",
+          "dte",
+          "both"
+        ],
+        "title": "Windows",
+        "type": "object"
       }
     }
   },
@@ -509,6 +1209,310 @@
         "summary": "Get Meta"
       }
     },
+    "/api/v1/scenario/series": {
+      "get": {
+        "operationId": "get_series_api_v1_scenario_series_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "site",
+            "required": true,
+            "schema": {
+              "title": "Site",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "t0",
+            "required": true,
+            "schema": {
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d0Z$",
+              "title": "T0",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "month",
+            "required": true,
+            "schema": {
+              "pattern": "^\\d{4}-\\d{2}$",
+              "title": "Month",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "days",
+            "required": false,
+            "schema": {
+              "default": 29.53,
+              "maximum": 365,
+              "minimum": 1,
+              "title": "Days",
+              "type": "number"
+            }
+          },
+          {
+            "in": "query",
+            "name": "mast",
+            "required": false,
+            "schema": {
+              "default": 2,
+              "maximum": 10,
+              "minimum": 1,
+              "title": "Mast",
+              "type": "number"
+            }
+          },
+          {
+            "in": "query",
+            "name": "w",
+            "required": false,
+            "schema": {
+              "default": "1,1,1,0",
+              "pattern": "^(0(\\.\\d)?|1(\\.0)?)(,(0(\\.\\d)?|1(\\.0)?)){3}$",
+              "title": "W",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "station",
+            "required": false,
+            "schema": {
+              "default": "any",
+              "enum": [
+                "any",
+                "goldstone",
+                "madrid",
+                "canberra",
+                "custom"
+              ],
+              "title": "Station",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "station_lat",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 90,
+                  "minimum": -90,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Station Lat"
+            }
+          },
+          {
+            "in": "query",
+            "name": "station_lon",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 180,
+                  "minimum": -180,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Station Lon"
+            }
+          },
+          {
+            "in": "query",
+            "name": "v",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "V",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SeriesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Series"
+      }
+    },
+    "/api/v1/scenario/summary": {
+      "get": {
+        "operationId": "get_summary_api_v1_scenario_summary_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "site",
+            "required": true,
+            "schema": {
+              "title": "Site",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "t0",
+            "required": true,
+            "schema": {
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d0Z$",
+              "title": "T0",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "days",
+            "required": false,
+            "schema": {
+              "default": 29.53,
+              "maximum": 365,
+              "minimum": 1,
+              "title": "Days",
+              "type": "number"
+            }
+          },
+          {
+            "in": "query",
+            "name": "mast",
+            "required": false,
+            "schema": {
+              "default": 2,
+              "maximum": 10,
+              "minimum": 1,
+              "title": "Mast",
+              "type": "number"
+            }
+          },
+          {
+            "in": "query",
+            "name": "w",
+            "required": false,
+            "schema": {
+              "default": "1,1,1,0",
+              "pattern": "^(0(\\.\\d)?|1(\\.0)?)(,(0(\\.\\d)?|1(\\.0)?)){3}$",
+              "title": "W",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "station",
+            "required": false,
+            "schema": {
+              "default": "any",
+              "enum": [
+                "any",
+                "goldstone",
+                "madrid",
+                "canberra",
+                "custom"
+              ],
+              "title": "Station",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "station_lat",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 90,
+                  "minimum": -90,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Station Lat"
+            }
+          },
+          {
+            "in": "query",
+            "name": "station_lon",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 180,
+                  "minimum": -180,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Station Lon"
+            }
+          },
+          {
+            "in": "query",
+            "name": "v",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "V",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SummaryResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Summary"
+      }
+    },
     "/api/v1/sites": {
       "get": {
         "operationId": "list_sites_api_v1_sites_get",
@@ -525,6 +1529,45 @@
           }
         },
         "summary": "List Sites"
+      }
+    },
+    "/api/v1/sites/custom": {
+      "post": {
+        "description": "Contract only (slice S7): the engine builds the point's terrain and returns it as\na site whose id encodes the point, so the call is idempotent (spec \u00a78.2).\n\nOpen decision for when the engine lands: CORS allows GET only, so a web app on\nanother origin cannot call this yet (tests/test_api_basic.py guards that).",
+        "operationId": "create_custom_site_api_v1_sites_custom_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CustomPointRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Site"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Custom Site"
       }
     },
     "/api/v1/sites/{site_id}": {
@@ -564,6 +1607,71 @@
           }
         },
         "summary": "Get Site"
+      }
+    },
+    "/api/v1/sites/{site_id}/horizon": {
+      "get": {
+        "operationId": "get_horizon_api_v1_sites__site_id__horizon_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "mast",
+            "required": false,
+            "schema": {
+              "default": 2,
+              "maximum": 10,
+              "minimum": 1,
+              "title": "Mast",
+              "type": "number"
+            }
+          },
+          {
+            "in": "query",
+            "name": "part",
+            "required": false,
+            "schema": {
+              "default": "full",
+              "enum": [
+                "full",
+                "far"
+              ],
+              "title": "Part",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HorizonResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Horizon"
       }
     }
   }
