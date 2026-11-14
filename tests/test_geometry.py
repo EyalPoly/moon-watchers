@@ -19,7 +19,7 @@ from engine.geometry import (
     station_fixed_km,
     station_sky,
 )
-from tests.ephemeris_helpers import synthetic_ephemeris
+from tests.ephemeris_helpers import HOUSTON_LON_DEG, SIDEREAL_DAY_S, synthetic_ephemeris
 
 START = datetime(2027, 3, 1, tzinfo=UTC)
 
@@ -71,7 +71,17 @@ def test_interpolate_reproduces_cubic() -> None:
     assert sky.sun_cns_km == pytest.approx(expected[:, 0:3], abs=1e-9)
     assert sky.earth_cns_km == pytest.approx(expected[:, 3:6], abs=1e-9)
     assert sky.earth_geo_km == pytest.approx(expected[:, 6:9], abs=1e-9)
-    assert sky.earth_rotation[:, 0, 0] == pytest.approx(1 + 0.1 * t**3, abs=1e-9)
+
+
+def test_interpolate_rotation_between_rows() -> None:
+    # The Earth turns 15° per hourly row; a plain cubic on the matrix elements would be off by 1e-4.
+    eph = synthetic_ephemeris(START, 3)
+    t = np.array([3.5, 10.25, 30.9]) * 3600.0
+    sky = interpolate(eph, t)
+    theta = np.radians(180.0 - HOUSTON_LON_DEG) + 2 * np.pi * t / SIDEREAL_DAY_S
+    assert sky.earth_rotation[:, 0, 0] == pytest.approx(np.cos(theta), abs=1e-9)
+    assert sky.earth_rotation[:, 1, 0] == pytest.approx(np.sin(theta), abs=1e-9)
+    assert sky.earth_rotation[:, 2, 2] == pytest.approx(1.0, abs=1e-12)
 
 
 @pytest.mark.parametrize("t", [-0.5, 0.0, 0.99, 10.0, 11.0])

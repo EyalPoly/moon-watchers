@@ -44,6 +44,21 @@ class SkyState:
     earth_rotation: Vec
 
 
+EARTH_SPIN_RAD_S = 7.292115e-5
+
+
+def _spin(angle: Vec) -> Vec:
+    """Rotations about z, one 3x3 matrix per angle (any array shape)."""
+    c, s = np.cos(angle), np.sin(angle)
+    out = np.zeros((*np.shape(angle), 3, 3))
+    out[..., 0, 0] = c
+    out[..., 0, 1] = -s
+    out[..., 1, 0] = s
+    out[..., 1, 1] = c
+    out[..., 2, 2] = 1.0
+    return out
+
+
 def interpolate(eph: Ephemeris, t_s: Vec) -> SkyState:
     """4-point Lagrange interpolation; t_s is UTC seconds since eph.start."""
     x = np.asarray(t_s, dtype=np.float64) / eph.step_s
@@ -63,7 +78,12 @@ def interpolate(eph: Ephemeris, t_s: Vec) -> SkyState:
     )
     index = base[:, None] + np.arange(-1, 3)
     vectors = np.einsum("mk,mkc->mc", weights, eph.vectors_km[index])
-    rotation = np.einsum("mk,mkij->mij", weights, eph.earth_rotation[index])
+    # The Earth turns 15° per hourly row, far too fast for a cubic on the matrix itself. The
+    # spin is taken out, the slow remainder (precession, libration frame) is interpolated, and
+    # the spin is put back analytically. The rate only needs to be close: it cancels exactly.
+    row_angle = (EARTH_SPIN_RAD_S * eph.step_s) * index.astype(np.float64)
+    slow = eph.earth_rotation[index] @ _spin(-row_angle)
+    rotation = np.einsum("mk,mkij->mij", weights, slow) @ _spin(EARTH_SPIN_RAD_S * x * eph.step_s)
     return SkyState(vectors[:, 0:3], vectors[:, 3:6], vectors[:, 6:9], rotation)
 
 
