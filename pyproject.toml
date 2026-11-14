@@ -1,0 +1,22 @@
+[project]
+name = "clps-lunar-mission-browser"
+version = "0.0.0"
+requires-python = ">=3.12,<3.14"
+dependencies = ["fastapi", "pydantic>=2", "pyyaml", "httpx", "uvicorn"]
+
+[project.optional-dependencies]
+gpu = ["torch"]
+
+[dependency-groups]
+dev = ["pytest", "mypy", "types-pyyaml"]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.mypy]
+strict = true
+files = ["api", "engine", "build"]

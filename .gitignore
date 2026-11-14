@@ -1,0 +1,12 @@
+github-project/
+data/sources/
+node_modules/
+.venv/
+web/dist/
+.superpowers/
+.serena/
+__pycache__/
+.pytest_cache/
+.mypy_cache/
+test-results/
+playwright-report/
