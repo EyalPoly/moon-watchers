@@ -80,3 +80,13 @@ test('new tickets open beside the first, compare side by side, and delete', asyn
   await page.getByRole('button', { name: 'Delete Ticket 2' }).click()
   await expect(page.getByRole('region', { name: /^Ticket \d view$/ })).toHaveCount(1)
 })
+
+test('the open card shows the illustrative score box and the warnings strip', async ({ page, context }) => {
+  await stubTiles(context)
+  await page.goto('/?site=sample_a')
+  const card = page.getByRole('region', { name: /^Ticket 1: Sample site A/ })
+  await expect(card.getByText(/Illustrative weights and thresholds/)).toBeVisible()
+  await expect(card.getByText(/predicted rather than observed/)).toBeVisible()
+  await card.getByRole('button', { name: 'Always true' }).click()
+  await expect(card.getByText(/Rocks and relief smaller than a terrain cell/)).toBeVisible()
+})

@@ -2,13 +2,15 @@ import { useMemo } from 'react'
 import type { AppConfig } from '../api/config'
 import type { ScoreSettings } from '../api/scoreSettings'
 import type { Scenario, Site, Summary } from '../api/types'
-import { useSummaries } from '../state/queries'
+import { useMeta, useSummaries } from '../state/queries'
 import { toScenario } from '../state/scenario'
 import type { Ticket } from '../state/tickets'
 import { formatUtc, parseIsoMinute } from '../time'
 import { Pending } from './MissionCard'
 import { ServerUnavailable } from './ServerUnavailable'
 import { ticketLabel, ticketVars } from './ticketStyle'
+import { ILLUSTRATIVE_NOTE } from './ScoreBox'
+import { WarningsStrip } from './WarningsStrip'
 
 export interface CompareViewProps {
   tickets: readonly Ticket[]
@@ -32,7 +34,7 @@ interface Row {
 }
 
 const ROWS: Row[] = [
-  { label: 'Score', value: (s) => s.score.value, format: (v) => v.toFixed(0), better: 'higher', hint: 'Illustrative score: weighted grades, not validated landing criteria' },
+  { label: 'Score', value: (s) => s.score.value, format: (v) => v.toFixed(1), better: 'higher', hint: ILLUSTRATIVE_NOTE },
   { label: 'Sun visible', value: (s) => s.metrics.sun_pct, format: (v) => `${v.toFixed(0)}%`, better: 'higher', hint: 'Share of the mission with the Sun above the terrain' },
   { label: 'Earth contact', value: (s) => s.metrics.dte_pct, format: (v) => `${v.toFixed(0)}%`, better: 'higher', hint: 'Share of the mission with the whole Earth above the terrain' },
   { label: 'Sun + Earth together', value: (s) => s.metrics.both_pct, format: (v) => `${v.toFixed(0)}%`, better: 'higher', hint: 'Share of the mission with both at once' },
@@ -57,6 +59,7 @@ export function CompareView({ tickets, sitesById, config, search, settings, isSa
   )
   const scenarios = useMemo(() => columns.map((c) => c.scenario), [columns])
   const results = useSummaries(config, search, scenarios)
+  const catalog = useMeta(config, search).data?.warning_catalog ?? []
 
   const failed = results.find((r) => r.isError)
   if (failed) return <ServerUnavailable onRetry={() => results.forEach((r) => void r.refetch())} />
@@ -65,10 +68,12 @@ export function CompareView({ tickets, sitesById, config, search, settings, isSa
 
   const best = (row: Row) => {
     const values = columns.map((c, k) => row.value(summaries[k], c.site))
-    if (values.some((v) => v === null)) return -1
-    const target = row.better === 'higher' ? Math.max(...values) : Math.min(...values)
-    // No "best" when every ticket ties.
-    return values.every((v) => v === target) ? -1 : values.indexOf(target)
+    const known = values.filter((v): v is number => v !== null)
+    // A missing value never wins; the rest are compared among themselves.
+    if (known.length < 2) return -1
+    const target = row.better === 'higher' ? Math.max(...known) : Math.min(...known)
+    // No "best" when every known value ties.
+    return known.every((v) => v === target) ? -1 : values.indexOf(target)
   }
   const optimal = best(ROWS[0])
 
@@ -121,6 +126,14 @@ export function CompareView({ tickets, sitesById, config, search, settings, isSa
                 </tr>
               )
             })}
+            <tr>
+              <th scope="row">Warnings</th>
+              {columns.map((c, k) => (
+                <td key={c.index} className="compare-warnings">
+                  <WarningsStrip warnings={summaries[k].warnings} catalog={catalog} />
+                </td>
+              ))}
+            </tr>
           </tbody>
         </table>
       </div>

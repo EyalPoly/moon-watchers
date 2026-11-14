@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import type { AppConfig } from '../api/config'
 import type { ScoreSettings } from '../api/scoreSettings'
 import type { Site, StationPoint } from '../api/types'
-import { useMissionSeries, useSummary } from '../state/queries'
+import { useMeta, useMissionSeries, useSummary } from '../state/queries'
 import { useScenario } from '../state/scenario'
 import { indexAt, liveStatus } from '../state/series'
 import type { MissionState } from '../state/urlState'
@@ -12,6 +12,7 @@ import { MissionControls } from './MissionControls'
 import { ServerUnavailable } from './ServerUnavailable'
 import { TimeSlider } from './TimeSlider'
 import { MissionMetrics, VerdictChips } from './VerdictChips'
+import { WarningsStrip } from './WarningsStrip'
 
 export interface MissionParts {
   config: AppConfig
@@ -41,9 +42,15 @@ export function Pending({ label }: { label: string }) {
 export function MissionVerdict({ config, search, site, mission, station, settings }: Pick<MissionParts, 'config' | 'search' | 'site' | 'mission' | 'station' | 'settings'>) {
   const scenario = useScenario(site.id, mission, station, settings)
   const summary = useSummary(config, search, scenario)
+  const meta = useMeta(config, search)
   if (summary.isError) return <ServerUnavailable onRetry={() => void summary.refetch()} />
   if (!summary.data) return <Pending label="Computing verdict…" />
-  return <VerdictChips summary={summary.data} slopeDeg={site.slope_deg} />
+  return (
+    <>
+      <VerdictChips summary={summary.data} slopeDeg={site.slope_deg} />
+      <WarningsStrip warnings={summary.data.warnings} catalog={meta.data?.warning_catalog ?? []} />
+    </>
+  )
 }
 
 /** The open ticket's body: controls, mission time, live status, whole-mission numbers. */
