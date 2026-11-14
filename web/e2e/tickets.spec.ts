@@ -1,5 +1,9 @@
 import { expect, test } from '@playwright/test'
-import { stubTiles } from './helpers'
+import { stubTiles, pinSampleConfig } from './helpers'
+
+test.beforeEach(async ({ page }) => {
+  await pinSampleConfig(page)
+})
 
 const SITES = ['sample_a', 'sample_b', 'sample_c']
 const many = (n: number) => '/?' + Array.from({ length: n }, (_, i) => `tk=${SITES[i % 3]}`).join('&')

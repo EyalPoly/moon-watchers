@@ -1,5 +1,9 @@
 import { expect, test, type Page } from '@playwright/test'
-import { stubTiles } from './helpers'
+import { stubTiles, pinSampleConfig } from './helpers'
+
+test.beforeEach(async ({ page }) => {
+  await pinSampleConfig(page)
+})
 
 const panels = (page: Page) => page.getByRole('region', { name: / view$/ })
 

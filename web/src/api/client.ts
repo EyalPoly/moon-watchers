@@ -53,7 +53,7 @@ export function createApi(config: AppConfig, search: string) {
     },
     /** Creates (or finds again) a custom point; the answer is a Site whose id encodes it. */
     async createCustomSite(lat: number, lon: number): Promise<Site> {
-      const { data, error } = await clientFor('sites').POST('/api/v1/sites/custom', {
+      const { data, error } = await clientFor('custom').POST('/api/v1/sites/custom', {
         body: { lat_deg: lat, lon_deg: lon },
       })
       if (data === undefined) throw new Error(`custom site request failed: ${JSON.stringify(error)}`)

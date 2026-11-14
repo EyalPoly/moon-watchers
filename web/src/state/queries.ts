@@ -114,7 +114,7 @@ export function useSummaries(config: AppConfig, search: string, scenarios: Scena
 
 /** The site for each custom point id (ids encode the point, so this is a stable lookup). */
 export function useCustomSites(config: AppConfig, search: string, ids: readonly string[]) {
-  const mode = resolveSource(config, 'sites', search)
+  const mode = resolveSource(config, 'custom', search)
   return useQueries({
     queries: ids.map((id) => {
       const point = parsePointId(id) as LatLon

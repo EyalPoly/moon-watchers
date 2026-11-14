@@ -1,5 +1,9 @@
 import { expect, test } from '@playwright/test'
-import { stubTiles } from './helpers'
+import { stubTiles, pinSampleConfig } from './helpers'
+
+test.beforeEach(async ({ page }) => {
+  await pinSampleConfig(page)
+})
 
 test('a ticket shows verdict, live status, countdowns, and the sky graph on its panel', async ({ page, context }) => {
   await stubTiles(context)

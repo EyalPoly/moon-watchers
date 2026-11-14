@@ -43,3 +43,13 @@ export async function serveSampleApi(context: BrowserContext, origin: string) {
 export async function hangApi(context: BrowserContext, origin: string) {
   await context.route(`${origin}/api/v1/**`, () => new Promise<void>(() => {}))
 }
+
+/** Every endpoint on sample answers, whatever the committed config.json says. */
+export const ALL_SAMPLE = { api_base: '', sources: { sites: 'sample', horizon: 'sample', summary: 'sample' } }
+
+/** For specs that need sample data: the committed config may point at the live API. */
+export async function pinSampleConfig(page: Page) {
+  await page.route('**/config.json', (route) =>
+    route.fulfill({ contentType: 'application/json', body: JSON.stringify(ALL_SAMPLE) }),
+  )
+}
