@@ -3,12 +3,13 @@ import json
 import subprocess
 import sys
 import tempfile
+from fnmatch import fnmatch
 from pathlib import Path
 
 from pydantic import BaseModel, ValidationError
 
 from api.main import create_app
-from api.models import Health, Meta
+from api.models import Health, Meta, Site, SitesResponse
 
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_OPENAPI = ROOT / "contract" / "openapi.json"
@@ -18,6 +19,8 @@ DEFAULT_SAMPLES = ROOT / "contract" / "samples"
 SAMPLE_MODELS: dict[str, type[BaseModel]] = {
     "meta.json": Meta,
     "health.json": Health,
+    "sites.json": SitesResponse,
+    "sites/*.json": Site,
 }
 
 
@@ -48,8 +51,9 @@ def generate(openapi_out: Path, types_out: Path) -> None:
 
 
 def model_for(relative: str) -> type[BaseModel] | None:
-    if relative in SAMPLE_MODELS:
-        return SAMPLE_MODELS[relative]
+    for pattern, model in SAMPLE_MODELS.items():
+        if fnmatch(relative, pattern):
+            return model
     return None
 
 

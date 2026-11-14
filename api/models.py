@@ -1,6 +1,6 @@
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 ErrorCode = Literal[
     "OUT_OF_COVERAGE",
@@ -76,6 +76,25 @@ class Meta(BaseModel):
     regions: list[Region]
     capabilities: Capabilities
     limits: Limits
+
+
+class Site(BaseModel):
+    id: str = Field(pattern=r"^[a-z0-9_]{1,64}$")
+    name: str
+    source: Literal["catalog", "custom"]
+    category: str
+    region: str
+    lat_deg: float = Field(ge=-90, le=-84)
+    lon_deg: float = Field(ge=-180, lt=180)
+    elevation_m: float
+    slope_deg: float
+    slope_baseline_m: float
+    source_url: str
+    is_placeholder: bool
+
+
+class SitesResponse(BaseModel):
+    sites: list[Site]
 
 
 class Problem(BaseModel):
