@@ -2,10 +2,12 @@ import { expect, test } from '@playwright/test'
 import { failTiles, hangApi, serveSampleApi, stubTiles, useConfig } from './helpers'
 
 const API = 'http://localhost:9123'
+const allSample = { api_base: '', sources: { sites: 'sample', horizon: 'sample', summary: 'sample' } }
 const realSites = { api_base: API, sources: { sites: 'real', horizon: 'sample', summary: 'sample' } }
 
 test('pins select a site, update the URL and history, and are labeled as sample', async ({ page, context }) => {
   await stubTiles(context)
+  await useConfig(page, allSample)
   await page.goto('/')
   await expect(page.getByTestId(/^pin-/)).toHaveCount(3)
 
@@ -22,6 +24,7 @@ test('pins select a site, update the URL and history, and are labeled as sample'
 
 test('a broken link opens the map on defaults without an error screen', async ({ page, context }) => {
   await stubTiles(context)
+  await useConfig(page, allSample)
   await page.goto('/?site=nonexistent')
   await expect(page.getByTestId(/^pin-/)).toHaveCount(3)
   await expect(page.getByRole('heading', { name: /Sample site/ })).toHaveCount(0)
@@ -69,6 +72,7 @@ test('the banner and tags disappear for real catalog data even while other sourc
 
 test('failing tiles show Basemap unavailable while pins keep working', async ({ page, context }) => {
   await failTiles(context)
+  await useConfig(page, allSample)
   await page.goto('/')
   await expect(page.getByText('Basemap unavailable')).toBeVisible()
   await expect(page.getByTestId(/^pin-/)).toHaveCount(3)
