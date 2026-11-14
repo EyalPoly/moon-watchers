@@ -1,4 +1,5 @@
 import type { AppConfig } from '../api/config'
+import type { ScoreSettings } from '../api/scoreSettings'
 import { presetsFrom, stationQuery } from '../api/stations'
 import type { Meta, Site } from '../api/types'
 import type { TicketRank } from '../state/ranking'
@@ -25,6 +26,7 @@ export interface TicketCardProps {
   canDelete: boolean
   config: AppConfig
   search: string
+  settings: ScoreSettings
   tau: number
   sliderMaxTau: number
   onToggle: () => void
@@ -147,7 +149,7 @@ export function TicketCard(props: TicketCardProps) {
         </>
       )}
 
-      {site && <MissionVerdict config={config} search={search} site={site} mission={mission} station={station} />}
+      {site && <MissionVerdict config={config} search={search} site={site} mission={mission} station={station} settings={props.settings} />}
 
       {open && (
         <StationPicker
@@ -165,6 +167,7 @@ export function TicketCard(props: TicketCardProps) {
           site={site}
           mission={mission}
           station={station}
+          settings={props.settings}
           tau={props.tau}
           sliderMaxTau={props.sliderMaxTau}
           onMissionChange={onMissionChange}

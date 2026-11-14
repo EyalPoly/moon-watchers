@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import type { AppConfig } from '../api/config'
+import type { ScoreSettings } from '../api/scoreSettings'
 import type { Site, StationPoint } from '../api/types'
 import { useMissionSeries, useSummary } from '../state/queries'
 import { useScenario } from '../state/scenario'
@@ -18,6 +19,7 @@ export interface MissionParts {
   site: Site
   mission: MissionState
   station: StationPoint
+  settings: ScoreSettings
   /** The time being viewed; differs from mission.tau while dragging or playing. */
   tau: number
   /** Slider range: the longest mission among the tickets, so all share one clock. */
@@ -36,8 +38,8 @@ export function Pending({ label }: { label: string }) {
 }
 
 /** Verdict chips and score: the ticket's header, also shown when it is collapsed. */
-export function MissionVerdict({ config, search, site, mission, station }: Pick<MissionParts, 'config' | 'search' | 'site' | 'mission' | 'station'>) {
-  const scenario = useScenario(site.id, mission, station)
+export function MissionVerdict({ config, search, site, mission, station, settings }: Pick<MissionParts, 'config' | 'search' | 'site' | 'mission' | 'station' | 'settings'>) {
+  const scenario = useScenario(site.id, mission, station, settings)
   const summary = useSummary(config, search, scenario)
   if (summary.isError) return <ServerUnavailable onRetry={() => void summary.refetch()} />
   if (!summary.data) return <Pending label="Computing verdict…" />
@@ -51,13 +53,14 @@ export function MissionBody({
   site,
   mission,
   station,
+  settings,
   tau,
   sliderMaxTau,
   onMissionChange,
   onTauInput,
   onTauCommit,
 }: MissionParts) {
-  const scenario = useScenario(site.id, mission, station)
+  const scenario = useScenario(site.id, mission, station, settings)
   const series = useMissionSeries(config, search, scenario)
   const summary = useSummary(config, search, scenario)
 

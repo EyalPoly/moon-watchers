@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import type { AppConfig } from '../api/config'
+import type { ScoreSettings } from '../api/scoreSettings'
 import type { Scenario, Site, Summary } from '../api/types'
 import { useSummaries } from '../state/queries'
 import { toScenario } from '../state/scenario'
@@ -14,6 +15,7 @@ export interface CompareViewProps {
   sitesById: ReadonlyMap<string, Site>
   config: AppConfig
   search: string
+  settings: ScoreSettings
   isSample: boolean
   onClose: () => void
   onOpenTicket: (index: number) => void
@@ -23,14 +25,14 @@ type Better = 'higher' | 'lower'
 
 interface Row {
   label: string
-  value: (s: Summary, site: Site) => number
+  value: (s: Summary, site: Site) => number | null
   format: (v: number) => string
   better: Better
   hint: string
 }
 
 const ROWS: Row[] = [
-  { label: 'Score', value: (s) => s.score.value, format: (v) => v.toFixed(0), better: 'higher', hint: 'Interim score: share of time with Sun and Earth together, minus a slope penalty' },
+  { label: 'Score', value: (s) => s.score.value, format: (v) => v.toFixed(0), better: 'higher', hint: 'Illustrative score: weighted grades, not validated landing criteria' },
   { label: 'Sun visible', value: (s) => s.metrics.sun_pct, format: (v) => `${v.toFixed(0)}%`, better: 'higher', hint: 'Share of the mission with the Sun above the terrain' },
   { label: 'Earth contact', value: (s) => s.metrics.dte_pct, format: (v) => `${v.toFixed(0)}%`, better: 'higher', hint: 'Share of the mission with the whole Earth above the terrain' },
   { label: 'Sun + Earth together', value: (s) => s.metrics.both_pct, format: (v) => `${v.toFixed(0)}%`, better: 'higher', hint: 'Share of the mission with both at once' },
@@ -41,17 +43,17 @@ const ROWS: Row[] = [
 ]
 
 /** Side-by-side comparison of the tickets that have a site. */
-export function CompareView({ tickets, sitesById, config, search, isSample, onClose, onOpenTicket }: CompareViewProps) {
+export function CompareView({ tickets, sitesById, config, search, settings, isSample, onClose, onOpenTicket }: CompareViewProps) {
   const columns = useMemo(
     () =>
       tickets.flatMap((t, index) => {
         const site = t.site === null ? undefined : sitesById.get(t.site)
         // Only the tickets the user chose to show are compared.
         if (!site || !t.shown) return []
-        const scenario: Scenario = toScenario(site.id, t, t.station)
+        const scenario: Scenario = toScenario(site.id, t, t.station, settings)
         return [{ index, ticket: t, site, scenario }]
       }),
-    [tickets, sitesById],
+    [tickets, sitesById, settings],
   )
   const scenarios = useMemo(() => columns.map((c) => c.scenario), [columns])
   const results = useSummaries(config, search, scenarios)
@@ -63,6 +65,7 @@ export function CompareView({ tickets, sitesById, config, search, isSample, onCl
 
   const best = (row: Row) => {
     const values = columns.map((c, k) => row.value(summaries[k], c.site))
+    if (values.some((v) => v === null)) return -1
     const target = row.better === 'higher' ? Math.max(...values) : Math.min(...values)
     // No "best" when every ticket ties.
     return values.every((v) => v === target) ? -1 : values.indexOf(target)
@@ -107,10 +110,10 @@ export function CompareView({ tickets, sitesById, config, search, isSample, onCl
                   </th>
                   {columns.map((c, k) => {
                     const v = row.value(summaries[k], c.site)
-                    const color = row.label === 'Score' ? summaries[k].score.color : null
+                    const color = row.label === 'Score' ? summaries[k].score.category : null
                     return (
                       <td key={c.index} className={k === winner ? 'num compare-best' : 'num'}>
-                        <span className={color ? `chip-${color}` : undefined}>{row.format(v)}</span>
+                        <span className={color ? `chip-${color}` : undefined}>{v === null ? 'unavailable' : row.format(v)}</span>
                         {k === winner && <span className="best-mark" aria-label="best"> ★</span>}
                       </td>
                     )

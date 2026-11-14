@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import meta from '@samples/meta.json'
 import { resolveSource, type AppConfig } from './api/config'
 import type { Meta, Region, Site } from './api/types'
 import { isPointId } from './api/points'
+import { parseScoreSettings } from './api/scoreSettings'
 import { useCustomSites, useMeta, useSites } from './state/queries'
 import { useTicketRanking } from './state/ranking'
 import { presetsFrom, stationLabel } from './api/stations'
@@ -73,6 +74,7 @@ export default function App({ config }: { config: AppConfig }) {
   const stations = metaQuery.data?.stations ?? FALLBACK_STATIONS
   const presets = presetsFrom(stations)
   const screen = parseScreen2(search)
+  const settings = useMemo(() => parseScoreSettings(search), [search])
   // Custom points (new sites by lat/lon) come from POST /sites/custom, one per point.
   const customIds = [...new Set(screen.tickets.flatMap((t) => (t.site !== null && isPointId(t.site) ? [t.site] : [])))]
   const customQueries = useCustomSites(config, search, customIds)
@@ -181,6 +183,7 @@ export default function App({ config }: { config: AppConfig }) {
             sitesById={sitesById}
             config={config}
             search={search}
+            settings={settings}
             isSample={missionIsSample}
             onClose={() => apply((s) => ({ ...s, compare: false }))}
             onOpenTicket={(i) => apply((s) => ({ ...s, compare: false, open: i }))}
@@ -294,6 +297,7 @@ export default function App({ config }: { config: AppConfig }) {
                   canDelete={screen.tickets.length > 1 || t.site !== null}
                   config={config}
                   search={search}
+                  settings={settings}
                   tau={tau}
                   sliderMaxTau={sliderMax}
                   onToggle={() => focusTicket(i)}
