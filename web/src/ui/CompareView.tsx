@@ -5,7 +5,7 @@ import { useSummaries } from '../state/queries'
 import { toScenario } from '../state/scenario'
 import type { Ticket } from '../state/tickets'
 import { formatUtc, parseIsoMinute } from '../time'
-import { Pending } from './MissionCard'
+import { Pending } from './Pending'
 import { ServerUnavailable } from './ServerUnavailable'
 import { ticketLabel, ticketVars } from './ticketStyle'
 

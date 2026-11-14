@@ -169,9 +169,6 @@
   max-height: 100%;
 }
 
-.panel-graph .sky-view svg {
-  max-height: calc(100% - 40px);
-}
 
 .panel-empty {
   padding: 16px;

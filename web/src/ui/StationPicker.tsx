@@ -55,9 +55,12 @@ export function StationPicker({ value, presets, onChange }: StationPickerProps) 
         </select>
       </label>
       {(customOpen || preset === undefined) && (
-        <form
+        // Not a <form>: the picker sits inside the point card's form, and a nested form would
+        // submit (apply) the whole card. Enter in a field uses the values.
+        <div
           className="station-custom"
-          onSubmit={(e) => {
+          onKeyDown={(e) => {
+            if (e.key !== 'Enter') return
             e.preventDefault()
             if (draft !== null && changed) onChange(draft)
           }}
@@ -108,7 +111,7 @@ export function StationPicker({ value, presets, onChange }: StationPickerProps) 
               aria-label="Station elevation mask"
             />
           </label>
-          <button type="submit" className="secondary" disabled={!changed}>
+          <button type="button" className="secondary" disabled={!changed} onClick={() => draft !== null && onChange(draft)}>
             Use
           </button>
           {anyInvalid && (
@@ -116,7 +119,7 @@ export function StationPicker({ value, presets, onChange }: StationPickerProps) 
               Latitude −90 to 90, longitude −180 to 180, altitude −500 to 9000 m, elevation 0 to 45°.
             </p>
           )}
-        </form>
+        </div>
       )}
     </div>
   )
