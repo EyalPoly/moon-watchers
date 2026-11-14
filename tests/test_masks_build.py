@@ -6,12 +6,13 @@ import pytest
 from numpy.typing import NDArray
 
 from api.models import Site
-from build.make_masks import build_bundle
+from build.make_masks import DEFAULT_TERRAIN, build_bundle
 from engine.horizons import HORIZON_ALGO_VERSION
 from engine.terrain import project
 from tests.tif_helpers import write_tif
 
 DEM_20 = "lola/LDEM_80S_20MPP_ADJ.TIF"
+DEM_40 = "lola/LDEM_80S_40MPP_ADJ.TIF"
 DEM_80 = "lola/LDEM_80S_80MPP_ADJ.TIF"
 DEM_240 = "lola/LDEM_60S_240MPP_ADJ.TIF"
 
@@ -101,3 +102,45 @@ def test_moving_a_site_changes_the_bundle_id(tmp_path: Path) -> None:
     moved = {**CATALOG, "s1": site("s1", -89.2, 0.0)}
     second = build_bundle(moved, sources, tmp_path / "bundle")
     assert second.name != first.name
+
+
+def test_default_terrain_is_20m(tmp_path: Path) -> None:
+    sources = make_sources(tmp_path)
+    manifest = json.loads((build_bundle(CATALOG, sources, tmp_path / "b") / "manifest.json").read_text())
+    assert DEFAULT_TERRAIN == "20m"
+    assert manifest["parameters"]["terrain"] == "20m"
+
+
+def test_40m_terrain_skips_the_20m_file(tmp_path: Path) -> None:
+    sources = make_sources(tmp_path)
+    write_dem(sources, DEM_40, 50_000, 150)
+    bundle_20 = build_bundle(CATALOG, sources, tmp_path / "b")
+    bundle_40 = build_bundle(CATALOG, sources, tmp_path / "b", terrain="40m")
+    manifest = json.loads((bundle_40 / "manifest.json").read_text())
+    assert manifest["parameters"]["terrain"] == "40m"
+    assert DEM_40 in manifest["sources"] and DEM_40.replace(".TIF", "_ERR.TIF") in manifest["sources"]
+    assert DEM_20 not in manifest["sources"]
+    assert bundle_40.name != bundle_20.name
+
+
+def test_80m_terrain_uses_80m_and_240m_only(tmp_path: Path) -> None:
+    sources = make_sources(tmp_path)
+    manifest = json.loads(
+        (build_bundle(CATALOG, sources, tmp_path / "b", terrain="80m") / "manifest.json").read_text()
+    )
+    assert {path for path in manifest["sources"] if not path.endswith("_ERR.TIF")} == {DEM_80, DEM_240}
+
+
+@pytest.mark.parametrize("terrain", ["40m", "80m"])
+def test_comparison_terrain_requires_its_finest_files(tmp_path: Path, terrain: str) -> None:
+    sources = tmp_path / "sources"
+    write_dem(sources, DEM_240, 50_000, 500)
+    with pytest.raises(FileNotFoundError, match="missing"):
+        build_bundle(CATALOG, sources, tmp_path / "b", terrain=terrain)
+
+
+def test_unknown_terrain_is_rejected(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="10m"):
+        build_bundle(CATALOG, make_sources(tmp_path), tmp_path / "b", terrain="10m")
+
+

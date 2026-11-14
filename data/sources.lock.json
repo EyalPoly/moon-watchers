@@ -13,6 +13,8 @@
     {"path": "lola/LDEM_80S_80MPP_ADJ_ERR.TIF", "url": "https://pgda.gsfc.nasa.gov/data/LOLA_20mpp/LDEM_80S_80MPP_ADJ_ERR.TIF", "sha256": "", "bytes": 254808965, "note": "height error for the 80 m DEM"},
     {"path": "lola/LDEM_80S_20MPP_ADJ_ERR.TIF", "url": "https://pgda.gsfc.nasa.gov/data/LOLA_20mpp/LDEM_80S_20MPP_ADJ_ERR.TIF", "sha256": "", "bytes": 3954709201, "note": "height error for the 20 m DEM"},
     {"path": "lola/LDEC_80S_80MPP_ADJ.TIF", "url": "https://pgda.gsfc.nasa.gov/data/LOLA_20mpp/LDEC_80S_80MPP_ADJ.TIF", "sha256": "", "bytes": 115657642, "note": "measurement counts, 80 m (warnings only)"},
-    {"path": "lola/LDEM_80S_80MPP_ADJ_EFFRES.TIF", "url": "https://pgda.gsfc.nasa.gov/data/LOLA_20mpp/LDEM_80S_80MPP_ADJ_EFFRES.TIF", "sha256": "", "bytes": 250228467, "note": "effective resolution, 80 m (warnings only)"}
+    {"path": "lola/LDEM_80S_80MPP_ADJ_EFFRES.TIF", "url": "https://pgda.gsfc.nasa.gov/data/LOLA_20mpp/LDEM_80S_80MPP_ADJ_EFFRES.TIF", "sha256": "", "bytes": 250228467, "note": "effective resolution, 80 m (warnings only)"},
+    {"path": "lola/LDEM_80S_40MPP_ADJ.TIF", "url": "https://pgda.gsfc.nasa.gov/data/LOLA_20mpp/LDEM_80S_40MPP_ADJ.TIF", "sha256": "", "bytes": 716299920, "note": "40 m DEM, 80S to pole (resolution comparison bundle)"},
+    {"path": "lola/LDEM_80S_40MPP_ADJ_ERR.TIF", "url": "https://pgda.gsfc.nasa.gov/data/LOLA_20mpp/LDEM_80S_40MPP_ADJ_ERR.TIF", "sha256": "", "bytes": 1010699709, "note": "height error for the 40 m DEM"}
   ]
 }

@@ -1,3 +1,4 @@
+import argparse
 import hashlib
 import json
 import shutil
@@ -33,12 +34,28 @@ class Layer:
     half_width_m: float
 
 
-# Finest first; the half-widths cover the 10 km near zone and the 300 km reach.
-LAYERS = (
-    Layer("lola/LDEM_80S_20MPP_ADJ.TIF", 12_000.0),
-    Layer("lola/LDEM_80S_80MPP_ADJ.TIF", 12_000.0),
-    Layer("lola/LDEM_60S_240MPP_ADJ.TIF", 302_000.0),
-)
+@dataclass(frozen=True)
+class Terrain:
+    layers: tuple[Layer, ...]
+    required: tuple[Layer, ...] = ()
+
+
+# The half-widths cover the 10 km near zone and the 300 km reach.
+DEM_20 = Layer("lola/LDEM_80S_20MPP_ADJ.TIF", 12_000.0)
+DEM_40 = Layer("lola/LDEM_80S_40MPP_ADJ.TIF", 12_000.0)
+DEM_80 = Layer("lola/LDEM_80S_80MPP_ADJ.TIF", 12_000.0)
+DEM_240 = Layer("lola/LDEM_60S_240MPP_ADJ.TIF", 302_000.0)
+
+# Each set is named by its finest terrain, finest first. "20m" is the one the API serves and
+# stays buildable without the 20 m file; "40m" and "80m" exist to compare resolutions, so
+# their finest file must be present.
+TERRAINS: dict[str, Terrain] = {
+    "20m": Terrain((DEM_20, DEM_80, DEM_240)),
+    "40m": Terrain((DEM_40, DEM_80, DEM_240), required=(DEM_40,)),
+    "80m": Terrain((DEM_80, DEM_240), required=(DEM_80,)),
+}
+DEFAULT_TERRAIN = "20m"
+LAYERS = TERRAINS[DEFAULT_TERRAIN].layers
 
 
 def error_path(dem: str) -> str:
@@ -69,8 +86,16 @@ def load_windows(
     return terrain, errors
 
 
-def build_bundle(catalog: dict[str, Site], sources: Path, out_dir: Path) -> Path:
-    present = [layer for layer in LAYERS if (sources / layer.dem).is_file()]
+def build_bundle(
+    catalog: dict[str, Site], sources: Path, out_dir: Path, terrain: str = DEFAULT_TERRAIN
+) -> Path:
+    if terrain not in TERRAINS:
+        raise ValueError(f"unknown terrain {terrain!r}; choose from {', '.join(TERRAINS)}")
+    chosen = TERRAINS[terrain]
+    missing = [layer.dem for layer in chosen.required if not (sources / layer.dem).is_file()]
+    if missing:
+        raise FileNotFoundError(f"terrain {terrain} is missing {', '.join(missing)} under {sources}")
+    present = [layer for layer in chosen.layers if (sources / layer.dem).is_file()]
     if not present:
         raise FileNotFoundError(f"no LOLA DEM found under {sources}")
     used = {layer.dem: sha256_of(sources / layer.dem) for layer in present}
@@ -83,9 +108,9 @@ def build_bundle(catalog: dict[str, Site], sources: Path, out_dir: Path) -> Path
     try:
         site_warnings: dict[str, list[str]] = {}
         for site in catalog.values():
-            terrain, errors = load_windows(site, sources, present)
+            dems, errors = load_windows(site, sources, present)
             try:
-                masks = compute_site_masks(site.lat_deg, site.lon_deg, terrain, errors)
+                masks = compute_site_masks(site.lat_deg, site.lon_deg, dems, errors)
             except ValueError as error:
                 raise ValueError(f"site {site.id}: {error}") from error
             folder = staging / "server" / "sites" / site.id
@@ -99,6 +124,7 @@ def build_bundle(catalog: dict[str, Site], sources: Path, out_dir: Path) -> Path
             "frame_note": FRAME_NOTE,
             "sources": used,
             "parameters": {
+                "terrain": terrain,
                 "heights_m": list(HEIGHTS_M),
                 "far_only_start_m": FAR_ONLY_START_M,
                 "far_only_height_m": FAR_ONLY_HEIGHT_M,
@@ -124,10 +150,19 @@ def build_bundle(catalog: dict[str, Site], sources: Path, out_dir: Path) -> Path
         raise
 
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> None:
+    parser = argparse.ArgumentParser(prog="build.make_masks")
+    parser.add_argument(
+        "--terrain",
+        default=DEFAULT_TERRAIN,
+        help=f"finest terrain: {', '.join(TERRAINS)}, or 'all' (default {DEFAULT_TERRAIN})",
+    )
+    args = parser.parse_args(argv)
+    names = list(TERRAINS) if args.terrain == "all" else args.terrain.split(",")
     catalog = load_catalog(Path("catalog/sites.yaml"))
-    path = build_bundle(catalog, Path("data/sources"), Path("bundle"))
-    print(path)
+    for name in names:
+        path = build_bundle(catalog, Path("data/sources"), Path("bundle"), terrain=name)
+        print(f"{name}: {path}", flush=True)
 
 
 if __name__ == "__main__":

@@ -335,24 +335,29 @@ tests/test_engine_cli.py  tests/test_reference_horizon.py  tests/test_converge.p
 
 ### Task 9: Real-data run (RTX 4060 PC, before S3)
 
-Not code. It produces the real bundle and the evidence that S2 is right, and S3 starts only after it is done. Nothing here needs the GPU: the PC is chosen for its disk (about 10 GB free) and speed. Use `uv run ...` directly if `make` is not installed on Windows.
+It produces the real bundle and the evidence that S2 is right, and S3 starts only after it is done. Nothing here needs the GPU: the PC is chosen for its disk (about 10 GB free) and speed. Use `uv run ...` directly if `make` is not installed on Windows.
+
+**Resolution comparison (decided 14 Nov):** besides the bundle the API serves (`20m`: 20, 80 and 240 m terrain), build one bundle per finest resolution, `40m` (40, 80, 240 m) and `80m` (80, 240 m), and compare their skylines. `make_masks --terrain` picks the set; the manifest records it under `parameters.terrain`. NASA's 5 m site tiles (PGDA product 78) are left out.
 
 **Files:**
-- Modify: `data/sources.lock.json` (sha256 values), `docs/spikes/horizon-check.md` (results)
+- Modify: `data/sources.lock.json` (40 m entries, sha256 values), `build/make_masks.py` (`--terrain`), `build/fetch_sources.py` (parallel byte ranges: PGDA serves about 80 KB/s per connection), `docs/spikes/horizon-check.md` (results)
+- Create: `build/compare_bundles.py`
 - Output, not committed: `bundle/<bundle_id>/`, the CSVs
 
-- [ ] **Step 1: Get the branch.** `git fetch && git checkout s2-horizon-mask && git pull`, then `uv sync --group reference`. Run `uv run pytest`; expected: all pass, 2 skipped.
-- [ ] **Step 2: Download the terrain** (about 7.9 GB in all; each prefix also matches its `_ERR` file):
+- [ ] **Step 1: Get the code.** `git checkout main && git pull`, then `uv sync --group reference`. Run `uv run pytest`; expected: all pass, 2 skipped.
+- [ ] **Step 2: Download the terrain** (about 9.6 GB in all; each prefix also matches its `_ERR` file):
   - `uv run python -m build.fetch_sources --only lola/LDEM_80S_80MPP_ADJ`
   - `uv run python -m build.fetch_sources --only lola/LDEM_60S_240MPP_ADJ`
   - `uv run python -m build.fetch_sources --only lola/LDEM_80S_20MPP_ADJ`
+  - `uv run python -m build.fetch_sources --only lola/LDEM_80S_40MPP_ADJ`
   - Each run prints `unpinned <path>: add sha256 <hash>`. Write every hash into `data/sources.lock.json`, run the same command again (expected: `fetched 0 file(s)`), and commit `chore(data): pin LOLA terrain checksums`.
 - [ ] **Step 3: Check the units.** `uv run pytest tests/test_real_dem.py -v`; expected PASS. Then print the height range of the 80 m window (the test file shows how): the south-pole terrain should lie within about −7,000 m to +7,000 m (the physics team's 240 m crop spans −6,722 to +7,025 m). Half or double that means the GeoTIFF scale was not applied correctly. Stop and fix `load_dem` in that case.
-- [ ] **Step 4: Build the real bundle.** `uv run python -m build.make_masks`. It prints `bundle/<bundle_id>`; keep that id. Open `manifest.json` and note every site with warnings.
+- [ ] **Step 4: Build the real bundles.** `uv run python -m build.make_masks --terrain all`. It prints `<terrain>: bundle/<bundle_id>` for `20m`, `40m` and `80m`; keep the ids. The `20m` bundle is the one the API serves. Open each `manifest.json` and note every site with warnings.
 - [ ] **Step 5: Convergence.** `uv run python -m build.converge --sites sample_a,sample_b,sample_c`. Record the three changes per site in `docs/spikes/horizon-check.md`. Each line must not end with "directions compared". The spec's goal is a change under 0.5 percentage points of `sun_pct` / `dte_pct`. The mask change is only a proxy until S4, so a change above 0.01° is written down as a finding, not hidden.
-- [ ] **Step 6: Serve and look.** `BUNDLE_DIR=bundle/<bundle_id> uv run uvicorn api.main:create_app --factory`, then `curl "http://localhost:8000/api/v1/sites/sample_a/horizon?height=2"`. Expected: 720 elevations, `algo_version` "1", warnings listed. Tell the web owner to run the sky view against it.
+- [ ] **Step 5b: Resolution comparison.** `uv run python -m build.compare_bundles bundle/<20m id> bundle/<40m id> bundle/<80m id>`. It prints, per site, the largest nominal change at the 2 m panel mast, the 3 m antenna mast and the far-only row, and how many directions are unknown in only one bundle. Record the table in `docs/spikes/horizon-check.md`.
+- [ ] **Step 6: Serve and look.** `BUNDLE_DIR=bundle/<20m id> uv run uvicorn api.main:create_app --factory`, then `curl "http://localhost:8000/api/v1/sites/sample_a/horizon?mast=2"`. Expected: 720 elevations, `algo_version` "1", warnings listed. Tell the web owner to run the sky view against it.
 - [ ] **Step 7: CSVs for the physics team.** For each sample site, at `--height 2` (panel) and `--height 3` (antenna): `uv run python -m engine.cli horizon --site sample_a --height 2 --out sample_a_h2.csv`. Attach the 6 files to the S2 pull request. Do not commit them: they use the placeholder catalog.
-- [ ] **Step 8: Package the bundle.** Zip `bundle/<bundle_id>` and keep it for the deploy (a GitHub Release asset or the hosting disk). Put its id and size in the pull request.
+- [ ] **Step 8: Package the bundle.** Zip `bundle/<20m id>` and keep it for the deploy (a GitHub Release asset or the hosting disk). Put its id and size in the pull request. The `40m` and `80m` bundles stay local.
 - [ ] **Step 9: Commit and push** the lock file and `horizon-check.md`: `docs: S2 real-data results`. Then say "S2 real run done" so S3 can be planned.
 
 ---
