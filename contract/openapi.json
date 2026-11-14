@@ -1,0 +1,367 @@
+{
+  "components": {
+    "schemas": {
+      "Capabilities": {
+        "properties": {
+          "alternatives": {
+            "title": "Alternatives",
+            "type": "boolean"
+          },
+          "calendar": {
+            "title": "Calendar",
+            "type": "boolean"
+          },
+          "custom_grids": {
+            "title": "Custom Grids",
+            "type": "boolean"
+          },
+          "custom_points": {
+            "title": "Custom Points",
+            "type": "boolean"
+          },
+          "dust": {
+            "title": "Dust",
+            "type": "boolean"
+          },
+          "globe": {
+            "title": "Globe",
+            "type": "boolean"
+          },
+          "insights": {
+            "title": "Insights",
+            "type": "boolean"
+          },
+          "nl": {
+            "title": "Nl",
+            "type": "boolean"
+          },
+          "power": {
+            "title": "Power",
+            "type": "boolean"
+          },
+          "search": {
+            "title": "Search",
+            "type": "boolean"
+          },
+          "stations": {
+            "title": "Stations",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "custom_points",
+          "custom_grids",
+          "insights",
+          "calendar",
+          "search",
+          "alternatives",
+          "stations",
+          "dust",
+          "globe",
+          "power",
+          "nl"
+        ],
+        "title": "Capabilities",
+        "type": "object"
+      },
+      "CustomArea": {
+        "properties": {
+          "max_lat_deg": {
+            "title": "Max Lat Deg",
+            "type": "number"
+          },
+          "min_lat_deg": {
+            "title": "Min Lat Deg",
+            "type": "number"
+          }
+        },
+        "required": [
+          "min_lat_deg",
+          "max_lat_deg"
+        ],
+        "title": "CustomArea",
+        "type": "object"
+      },
+      "Health": {
+        "properties": {
+          "status": {
+            "const": "ok",
+            "title": "Status",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "version"
+        ],
+        "title": "Health",
+        "type": "object"
+      },
+      "Layer": {
+        "properties": {
+          "attribution": {
+            "title": "Attribution",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "wmts",
+              "local"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "legend_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Legend Url"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "url_template": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url Template"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "kind",
+          "url_template",
+          "attribution",
+          "legend_url"
+        ],
+        "title": "Layer",
+        "type": "object"
+      },
+      "Limits": {
+        "properties": {
+          "max_cards": {
+            "title": "Max Cards",
+            "type": "integer"
+          },
+          "max_days": {
+            "title": "Max Days",
+            "type": "integer"
+          },
+          "max_search_window_d": {
+            "title": "Max Search Window D",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "max_cards",
+          "max_days",
+          "max_search_window_d"
+        ],
+        "title": "Limits",
+        "type": "object"
+      },
+      "Meta": {
+        "properties": {
+          "bundle_id": {
+            "title": "Bundle Id",
+            "type": "string"
+          },
+          "capabilities": {
+            "$ref": "#/components/schemas/Capabilities"
+          },
+          "limits": {
+            "$ref": "#/components/schemas/Limits"
+          },
+          "mode": {
+            "enum": [
+              "event",
+              "judging"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "regions": {
+            "items": {
+              "$ref": "#/components/schemas/Region"
+            },
+            "title": "Regions",
+            "type": "array"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "bundle_id",
+          "mode",
+          "regions",
+          "capabilities",
+          "limits"
+        ],
+        "title": "Meta",
+        "type": "object"
+      },
+      "Region": {
+        "properties": {
+          "crs": {
+            "title": "Crs",
+            "type": "string"
+          },
+          "custom_area": {
+            "$ref": "#/components/schemas/CustomArea"
+          },
+          "extent_m": {
+            "maxItems": 4,
+            "minItems": 4,
+            "prefixItems": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "title": "Extent M",
+            "type": "array"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "layers": {
+            "items": {
+              "$ref": "#/components/schemas/Layer"
+            },
+            "title": "Layers",
+            "type": "array"
+          },
+          "proj4": {
+            "title": "Proj4",
+            "type": "string"
+          },
+          "tile_grid": {
+            "$ref": "#/components/schemas/TileGrid"
+          }
+        },
+        "required": [
+          "id",
+          "crs",
+          "proj4",
+          "extent_m",
+          "tile_grid",
+          "layers",
+          "custom_area"
+        ],
+        "title": "Region",
+        "type": "object"
+      },
+      "TileGrid": {
+        "properties": {
+          "origin": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "title": "Origin",
+            "type": "array"
+          },
+          "resolutions_m": {
+            "items": {
+              "type": "number"
+            },
+            "title": "Resolutions M",
+            "type": "array"
+          },
+          "tile_size_px": {
+            "title": "Tile Size Px",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "origin",
+          "resolutions_m",
+          "tile_size_px"
+        ],
+        "title": "TileGrid",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "title": "CLPS Lunar Mission Browser API",
+    "version": "0.0.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/api/v1/health": {
+      "get": {
+        "operationId": "health_api_v1_health_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Health"
+      }
+    },
+    "/api/v1/meta": {
+      "get": {
+        "operationId": "meta_api_v1_meta_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Meta"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Meta"
+      }
+    }
+  }
+}

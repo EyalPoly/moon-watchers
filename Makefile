@@ -1,4 +1,7 @@
-.PHONY: test typecheck check
+.PHONY: test typecheck check contract
+
+contract:
+	uv run python -m api.contract generate
 
 test:
 	uv run pytest
