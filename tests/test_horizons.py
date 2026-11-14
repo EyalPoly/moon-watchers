@@ -294,3 +294,10 @@ def test_mask_at_height_never_reads_the_far_row() -> None:
     masks[:, 10] = np.nan
     assert np.isfinite(mask_at_height(masks, 10.0)).all()
     assert np.isfinite(mask_at_height(masks, 9.5)).all()
+
+
+def test_mask_at_ten_metres_ignores_unknown_in_the_nine_metre_row() -> None:
+    masks = np.zeros((3, 11, 720), np.float32)
+    masks[:, 8, 5] = np.nan
+    assert np.isfinite(mask_at_height(masks, 10.0)).all()
+    assert np.isnan(mask_at_height(masks, 9.5)[0, 5])

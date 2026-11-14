@@ -146,3 +146,15 @@ def test_table_frame_is_moon_me() -> None:
     latitude = np.degrees(np.arcsin(sun[:, 2] / np.linalg.norm(sun, axis=1)))
     assert latitude.max() > 0 > latitude.min()
     assert np.abs(latitude).max() < 1.6
+
+
+def test_newest_bundle_follows_creation_time_not_name(tmp_path: Path) -> None:
+    from api.bundle import newest_bundle
+
+    for name, created in (("20261114-ffffffff", "2026-11-14T08:00:00+00:00"), ("20261114-00000000", "2026-11-14T09:00:00+00:00")):
+        folder = tmp_path / name
+        folder.mkdir()
+        (folder / "manifest.json").write_text(json.dumps({"bundle_id": name, "created": created}))
+    (tmp_path / "stray").mkdir()
+    assert newest_bundle(tmp_path).name == "20261114-00000000"  # type: ignore[union-attr]
+    assert newest_bundle(tmp_path / "missing") is None

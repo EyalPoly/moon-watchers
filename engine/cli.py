@@ -7,7 +7,7 @@ from pathlib import Path
 import numpy as np
 from numpy.typing import NDArray
 
-from api.bundle import BundleError, load_bundle
+from api.bundle import BundleError, load_bundle, newest_bundle
 from api.catalog import load_catalog
 from api.errors import ApiError
 from api.models import SeriesResponse
@@ -26,10 +26,10 @@ def _cell(value: float, digits: int) -> str:
 def _default_bundle() -> Path:
     if os.environ.get("BUNDLE_DIR"):
         return Path(os.environ["BUNDLE_DIR"])
-    candidates = sorted(p for p in Path("bundle").glob("*") if (p / "manifest.json").is_file())
-    if not candidates:
+    newest = newest_bundle(Path("bundle"))
+    if newest is None:
         raise SystemExit("no bundle found: pass --bundle or run `make masks`")
-    return candidates[-1]
+    return newest
 
 
 def _rows(masks: NDArray[np.float32], blocking: NDArray[np.float32], row: int) -> list[str]:

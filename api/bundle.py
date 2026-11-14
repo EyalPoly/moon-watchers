@@ -1,3 +1,4 @@
+import json
 from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -105,3 +106,15 @@ def load_bundle(bundle_dir: Path, site_ids: Iterable[str]) -> Bundle:
     rotation = _load_table(server / "earth_rotation.npy", (rows, 3, 3))
     ephemeris = Ephemeris(start, manifest.ephemeris.step_s, vectors, rotation)
     return Bundle(manifest.bundle_id, manifest.algo_version, masks, blocking, warnings, ephemeris)
+
+
+def newest_bundle(root: Path) -> Path | None:
+    """The bundle under `root` with the latest `created` time. Names only sort by day."""
+    found: list[tuple[str, Path]] = []
+    for folder in root.glob("*") if root.is_dir() else []:
+        try:
+            created = json.loads((folder / "manifest.json").read_text()).get("created", "")
+        except (OSError, ValueError):
+            continue
+        found.append((str(created), folder))
+    return max(found)[1] if found else None

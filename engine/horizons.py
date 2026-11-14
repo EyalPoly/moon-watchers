@@ -192,7 +192,10 @@ def mask_at_height(masks_deg: NDArray[np.float32], height_m: float) -> NDArray[n
     """Nominal, low and high skylines at any height from 1 to 10 m, blended linearly between the
     two whole-metre rows. The terrain angles are almost linear in height, and the skyline is their
     maximum, so the blend sits at or just above the true value. The far-only row is never read."""
-    below = min(int(np.floor(height_m)), HEIGHTS_M_COUNT - 1)
+    if height_m >= HEIGHTS_M_COUNT:
+        # Weight 1 on the top row must not read the row below: 0 * NaN is NaN.
+        return masks_deg[:, HEIGHTS_M_COUNT - 1].copy()
+    below = int(np.floor(height_m))
     weight = np.float32(height_m - below)
     first = masks_deg[:, below - 1]
     if weight == 0:

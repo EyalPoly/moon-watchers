@@ -9,6 +9,7 @@ from pathlib import Path
 
 import numpy as np
 
+from api.bundle import newest_bundle
 from api.catalog import load_catalog
 from api.models import Site
 from build.fetch_sources import sha256_of
@@ -196,16 +197,19 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--ephemeris-only", action="store_true", help="add the ephemeris to the newest bundle")
     args = parser.parse_args(argv)
     spice_dir = Path("data/sources/spice")
+    newest = newest_bundle(Path("bundle")) if args.ephemeris_only else None
+    if args.ephemeris_only:
+        if newest is None:
+            raise SystemExit("no bundle under bundle/: run make masks first")
+        if "ephemeris" in json.loads((newest / "manifest.json").read_text()):
+            raise SystemExit(f"bundle {newest.name} already has an ephemeris: nothing to add")
     try:
         spice_hash = spice_hashes(spice_dir)
     except FileNotFoundError as error:
         raise SystemExit(f"SPICE kernels are missing from {spice_dir} ({error.filename}): run make fetch") from error
     ephemeris = build_ephemeris(spice_dir)
-    if args.ephemeris_only:
-        candidates = sorted(p for p in Path("bundle").glob("*") if (p / "manifest.json").is_file())
-        if not candidates:
-            raise SystemExit("no bundle under bundle/: run make masks first")
-        print(add_ephemeris(candidates[-1], Path("bundle"), ephemeris, spice_hash))
+    if newest is not None:
+        print(add_ephemeris(newest, Path("bundle"), ephemeris, spice_hash))
         return
     catalog = load_catalog(Path("catalog/sites.yaml"))
     print(build_bundle(catalog, Path("data/sources"), Path("bundle"), ephemeris, spice_hash))
