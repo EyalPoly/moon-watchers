@@ -32,6 +32,8 @@ Companion to `2026-11-10-lunar-landing-site-navigator-design.md` (the product sp
 - **The server owner builds S0 alone,** so the web owner starts on a working skeleton (repo, CI, app shell, previews).
 - **Physics placeholders P2–P12 are still open** (spec §12.3). Every slice uses the interim value from the spec until the physics team's answer arrives.
 - **The P1 reference script** arrives about 4 h after kickoff at the earliest.
+- **Where the work runs:** the builders develop and test on the Mac, with the horizon code on MPS or CPU and small areas. Full builds that need the RTX 4060 (catalog masks at full size, horizon grids, the GPU timing spike) are run by the user on the Windows PC when a slice needs them; the slice's plan says exactly which command to run. Kernels and DEMs live in one shared `data/sources/` outside git, linked into every worktree.
+- **Where the work runs:** the builders develop and test on the Mac, with the horizon code on MPS or CPU and small areas. Full builds that need the RTX 4060 (catalog masks at full size, horizon grids, the GPU timing spike) are run by the user on the Windows PC when a slice needs them; the slice's plan says exactly which command to run. Kernels and DEMs live in one shared `data/sources/` outside git, linked into every worktree.
 - **Event hosting is unknown until kickoff** (spec §5.3, §10.2).
 - **The repository doesn't exist yet.** It is created in the first slice, and this document and the spec are its first commit.
 
@@ -61,7 +63,7 @@ Each slice is one user-visible feature, sized at about 1–2 hours, broken into 
    - **Server track (server owner):** builds the engine function and the endpoint for real. Done when its pytest suite passes and the endpoint's real answers validate against the same models.
 3. **Review and merge:** each owner reviews and merges their own track's branch (small diffs) to `main`. `main` stays deployable. A contract change is merged by the server owner and must not break the web track's build; CI enforces it (§8).
 4. **Physics check:** the server builder's result comes with a command the physics team can run (§7). They compare it with their expectations or P1.
-5. **Switch to real:** when the physics team signs off, the slice's endpoint switch flips from `sample` to `real` (§6). Until then the UI keeps showing the sample answer, labeled.
+5. **Switch to real:** the user flips the slice's endpoint switch from `sample` to `real` (§6) once the engine's own checks pass: its pytest suite, plus the JPL Horizons check for anything with Sun or Earth positions. Until the physics team signs off, cards using that endpoint show a small "pending physics review" tag; their sign-off removes it. Physics review therefore never blocks a gate.
 
 **Changes on the go** start at step 1 again: update the contract and the sample answer first, so the product team sees the change in the mock preview immediately, then both builders follow.
 
@@ -81,6 +83,7 @@ Each slice is one user-visible feature, sized at about 1–2 hours, broken into 
   `sample` means MSW serves the sample answer in the browser. `real` means the call goes to the API. A URL override (`?data=sample`) forces every endpoint to sample, for product testing even after integration.
 - **Labeling:** while any visible number comes from a sample answer, the app shows a "Sample data" banner, and each card that uses one shows a small tag. This prevents the "looks real but isn't" anti-goal.
 - **How many sample answers** (Claude's call): each endpoint gets answers for 3 sample sites, so comparing cards (S5, S6) shows real differences. Time-dependent answers (series, summary, calendar) come from a small synthetic generator: plausible Sun and Earth curves for a polar site at any `t0` and length, clearly fake but shaped right. MSW matches on the endpoint and the scenario parameters and **ignores `v`**, so recorded answers keep working across commits. An unknown site falls back to the nearest sample site.
+- **How many sample answers** (Claude's call): each endpoint gets answers for 3 sample sites, so comparing cards (S5, S6) shows real differences. Time-dependent answers (series, summary, calendar) come from a small synthetic generator: plausible Sun and Earth curves for a polar site at any `t0` and length, clearly fake but shaped right. MSW matches on the endpoint and the scenario parameters and **ignores `v`**, so recorded answers keep working across commits. An unknown site falls back to the nearest sample site.
 - **Two hosted previews,** redeployed on every push to `main`:
   - **Product preview:** everything on sample answers. Always works, even with no server. This is what the product team tests.
   - **Integrated preview:** the switches as set in `config.json`. This is what gets demoed and becomes the public link.
@@ -89,13 +92,14 @@ Each slice is one user-visible feature, sized at about 1–2 hours, broken into 
 ## 7. Testing the server with the physics team
 
 - **The engine is a plain Python library** (spec §5.1: pure functions, arrays in and out). The physics team calls it directly; they don't need the HTTP API.
-- **Every server slice ships one command** the physics team can run without reading the code, for example:
+- **The physics team reviews files, not code.** Every server slice attaches its CSV outputs for the 3 sample sites to its pull request, so the physics team can check results without installing anything. They set up a local copy only if they want to run their own cases.
+- **Every server slice also ships one command** that produces those CSVs, for anyone who wants to rerun them, for example:
   ```
   python -m engine.cli summary --site shackleton_rim_a --t0 2027-03-01T00:00Z --days 29.53 --mast 2 --out summary.csv
   ```
   The output is CSV (spec §12.2: CSV for anything exchanged between people).
 - **When P1 arrives:** a pytest comparison runs the engine and their script on the same sites and times, within tolerances agreed with them (spec §11.1). From then on it runs in CI on every push.
-- **Sign-off** is a short note per slice from the physics team ("summary for 3 sites matches within X"), recorded in the slice's pull request. It is what flips the switch to `real`.
+- **Sign-off** is a short note per slice from the physics team ("summary for 3 sites matches within X"), recorded in the slice's pull request. It removes the "pending physics review" tag (§5 step 5); it doesn't gate the switch to `real`.
 - **Placeholders:** when a P-item answer arrives, it lands as a config or rule change on the server track. The contract changes only if the answer's shape changes (P5, the score, is the likely one).
 
 ## 8. Guards against drift

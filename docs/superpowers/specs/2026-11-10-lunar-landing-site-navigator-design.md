@@ -263,6 +263,8 @@ The mode is a setting. The API reports it in `/meta.capabilities`, and the UI fo
 | LOLA DEM, 20 m (south polar) | NASA PGDA | Near-field terrain: horizons, grids, heightmaps, slope | *verify* files, coverage, projection |
 | LOLA DEM, 240 m (south polar, wider area) | NASA PGDA / PDS | Far-field terrain for rays up to 200 km | *verify* |
 | NASA layers: average illumination, PSR, slope | LOLA products (PGDA/PDS) | Map colors when zoomed out; PSR validation | To find |
+| Moon Trek basemap tiles | NASA Moon Trek, tile service (WMTS) for the south pole: color hillshade, hillshade and slope, up to 5 m per pixel for some sites (§9.3) | Zoomed-out basemap on Screen 2, loaded by the browser. Our own build tiles are the fallback when Moon Trek is slow or offline | Tile request and layer list worked on 13 Nov. Licence of each layer *verify* |
+| Moon Trek elevation service | NASA Moon Trek, ArcGIS ImageServer for the 5 m south-pole LOLA DEM (`identify` and `getSamples`) | Validation only: our local DEM against NASA's own service at 20–50 points (§11.4). Never used at runtime, never for horizon masks (about 200 points per call, so thousands of calls per site) | Worked on 13 Nov. Height reference *verify* |
 | Topographic layer | Rendered by the build from the LOLA DEMs above | Elevation colors on the map, and on the globe if it's built | From the DEMs |
 | Globe assets (Screen 1, Should) | Prepared at kickoff from public sources, as in the 3D teammate's test: LOLA LDEM_16 and 240 m polar DEMs; an LROC-WAC-based color map (CC BY-SA 4.0, via Stellarium); NASA Blue Marble | Visual context only | §9.3 |
 | Dust (Nice) | Simulated (mock) map; who makes it is open (§16) | Dust layer; dust factor in the score (weight 0 by default) | Labeled "simulated" everywhere. Real sources (candidates: LADEE, Diviner) are for later. |
@@ -810,7 +812,10 @@ The client always writes parameters in the same order with the same rounding, so
 
 #### Screen 2: map and cards
 - **Map** (OpenLayers, `south_pole` region):
-  - Zoomed out: NASA layer tiles, plus a topographic layer the user can switch on (elevation colors with hill shading; Should).
+  - Zoomed out: NASA Moon Trek tiles (color hillshade by default, slope switchable), plus a topographic layer the user can switch on (elevation colors with hill shading; Should).
+    - **Moon Trek tiles:** OpenLayers loads them straight from NASA's tile service (WMTS), in the south-polar stereographic projection, so no reprojection is needed if our region uses the same one (*verify* at kickoff).
+    - **Fallback:** our own build tiles (§6.3) from the same LOLA DEMs. The app switches to them when a Moon Trek tile fails, and the demo snapshot (§10.3) always uses them, so judging never depends on NASA's server being up.
+    - **Credit:** the map shows "NASA Moon Trek / LOLA" in its attribution corner.
   - Zoomed in near a site: the live shadow and Earth-contact overlay.
     - Each frame compares `sun_vis_el` and `earth_vis_el` with the 40,000 grid points and paints a 200 × 200 image.
     - The image is placed using the site's local frame. If that doesn't work, it is placed by the grid's four corners.
@@ -897,11 +902,12 @@ The client always writes parameters in the same order with the same rounding, so
 - **Licenses:**
   - three.js: MIT.
   - LOLA data and Blue Marble: NASA, with credit.
+  - Moon Trek tiles: "NASA Moon Trek / LOLA" in the map attribution.
   - The Moon color maps: CC BY-SA 4.0, adapted from Stellarium's LROC-WAC-based map. Their attribution and license are kept with the assets.
 
 #### "How we know it's right" (minimal: Must; full: Should)
 A static page in two parts:
-1. **Comparisons** with existing tools, generated from the build's validation report (§11.4): JPL Horizons, NASA's PSR map, QuickMap and GMAT.
+1. **Comparisons** with existing tools, generated from the build's validation report (§11.4): JPL Horizons, NASA's PSR map, Moon Trek terrain, QuickMap and GMAT.
 2. **How the calculations work:** the rules and formulas in plain language, written by the physics team.
 
 The minimal page has the Horizons and PSR comparisons (the build's gates) and a short method summary.
@@ -1045,7 +1051,13 @@ One input at the top. While it works, it shows its interpretation line and a spi
   - The agreement rate outside PSRs.
 - **NASA average-illumination map,** if available: the typical difference at sample points, with the expected sources of difference explained (time period, height).
 - **QuickMap TerrainShadows:** 3–5 side-by-side images, made by hand on day 2. These are visual pattern checks; we don't automate them because there is no API.
-- **Moon Trek:** the same kind of comparison, if it has a lighting tool. Check when the Resources tab opens.
+- **Moon Trek terrain (elevation check):**
+  - Moon Trek has no illumination or horizon product (its catalog has PSR and Diviner temperature layers only), so there is no lighting comparison. Only terrain can be compared.
+  - Sample 20–50 points near the catalog sites. Ask NASA's elevation service (`getSamples`, at most about 200 points per call, GET only) and read the same points from our local 20 m DEM. Report the differences per site.
+  - Coordinates go through the service's south-polar stereographic projection, so convert them with pyproj first. A known point (for example (20000, −15000) m, which the service reported as 1062.5) is the test for the converter.
+  - Heights are measured from a 1,737,400 m radius, as far as the metadata shows. Confirm that against one reference point before trusting the residuals.
+  - Like Horizons, the answers are fetched once and saved, so tests never depend on Moon Trek being online.
+  - Expect small differences from resampling, because the 5 m and 20 m grids differ. Document them on the page.
 - **GMAT:** the physics team's basic checks of the Sun and Earth positions (§12.3). GMAT is used only for validation.
 - **Apollo (Could):** the Sun's elevation at historical Apollo landings against the mission reports. Test only; the kernels cover 1900–2050.
 - **Every difference gets an explanation on the page.**
@@ -1287,7 +1299,7 @@ score(metrics, slope_deg, dust, weights) -> {value, factors, deciding, color}   
 | 6 | Hosting at the event (is there a GPU?) and the host for the judging period | Organizers / team | Kickoff + 1 h |
 | 7 | Resolved 12 Nov: GMAT is for validation only, and the DSN stations are part of the Earth-contact rule (§7.3) | — | — |
 | 8 | Which lunar frame does Horizons use for observers on the Moon? | Physics | Day 1 |
-| 9 | Does Moon Trek have a lighting tool we could compare against? | Data/ML or physics | 13 Nov |
+| 9 | Resolved 13 Nov: Moon Trek has no lighting product. It gives us basemap tiles and an elevation check (§6.1, §9.3, §11.4) | — | — |
 | 10 | The mock dust map: who makes it (Data/ML or the physics team), its resolution and its scale | Team | Before kickoff |
 | 11 | Battery presets (only if power is built) | Product + physics | Day 2 |
 | 12 | Video or slides | Product | Before kickoff |
@@ -1374,6 +1386,12 @@ score(metrics, slope_deg, dust, weights) -> {value, factors, deciding, color}   
   - batch keywords for an observer on the Moon: `CENTER='coord@301'`, `COORD_TYPE`, `SITE_COORD`, `QUANTITIES='4'`
   - which lunar frame it uses
 - **Artemis III:** NASA's statement that the candidate regions lie within 6° of the pole.
-- **Other tools:** how to use QuickMap TerrainShadows, and what lighting tools Moon Trek has.
+- **Moon Trek:**
+  - the licence and attribution wording for the tile layers and the DEM
+  - that its south-polar projection (IAU2000:30120) matches our region's projection
+  - which exact tile layer ids to use (from its layer list; the catalog had 347 south-pole layers)
+  - the height reference of the elevation service
+  - whether `exportImage` can deliver site-sized DEM windows (not tested)
+- **Other tools:** how to use QuickMap TerrainShadows. QuickMap has no documented API and blocks embedding in other sites, so the app only links to it ("View in QuickMap"; the link opens `quickmap.lroc.im-ldi.com/?bodyview=moon&map_id=lroc`, with no position parameter found).
 - **Free hosts:** memory and sleep limits for judging mode.
 - **Globe kit:** its three.js version (r180) is compatible with our pinned three.js and react-three-fiber versions.
