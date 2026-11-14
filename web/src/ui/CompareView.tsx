@@ -44,6 +44,8 @@ const ROWS: Row[] = [
   { label: 'Slope', value: (_, site) => site.slope_deg, format: (v) => `${v.toFixed(1)}°`, better: 'lower', hint: 'Terrain slope at the site' },
 ]
 
+const unknownReason = (s: Summary) => `terrain unknown for ${Number(s.metrics.unknown_h.toFixed(1))} h`
+
 /** Side-by-side comparison of the tickets that have a site. */
 export function CompareView({ tickets, sitesById, config, search, settings, isSample, onClose, onOpenTicket }: CompareViewProps) {
   const columns = useMemo(
@@ -118,7 +120,10 @@ export function CompareView({ tickets, sitesById, config, search, settings, isSa
                     const color = row.label === 'Score' ? summaries[k].score.category : null
                     return (
                       <td key={c.index} className={k === winner ? 'num compare-best' : 'num'}>
-                        <span className={color ? `chip-${color}` : undefined}>{v === null ? 'unavailable' : row.format(v)}</span>
+                        <span className={color ? `chip-${color}` : undefined} title={v === null ? unknownReason(summaries[k]) : undefined}>
+                          {v === null ? 'unavailable' : row.format(v)}
+                        </span>
+                        {v === null && <span className="metric-reason"> {unknownReason(summaries[k])}</span>}
                         {k === winner && <span className="best-mark" aria-label="best"> ★</span>}
                       </td>
                     )

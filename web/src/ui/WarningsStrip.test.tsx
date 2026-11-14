@@ -47,3 +47,16 @@ test('"Always true" lists the three standing notes', () => {
   expect(standing).toHaveLength(3)
   for (const s of standing) expect(screen.getByText(s.text)).toBeTruthy()
 })
+
+test('before the catalog loads, warnings still render their own text with no raw code, blocking first', () => {
+  render(<WarningsStrip warnings={[w('DEM_GAPS', 'caution'), w('EXCLUDED_PSR', 'blocking')]} catalog={[]} />)
+  const items = screen.getAllByRole('listitem')
+  expect(items[0].textContent).toContain('text of EXCLUDED_PSR')
+  expect(screen.queryByText('EXCLUDED_PSR')).toBeNull()
+  expect(screen.queryByText('DEM_GAPS')).toBeNull()
+})
+
+test('with a loaded catalog an unknown code still shows raw', () => {
+  render(<WarningsStrip warnings={[w('FOO')]} catalog={catalog} />)
+  expect(screen.getByText('FOO')).toBeTruthy()
+})

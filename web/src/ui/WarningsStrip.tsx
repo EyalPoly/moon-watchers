@@ -28,7 +28,9 @@ export function WarningsStrip({ warnings, catalog }: { warnings: readonly Warnin
   const [standingOpen, setStandingOpen] = useState(false)
   if (warnings.length === 0) return null
 
+  // Until the catalog arrives nothing can be called unknown; the warnings carry their own text.
   const known = new Set(catalog.map((c) => c.code))
+  const isKnown = (code: string) => catalog.length === 0 || known.has(baseCode(code))
   const sorted = [...warnings].sort((a, b) => ORDER[a.severity] - ORDER[b.severity])
   const shown = expanded ? sorted : sorted.slice(0, VISIBLE)
   const hidden = sorted.length - VISIBLE
@@ -38,7 +40,7 @@ export function WarningsStrip({ warnings, catalog }: { warnings: readonly Warnin
     <div className="warnings" role="group" aria-label={`Warnings (${warnings.length})`}>
       <ul className="warning-list">
         {shown.map((w) => (
-          <Item key={w.code} w={w} known={known.has(baseCode(w.code))} />
+          <Item key={w.code} w={w} known={isKnown(w.code)} />
         ))}
       </ul>
       <div className="warning-actions">
