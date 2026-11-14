@@ -11,6 +11,7 @@ const appConfigSchema = z
       sites: sourceMode,
       horizon: sourceMode,
       summary: sourceMode,
+      series: sourceMode.optional(),
     }),
   })
   .refine((c) => c.api_base !== '' || Object.values(c.sources).every((s) => s === 'sample'), {
@@ -18,14 +19,14 @@ const appConfigSchema = z
   })
 
 export type AppConfig = z.infer<typeof appConfigSchema>
-// meta follows sites, and series follows summary: each pair comes from one engine piece.
+// meta follows sites. series follows summary unless sources.series says otherwise: it needs
+// the ephemeris, which lands after the horizon masks and the summary.
 // custom (POST /sites/custom) follows horizon: a custom point needs the terrain engine,
 // so it goes real together with the horizon, not with the catalog.
 export type SourceName = 'sites' | 'horizon' | 'summary' | 'meta' | 'series' | 'custom'
 
 const FOLLOWS: Partial<Record<SourceName, 'sites' | 'horizon' | 'summary'>> = {
   meta: 'sites',
-  series: 'summary',
   custom: 'horizon',
 }
 export type SourceMode = z.infer<typeof sourceMode>
@@ -52,12 +53,13 @@ function forcedSample(search: string): boolean {
 
 export function resolveSource(config: AppConfig, name: SourceName, search: string): SourceMode {
   if (forcedSample(search)) return 'sample'
+  if (name === 'series') return config.sources.series ?? config.sources.summary
   const key = FOLLOWS[name] ?? (name as 'sites' | 'horizon' | 'summary')
   return config.sources[key]
 }
 
 export function anySample(config: AppConfig, search: string): boolean {
-  return (['sites', 'horizon', 'summary'] as const).some(
+  return (['sites', 'horizon', 'summary', 'series'] as const).some(
     (name) => resolveSource(config, name, search) === 'sample',
   )
 }

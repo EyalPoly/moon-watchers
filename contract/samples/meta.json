@@ -65,22 +65,37 @@
   },
   "stations": [
     {
+      "id": "houston",
+      "name": "Houston (demonstration location, not an operational antenna)",
+      "lat_deg": 29.7604,
+      "lon_deg": -95.3698,
+      "alt_m": 0,
+      "min_el_deg": 0
+    },
+    {
       "id": "goldstone",
       "name": "Goldstone (USA)",
       "lat_deg": 35.4267,
-      "lon_deg": -116.89
+      "lon_deg": -116.89,
+      "alt_m": 0,
+      "min_el_deg": 0
     },
     {
       "id": "madrid",
       "name": "Madrid (Spain)",
       "lat_deg": 40.4314,
-      "lon_deg": -4.2481
+      "lon_deg": -4.2481,
+      "alt_m": 0,
+      "min_el_deg": 0
     },
     {
       "id": "canberra",
       "name": "Canberra (Australia)",
       "lat_deg": -35.4014,
-      "lon_deg": 148.9819
+      "lon_deg": 148.9819,
+      "alt_m": 0,
+      "min_el_deg": 0
     }
-  ]
+  ],
+  "default_station": "houston"
 }

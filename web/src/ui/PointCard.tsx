@@ -1,14 +1,17 @@
 import { useMemo, useState } from 'react'
 import type { AppConfig } from '../api/config'
 import { inPointArea, parsePointId, pointId } from '../api/points'
-import type { Meta, Site } from '../api/types'
+import { presetsFrom, sameStation, stationQuery } from '../api/stations'
+import type { Meta, Site, StationPoint } from '../api/types'
 import { useMissionSeries, useSummary } from '../state/queries'
 import type { TicketRank } from '../state/ranking'
 import { useScenario } from '../state/scenario'
 import { indexAt, liveStatus, type LiveStatus } from '../state/series'
-import { cleanName, type EarthStationChoice, type Ticket } from '../state/tickets'
+import { cleanName, type Ticket } from '../state/tickets'
 import { MISSION_RANGE } from '../state/urlState'
-import { LUNAR_DAY_MS, formatDuration, formatIsoMinute, parseIsoMinute, snapToStep } from '../time'
+import { LUNAR_DAY_MS, formatIsoMinute, parseIsoMinute, snapToStep } from '../time'
+import { HeightControl } from './HeightControl'
+import { LivePanel } from './LivePanel'
 import { MissionLength } from './MissionLength'
 import { Pending } from './Pending'
 import { formatLat, formatLon, parseCoord, pointLetter, siteTag, slopeWord, type Tone } from './points'
@@ -53,8 +56,10 @@ interface Draft {
   date: string
   time: string
   days: number
-  mast: string
-  earth: EarthStationChoice
+  /** Solar panel and antenna heights, in meters (whole centimetres). */
+  panel: number
+  antenna: number
+  station: StationPoint
 }
 
 function draftOf(ticket: Ticket, site: Site | undefined): Draft {
@@ -67,8 +72,9 @@ function draftOf(ticket: Ticket, site: Site | undefined): Draft {
     date: ticket.t0.slice(0, 10),
     time: ticket.t0.slice(11, 16),
     days: ticket.days,
-    mast: String(ticket.mast),
-    earth: { station: ticket.station, lat: ticket.lat, lon: ticket.lon },
+    panel: ticket.panel,
+    antenna: ticket.antenna,
+    station: ticket.station,
   }
 }
 
@@ -77,7 +83,6 @@ type Resolved = { patch: Partial<Ticket>; error: string | null }
 /** Turns the draft into a ticket patch, or says what is wrong with it. */
 function resolve(d: Draft): Resolved {
   const t0Ms = parseIsoMinute(`${d.date}T${d.time}Z`)
-  const mast = Number(d.mast)
   const lat = parseCoord(d.lat, 'lat')
   const lon = parseCoord(d.lon, 'lon')
   let site = d.siteId
@@ -91,9 +96,9 @@ function resolve(d: Draft): Resolved {
     name: cleanName(d.name),
     site,
     days: d.days,
-    station: d.earth.station,
-    lat: d.earth.lat,
-    lon: d.earth.lon,
+    panel: d.panel,
+    antenna: d.antenna,
+    station: d.station,
   }
   if (t0Ms === null) error ??= 'Choose a landing date and a time.'
   else {
@@ -101,13 +106,13 @@ function resolve(d: Draft): Resolved {
     if (t0 < MISSION_RANGE.first || t0 > MISSION_RANGE.last) error ??= 'Landing dates run from 2026 to 2030.'
     else patch.t0 = t0
   }
-  if (!(mast >= 1 && mast <= 10)) error ??= 'Mast height is 1 to 10 m.'
-  else patch.mast = Math.round(mast * 2) / 2
   return { patch, error }
 }
 
 function changed(ticket: Ticket, patch: Partial<Ticket>): boolean {
-  return (Object.keys(patch) as (keyof Ticket)[]).some((k) => patch[k] !== ticket[k])
+  return (Object.keys(patch) as (keyof Ticket)[]).some((k) =>
+    k === 'station' ? !sameStation(patch.station as StationPoint, ticket.station) : patch[k] !== ticket[k],
+  )
 }
 
 function Status({ label, word, tone }: { label: string; word: string; tone: Tone }) {
@@ -125,16 +130,21 @@ function Status({ label, word, tone }: { label: string; word: string; tone: Tone
 function statusOf(live: LiveStatus | null, site: Site | undefined) {
   const slope = site ? slopeWord(site.slope_deg) : null
   return {
+    // null: the terrain behind the answer is unknown, so neither yes nor no.
     light: !live
       ? { word: '—', tone: 'none' as Tone }
-      : live.sun.visible
-        ? live.sun.litFraction < 1
+      : live.sun.visible === null
+        ? { word: 'Unknown', tone: 'none' as Tone }
+        : live.sun.visible
+        ? live.sun.litFraction !== null && live.sun.litFraction < 1
           ? { word: 'Partly lit', tone: 'mid' as Tone }
           : { word: 'Sunlit', tone: 'good' as Tone }
         : { word: 'Shaded', tone: 'bad' as Tone },
     earth: !live
       ? { word: '—', tone: 'none' as Tone }
-      : live.earth.visible
+      : live.earth.visible === null
+        ? { word: 'Unknown', tone: 'none' as Tone }
+        : live.earth.visible
         ? { word: 'Clear', tone: 'good' as Tone }
         : !live.earth.stationUp
           ? { word: 'No station', tone: 'mid' as Tone }
@@ -145,14 +155,6 @@ function statusOf(live: LiveStatus | null, site: Site | undefined) {
 
 const signed = (v: number) => `${v >= 0 ? '+' : ''}${v.toFixed(1)}°`
 
-function countdowns(live: LiveStatus): string {
-  const part = (visible: boolean, change: LiveStatus['sun']['change'], setWord: string, riseWord: string) => {
-    const word = visible ? setWord : riseWord
-    return change.kind === 'at' ? `${word} in ${formatDuration(change.inMs)}` : `${word} not before the data ends`
-  }
-  return `${part(live.sun.visible, live.sun.change, 'Sunset', 'Sunrise')} · ${part(live.earth.visible, live.earth.change, 'Earthset', 'Earthrise')}`
-}
-
 /** One point in the Site calculator (UI design pages 3–13). */
 export function PointCard(props: PointCardProps) {
   const { index, ticket, catalog, site, open, config, search, rank } = props
@@ -160,9 +162,8 @@ export function PointCard(props: PointCardProps) {
   const isDraftPoint = ticket.site === null
   const title = ticket.name || site?.name || (isDraftPoint ? 'New point' : 'Loading point…')
 
-  const mission = { t0: ticket.t0, days: ticket.days, mast: ticket.mast, tau: props.tau }
-  const earth = { station: ticket.station, lat: ticket.lat, lon: ticket.lon }
-  const scenario = useScenario(site?.id ?? null, mission, earth)
+  const mission = { t0: ticket.t0, days: ticket.days, panel: ticket.panel, antenna: ticket.antenna, tau: props.tau }
+  const scenario = useScenario(site?.id ?? null, mission, ticket.station)
   const series = useMissionSeries(config, search, scenario)
   const summary = useSummary(config, search, scenario)
   const t0Ms = parseIsoMinute(ticket.t0) as number
@@ -347,28 +348,19 @@ export function PointCard(props: PointCardProps) {
 
             <MissionLength key={draft.days} days={draft.days} onChange={(days) => setDraft({ days })} />
 
-            <label className="field">
-              <span className="field-label">MAST HEIGHT</span>
-              <span className="unit-input">
-                <input
-                  type="number"
-                  min={1}
-                  max={10}
-                  step={0.5}
-                  value={draft.mast}
-                  onChange={(e) => setDraft({ mast: e.target.value })}
-                  aria-label="Mast height in meters"
-                />
-                <span>m</span>
-              </span>
-            </label>
+            <div className="field">
+              <HeightControl key={`panel-${draft.panel}`} label="Panel" value={draft.panel} onChange={(panel) => setDraft({ panel })} />
+            </div>
+            <div className="field">
+              <HeightControl key={`antenna-${draft.antenna}`} label="Antenna" value={draft.antenna} onChange={(antenna) => setDraft({ antenna })} />
+            </div>
 
             <div className="field field-wide">
               <StationPicker
-                key={`${draft.earth.station}${draft.earth.lat}${draft.earth.lon}`}
-                value={draft.earth}
-                stations={props.stations}
-                onChange={(next) => setDraft({ earth: next })}
+                key={stationQuery(draft.station)}
+                value={draft.station}
+                presets={presetsFrom(props.stations)}
+                onChange={(next) => setDraft({ station: next })}
               />
             </div>
           </div>
@@ -411,9 +403,7 @@ export function PointCard(props: PointCardProps) {
                 {series.isError ? (
                   <ServerUnavailable onRetry={series.refetch} />
                 ) : live ? (
-                  <p className="countdowns" aria-label="Live status">
-                    {countdowns(live)}
-                  </p>
+                  <LivePanel status={live} />
                 ) : (
                   <Pending label="Loading Sun and Earth positions…" />
                 )}

@@ -59,17 +59,18 @@ test('each point gets a rank from the ranking function, and the best has green s
 
 test('a custom Earth station by lat/lon shows on the ridge graph once applied', async ({ page, context }) => {
   await stubTiles(context)
-  await page.goto('/?tk=sample_a~2027-03-01T00:00Z~29.53~2~g')
+  await page.goto('/?tk=sample_a~2027-03-01T00:00Z~29.53~2~3~g')
   const legend = page.locator('.sky-caption')
-  await expect(legend.getByText('Contact with all DSN sites')).toBeVisible()
+  await expect(legend.getByText(/Contact with Houston \(demonstration location/)).toBeVisible()
   await page.getByRole('combobox', { name: 'Earth station' }).selectOption('custom')
   await page.getByRole('textbox', { name: 'Station latitude' }).fill('31.25')
   await page.getByRole('textbox', { name: 'Station longitude' }).fill('34.79')
   await page.getByRole('button', { name: 'Use' }).click()
-  await expect(legend.getByText('Contact with all DSN sites')).toBeVisible()
+  // "Use" only fills the card; the point changes when it is applied.
+  await expect(legend.getByText(/Contact with Houston/)).toBeVisible()
 
   await page.getByRole('button', { name: /Apply point A/ }).click()
-  await expect(page).toHaveURL(/s%3A%4031\.25%2C34\.79/)
+  await expect(page).toHaveURL(/s%3A31\.25%2C34\.79%2C0%2C0/)
   await expect(legend.getByText('Contact with 31.25°, 34.79°')).toBeVisible()
   await expect(page.locator('.sky-contact-no-station').first()).toBeAttached()
 
@@ -78,14 +79,42 @@ test('a custom Earth station by lat/lon shows on the ridge graph once applied', 
   await expect(legend.getByText('Contact with Canberra (Australia)')).toBeVisible()
 })
 
-test('the ridge graph runs from north through south back to north', async ({ page, context }) => {
+test('an old ticket link with one mast height still opens, with the default antenna and Houston', async ({ page, context }) => {
   await stubTiles(context)
   await page.goto('/?tk=sample_a~2027-03-01T00:00Z~29.53~2~g')
+  await expect(page.locator('.sky-caption').getByText(/Contact with Houston/)).toBeVisible()
+  await expect(page.getByRole('slider', { name: 'Antenna height in meters' })).toHaveValue('3')
+})
+
+test('panel and antenna heights are typed in centimetres and show a second skyline', async ({ page, context }) => {
+  await stubTiles(context)
+  await page.goto('/?tk=sample_a~2027-03-01T00:00Z~29.53~2~3~g')
+  await expect(page.locator('.sky-terrain-edge-antenna')).toBeAttached()
+  const antenna = page.getByRole('textbox', { name: 'Antenna height in meters, exact value' })
+  await antenna.fill('2.55')
+  await antenna.press('Enter')
+  await page.getByRole('button', { name: /Apply point A/ }).click()
+  await expect(page).toHaveURL(/29\.53%7E2%7E2\.55/)
+  await antenna.fill('2.555')
+  await expect(page.getByText('1 to 10 m, at most two decimals.')).toBeVisible()
+  await antenna.fill('2')
+  await antenna.press('Enter')
+  await page.getByRole('button', { name: /Apply point A/ }).click()
+  await expect(page.locator('.sky-terrain-edge-antenna')).toHaveCount(0)
+})
+
+test('the ridge graph runs from north through south back to north', async ({ page, context }) => {
+  await stubTiles(context)
+  await page.goto('/?tk=sample_a~2027-03-01T00:00Z~29.53~2~3~g')
   const degrees = page.locator('.sky-view .sky-degrees')
+  const compass = page.locator('.sky-view .sky-compass')
   await expect(degrees.getByText('000°', { exact: true })).toHaveCount(2)
   for (const label of ['090°', '180°', '270°']) {
     await expect(degrees.getByText(label, { exact: true })).toHaveCount(1)
   }
   await expect(degrees.first()).toHaveText('000°')
   await expect(degrees.last()).toHaveText('000°')
+  for (const label of ['E', 'S', 'W']) {
+    await expect(compass.getByText(label, { exact: true })).toBeAttached()
+  }
 })

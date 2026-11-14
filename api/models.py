@@ -1,6 +1,6 @@
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 ErrorCode = Literal[
     "OUT_OF_COVERAGE",
@@ -69,13 +69,18 @@ class Limits(BaseModel):
     max_search_window_d: int
 
 
-class EarthStation(BaseModel):
+class StationPoint(BaseModel):
+    lat_deg: float = Field(ge=-90, le=90)
+    lon_deg: float = Field(ge=-180, le=180)
+    alt_m: float = Field(ge=-500, le=9000)
+    min_el_deg: float = Field(ge=0, le=45)
+
+
+class EarthStation(StationPoint):
     """A ground station the lander can talk to directly (spec §7.3, P3)."""
 
     id: str = Field(pattern=r"^[a-z0-9_]{1,32}$")
     name: str
-    lat_deg: float = Field(ge=-90, le=90)
-    lon_deg: float = Field(ge=-180, le=180)
 
 
 class Meta(BaseModel):
@@ -86,6 +91,13 @@ class Meta(BaseModel):
     capabilities: Capabilities
     limits: Limits
     stations: list[EarthStation]
+    default_station: str
+
+    @model_validator(mode="after")
+    def _default_station_is_a_preset(self) -> "Meta":
+        if self.default_station not in {s.id for s in self.stations}:
+            raise ValueError("default_station must name an entry of stations")
+        return self
 
 
 class Site(BaseModel):
@@ -124,9 +136,6 @@ class Problem(BaseModel):
 
 # --- Scenario (spec §8.1) -------------------------------------------------------------
 
-# "any": contact while at least one DSN complex sees the Moon. "custom": a station at
-# station_lat_deg / station_lon_deg, which the scenario then carries.
-Station = Literal["any", "goldstone", "madrid", "canberra", "custom"]
 RagColor = Literal["green", "amber", "red"]
 
 
@@ -134,11 +143,10 @@ class Scenario(BaseModel):
     site: str
     t0: str
     days: float = Field(ge=1, le=365)
-    mast: float = Field(ge=1, le=10)
+    panel: float = Field(ge=1, le=10)
+    antenna: float = Field(ge=1, le=10)
     w: tuple[float, float, float, float]
-    station: Station
-    station_lat_deg: float | None = Field(default=None, ge=-90, le=90)
-    station_lon_deg: float | None = Field(default=None, ge=-180, le=180)
+    station: StationPoint
 
 
 # --- Horizon (spec §8.2, §9.3 sky view) -----------------------------------------------
@@ -149,11 +157,20 @@ class HorizonResponse(BaseModel):
     mast_m: float
     part: Literal["full", "far"]
     az_step_deg: float
-    elevation_deg: list[float] = Field(min_length=720, max_length=720)
-    distance_km: list[float] = Field(min_length=720, max_length=720)
+    # null: the terrain along that direction is unknown (missing data or truncated)
+    elevation_deg: list[float | None] = Field(min_length=720, max_length=720)
+    distance_km: list[float | None] = Field(min_length=720, max_length=720)
+    low_deg: list[float | None] | None = Field(default=None, min_length=720, max_length=720)
+    high_deg: list[float | None] | None = Field(default=None, min_length=720, max_length=720)
+    algo_version: str | None = None
+    warnings: list[str] | None = None
 
 
 # --- Series (spec §8.3) ---------------------------------------------------------------
+
+
+# 1: yes, 0: no, null: the terrain along the needed direction is unknown
+Visibility = Literal[0, 1] | None
 
 
 class SeriesResponse(BaseModel):
@@ -163,16 +180,29 @@ class SeriesResponse(BaseModel):
     sun_az: list[float]
     sun_el: list[float]
     sun_vis_el: list[float]
-    sun_horizon_el: list[float]
-    sun_lit_frac: list[float]
+    sun_horizon_el: list[float | None]
+    sun_lit_frac: list[float | None]
     earth_az: list[float]
     earth_el: list[float]
     earth_vis_el: list[float]
-    earth_horizon_el: list[float]
-    earth_visible: list[bool]
+    earth_horizon_el: list[float | None]
+    earth_any: list[Visibility]
+    earth_whole: list[Visibility]
+    contact: list[Visibility]
+    station_az: list[float]
+    station_el: list[float]
+    station_horizon_el: list[float | None]
     earth_station_up: list[bool]
+    station_moon_el: list[float]
     power_w: list[float] | None = None
     soc_pct: list[float] | None = None
+
+    @model_validator(mode="after")
+    def _lists_have_n_entries(self) -> "SeriesResponse":
+        for name, value in self:
+            if isinstance(value, list) and len(value) != self.n:
+                raise ValueError(f"{name} has {len(value)} entries, expected n={self.n}")
+        return self
 
 
 # --- Summary (spec §7.4, §7.5, §8.3) --------------------------------------------------

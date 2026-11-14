@@ -205,12 +205,16 @@ export interface components {
          * @description A ground station the lander can talk to directly (spec §7.3, P3).
          */
         EarthStation: {
+            /** Alt M */
+            alt_m: number;
             /** Id */
             id: string;
             /** Lat Deg */
             lat_deg: number;
             /** Lon Deg */
             lon_deg: number;
+            /** Min El Deg */
+            min_el_deg: number;
             /** Name */
             name: string;
         };
@@ -231,12 +235,18 @@ export interface components {
         };
         /** HorizonResponse */
         HorizonResponse: {
+            /** Algo Version */
+            algo_version?: string | null;
             /** Az Step Deg */
             az_step_deg: number;
             /** Distance Km */
-            distance_km: number[];
+            distance_km: (number | null)[];
             /** Elevation Deg */
-            elevation_deg: number[];
+            elevation_deg: (number | null)[];
+            /** High Deg */
+            high_deg?: (number | null)[] | null;
+            /** Low Deg */
+            low_deg?: (number | null)[] | null;
             /** Mast M */
             mast_m: number;
             /**
@@ -246,6 +256,8 @@ export interface components {
             part: "full" | "far";
             /** Site Id */
             site_id: string;
+            /** Warnings */
+            warnings?: string[] | null;
         };
         /** Layer */
         Layer: {
@@ -279,6 +291,8 @@ export interface components {
             /** Bundle Id */
             bundle_id: string;
             capabilities: components["schemas"]["Capabilities"];
+            /** Default Station */
+            default_station: string;
             limits: components["schemas"]["Limits"];
             /**
              * Mode
@@ -350,21 +364,15 @@ export interface components {
         };
         /** Scenario */
         Scenario: {
+            /** Antenna */
+            antenna: number;
             /** Days */
             days: number;
-            /** Mast */
-            mast: number;
+            /** Panel */
+            panel: number;
             /** Site */
             site: string;
-            /**
-             * Station
-             * @enum {string}
-             */
-            station: "any" | "goldstone" | "madrid" | "canberra" | "custom";
-            /** Station Lat Deg */
-            station_lat_deg?: number | null;
-            /** Station Lon Deg */
-            station_lon_deg?: number | null;
+            station: components["schemas"]["StationPoint"];
             /** T0 */
             t0: string;
             /** W */
@@ -418,18 +426,22 @@ export interface components {
         };
         /** SeriesResponse */
         SeriesResponse: {
+            /** Contact */
+            contact: ((0 | 1) | null)[];
+            /** Earth Any */
+            earth_any: ((0 | 1) | null)[];
             /** Earth Az */
             earth_az: number[];
             /** Earth El */
             earth_el: number[];
             /** Earth Horizon El */
-            earth_horizon_el: number[];
+            earth_horizon_el: (number | null)[];
             /** Earth Station Up */
             earth_station_up: boolean[];
             /** Earth Vis El */
             earth_vis_el: number[];
-            /** Earth Visible */
-            earth_visible: boolean[];
+            /** Earth Whole */
+            earth_whole: ((0 | 1) | null)[];
             /** N */
             n: number;
             /** Power W */
@@ -438,6 +450,14 @@ export interface components {
             soc_pct?: number[] | null;
             /** Start */
             start: string;
+            /** Station Az */
+            station_az: number[];
+            /** Station El */
+            station_el: number[];
+            /** Station Horizon El */
+            station_horizon_el: (number | null)[];
+            /** Station Moon El */
+            station_moon_el: number[];
             /** Step S */
             step_s: number;
             /** Sun Az */
@@ -445,9 +465,9 @@ export interface components {
             /** Sun El */
             sun_el: number[];
             /** Sun Horizon El */
-            sun_horizon_el: number[];
+            sun_horizon_el: (number | null)[];
             /** Sun Lit Frac */
-            sun_lit_frac: number[];
+            sun_lit_frac: (number | null)[];
             /** Sun Vis El */
             sun_vis_el: number[];
         };
@@ -485,6 +505,17 @@ export interface components {
         SitesResponse: {
             /** Sites */
             sites: components["schemas"]["Site"][];
+        };
+        /** StationPoint */
+        StationPoint: {
+            /** Alt M */
+            alt_m: number;
+            /** Lat Deg */
+            lat_deg: number;
+            /** Lon Deg */
+            lon_deg: number;
+            /** Min El Deg */
+            min_el_deg: number;
         };
         /** SummaryResponse */
         SummaryResponse: {
@@ -608,11 +639,10 @@ export interface operations {
                 t0: string;
                 month: string;
                 days?: number;
-                mast?: number;
+                panel?: number;
+                antenna?: number;
                 w?: string;
-                station?: "any" | "goldstone" | "madrid" | "canberra" | "custom";
-                station_lat?: number | null;
-                station_lon?: number | null;
+                station?: string;
                 v?: string;
             };
             header?: never;
@@ -647,11 +677,10 @@ export interface operations {
                 site: string;
                 t0: string;
                 days?: number;
-                mast?: number;
+                panel?: number;
+                antenna?: number;
                 w?: string;
-                station?: "any" | "goldstone" | "madrid" | "canberra" | "custom";
-                station_lat?: number | null;
-                station_lon?: number | null;
+                station?: string;
                 v?: string;
             };
             header?: never;
@@ -769,6 +798,7 @@ export interface operations {
             query?: {
                 mast?: number;
                 part?: "full" | "far";
+                v?: string;
             };
             header?: never;
             path: {

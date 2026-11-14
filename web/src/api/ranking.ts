@@ -6,7 +6,7 @@
 // this file. Its grades are made up from simple rules of thumb plus a small drift over
 // time, so the screen shows the ranking refreshing on its own.
 
-import type { Station } from './types'
+import type { StationPoint } from './types'
 
 export interface RankInput {
   /** Caller's id for the ticket; returned unchanged. */
@@ -14,10 +14,9 @@ export interface RankInput {
   site: { id: string; lat_deg: number; lon_deg: number; elevation_m: number; slope_deg: number }
   t0: string
   days: number
-  mast: number
-  station: Station
-  station_lat: number | null
-  station_lon: number | null
+  panel: number
+  antenna: number
+  station: StationPoint
 }
 
 export interface RankedTicket {
@@ -46,9 +45,9 @@ function dummyGrade(t: RankInput, now: number): number {
   g -= t.site.slope_deg * 2.5 // steep ground is harder to land on
   g += (Math.abs(t.site.lat_deg) - 84) * 2 // closer to the pole, longer days
   g += 8 * Math.sin((2 * Math.PI * dayOfYear) / 365.25) // season
-  g += (t.mast - 2) * 0.8 // a taller mast clears more
+  g += (t.panel - 2) * 0.4 + (t.antenna - 3) * 0.4 // taller masts clear more
   g -= Math.min(10, t.days / 36) // longer missions are harder
-  g += t.station === 'any' ? 4 : 0 // three stations beat one
+  g -= t.station.min_el_deg * 0.2 // a station that needs the Moon high sees it less
   // Drift: stands in for inputs that change while the user works.
   g += 1.5 * Math.sin(now / 45_000 + hash(t.key + t.site.id) * 6)
   return Math.round(clamp(0, 100, g) * 10) / 10

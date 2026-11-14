@@ -2,23 +2,29 @@
   "scenario": {
     "site": "sample_b",
     "t0": "2027-03-01T00:00Z",
-    "days": 29.53,
-    "mast": 2,
+    "days": 30,
+    "panel": 2,
+    "antenna": 3,
     "w": [
       1,
       1,
       1,
       0
     ],
-    "station": "any"
+    "station": {
+      "lat_deg": 29.7604,
+      "lon_deg": -95.3698,
+      "alt_m": 0,
+      "min_el_deg": 0
+    }
   },
   "version": "sample",
   "metrics": {
     "sun_pct": 0,
-    "dte_pct": 34.7,
+    "dte_pct": 22.2,
     "both_pct": 0,
-    "longest_dark_h": 708.7,
-    "longest_no_contact_h": 459.2,
+    "longest_dark_h": 720,
+    "longest_no_contact_h": 415.8,
     "first_dark_after_landing_h": 0,
     "earth_el_range": [
       -7,
@@ -31,8 +37,8 @@
       "reason": "Sun visible 0% of the mission (green ≥ 60%, red < 30%)"
     },
     "dte": {
-      "color": "amber",
-      "reason": "Earth in contact 34.7% of the mission (green ≥ 60%, red < 30%)"
+      "color": "red",
+      "reason": "Earth in contact 22.2% of the mission (green ≥ 60%, red < 30%)"
     },
     "slope": {
       "color": "green",
@@ -52,14 +58,14 @@
       {
         "name": "sun",
         "weight": 1,
-        "points": -60.5,
+        "points": -56.3,
         "reason": "Sun visible 0% of the mission"
       },
       {
         "name": "dte",
         "weight": 1,
-        "points": -39.5,
-        "reason": "Earth in contact 34.7% of the mission"
+        "points": -43.7,
+        "reason": "Earth in contact 22.2% of the mission"
       },
       {
         "name": "slope",
@@ -76,12 +82,60 @@
     "sun": [],
     "dte": [
       [
-        "2027-03-01T03:20Z",
-        "2027-03-09T04:40Z"
+        "2027-03-01T00:00Z",
+        "2027-03-01T02:50Z"
       ],
       [
-        "2027-03-28T07:50Z",
-        "2027-03-30T12:40Z"
+        "2027-03-01T14:50Z",
+        "2027-03-02T03:40Z"
+      ],
+      [
+        "2027-03-02T15:40Z",
+        "2027-03-03T04:30Z"
+      ],
+      [
+        "2027-03-03T16:30Z",
+        "2027-03-04T05:20Z"
+      ],
+      [
+        "2027-03-04T17:20Z",
+        "2027-03-05T06:10Z"
+      ],
+      [
+        "2027-03-05T18:10Z",
+        "2027-03-06T07:00Z"
+      ],
+      [
+        "2027-03-06T19:00Z",
+        "2027-03-07T07:50Z"
+      ],
+      [
+        "2027-03-07T19:50Z",
+        "2027-03-08T08:40Z"
+      ],
+      [
+        "2027-03-08T20:40Z",
+        "2027-03-09T09:30Z"
+      ],
+      [
+        "2027-03-09T21:30Z",
+        "2027-03-10T04:00Z"
+      ],
+      [
+        "2027-03-27T11:50Z",
+        "2027-03-28T00:40Z"
+      ],
+      [
+        "2027-03-28T12:40Z",
+        "2027-03-29T01:30Z"
+      ],
+      [
+        "2027-03-29T13:30Z",
+        "2027-03-30T02:20Z"
+      ],
+      [
+        "2027-03-30T14:20Z",
+        "2027-03-31T00:00Z"
       ]
     ],
     "both": []
@@ -120,15 +174,16 @@
       0
     ],
     "dte_pct": [
-      86.1,
-      100,
-      100,
-      100,
-      100,
-      100,
-      100,
-      100,
-      19.4,
+      50,
+      50,
+      50,
+      50,
+      50,
+      50,
+      50,
+      50,
+      50,
+      16.7,
       0,
       0,
       0,
@@ -145,11 +200,10 @@
       0,
       0,
       0,
-      0,
-      0,
-      67.4,
-      100,
-      100
+      50.7,
+      50,
+      50,
+      50
     ]
   },
   "warnings": []

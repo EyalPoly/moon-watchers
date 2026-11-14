@@ -69,17 +69,16 @@ export function useMissionSeries(config: AppConfig, search: string, scenario: Sc
   }, [scenario])
   return useQueries({
     queries: months.map((month) => ({
-      // The month's series depends on the site, mast and station only, so it stays cached
+      // The month's series depends on the site, heights and station only, so it stays cached
       // while the landing date or mission length changes.
       queryKey: [
         'series',
         mode,
         mode === 'real' ? config.api_base : '',
         scenario?.site,
-        scenario?.mast,
+        scenario?.panel,
+        scenario?.antenna,
         scenario?.station,
-        scenario?.station_lat_deg,
-        scenario?.station_lon_deg,
         month,
       ],
       queryFn: () => createApi(config, search).getSeries(scenario as Scenario, month),

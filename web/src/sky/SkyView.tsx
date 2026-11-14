@@ -6,16 +6,19 @@ import { indexAt, seriesTimeAt } from '../state/series'
 // Sky view (spec §9.3): azimuth across, elevation up, terrain silhouette from the horizon
 // mask, the Sun's and the Earth's paths over the mission with day ticks, and both disks
 // at the time being viewed. Points along the Earth's path show when the chosen Earth
-// station has direct contact.
+// station has direct contact. Where the terrain is unknown the silhouette has a gap, shaded.
 
 export interface SkyViewProps {
+  /** The skyline at the panel's height: it decides the Sun. */
   horizon: Horizon
+  /** The skyline at the antenna's height; a thinner line is drawn when it differs. */
+  antennaHorizon?: Horizon
   series: Series | null
   /** Mission window and the time being viewed, in ms. */
   startMs: number
   endMs: number
   nowMs: number
-  /** The Earth station the contact points are for, e.g. "all DSN sites" or "Madrid (Spain)". */
+  /** The Earth station the contact points are for, e.g. "Madrid (Spain)". */
   stationLabel?: string
 }
 
@@ -32,11 +35,54 @@ const COMPASS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']
 /** About one contact point per 2 hours, but never more than this many. */
 const MAX_CONTACT_POINTS = 480
 
-type ContactKind = 'contact' | 'blocked' | 'no-station'
+type ContactKind = 'contact' | 'blocked' | 'no-station' | 'unknown'
 
 const wrap = (az: number) => ((az % 360) + 360) % 360
 
-export function SkyView({ horizon, series, startMs, endMs, nowMs, stationLabel = 'all DSN sites' }: SkyViewProps) {
+/** The silhouette as an outline and a fill, with a gap wherever the terrain is unknown. */
+function skylineOf(h: Horizon, leftAz: number, x: (az: number) => number, y: (el: number) => number) {
+  const n = h.elevation_deg.length
+  const bottom = H - PAD.bottom
+  const right = PAD.left + PLOT_W
+  type Point = { px: number; py: number }
+  const runs: Point[][] = []
+  const unknown: { x0: number; x1: number }[] = []
+  let known: Point[] | null = null
+  let gap: { x0: number; x1: number } | null = null
+  for (let k = 0; k <= n; k++) {
+    const az = leftAz + (k * 360) / n
+    const el = h.elevation_deg[Math.round(wrap(az) / h.az_step_deg) % n]
+    // The last point is the left edge's value one turn later; pin it to the right edge.
+    const px = k === n ? right : x(az)
+    if (el === null) {
+      known = null
+      if (gap) gap.x1 = px
+      else {
+        gap = { x0: px, x1: px }
+        unknown.push(gap)
+      }
+    } else {
+      gap = null
+      if (!known) {
+        known = []
+        runs.push(known)
+      }
+      known.push({ px, py: y(el) })
+    }
+  }
+  const fmt = (p: Point) => `${p.px.toFixed(1)},${p.py.toFixed(1)}`
+  return {
+    line: runs.map((r) => `M${r.map(fmt).join('L')}`).join(''),
+    area: runs
+      .map((r) => `M${r.map(fmt).join('L')}L${r[r.length - 1].px.toFixed(1)},${bottom}L${r[0].px.toFixed(1)},${bottom}Z`)
+      .join(''),
+    unknown: unknown.map((u) => ({ x0: u.x0, width: Math.max(u.x1 - u.x0 + PLOT_W / n, 1) })),
+  }
+}
+
+const known = (values: readonly (number | null)[]) => values.filter((v): v is number => v !== null)
+
+export function SkyView({ horizon, antennaHorizon, series, startMs, endMs, nowMs, stationLabel = 'the Earth station' }: SkyViewProps) {
   const [hoverAz, setHoverAz] = useState<number | null>(null)
   // React's ids may contain characters that break url(#…) references.
   const uid = `sky${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`
@@ -53,8 +99,8 @@ export function SkyView({ horizon, series, startMs, endMs, nowMs, stationLabel =
   const leftAz = 0
 
   const [elMin, elMax] = useMemo(() => {
-    let lo = Math.min(-5, ...horizon.elevation_deg)
-    let hi = Math.max(10, ...horizon.elevation_deg)
+    let lo = Math.min(-5, ...known(horizon.elevation_deg), ...known(antennaHorizon?.elevation_deg ?? []))
+    let hi = Math.max(10, ...known(horizon.elevation_deg), ...known(antennaHorizon?.elevation_deg ?? []))
     if (series && range) {
       for (let i = range.i0; i <= range.i1; i++) {
         hi = Math.max(hi, series.sun_el[i], series.earth_el[i])
@@ -62,7 +108,7 @@ export function SkyView({ horizon, series, startMs, endMs, nowMs, stationLabel =
       }
     }
     return [Math.floor(lo - 0.5), Math.ceil(hi + 1)]
-  }, [horizon, series, range])
+  }, [horizon, antennaHorizon, series, range])
 
   const { x, y, pxPerDeg } = useMemo(
     () => ({
@@ -73,21 +119,13 @@ export function SkyView({ horizon, series, startMs, endMs, nowMs, stationLabel =
     [leftAz, elMin, elMax],
   )
 
-  const terrain = useMemo(() => {
-    const n = horizon.elevation_deg.length
-    const pts: string[] = []
-    for (let k = 0; k <= n; k++) {
-      const az = leftAz + (k * 360) / n
-      const el = horizon.elevation_deg[Math.round(wrap(az) / horizon.az_step_deg) % n]
-      pts.push(`${x(az).toFixed(1)},${y(el).toFixed(1)}`)
-    }
-    // Last point uses the left edge's value one full turn later; pin it to the right edge.
-    pts[pts.length - 1] = `${(PAD.left + PLOT_W).toFixed(1)},${pts[pts.length - 1].split(',')[1]}`
-    return {
-      line: `M${pts.join('L')}`,
-      area: `M${pts.join('L')}L${PAD.left + PLOT_W},${H - PAD.bottom}L${PAD.left},${H - PAD.bottom}Z`,
-    }
-  }, [horizon, leftAz, x, y])
+  const terrain = useMemo(() => skylineOf(horizon, leftAz, x, y), [horizon, leftAz, x, y])
+  // Only drawn when the antenna sits at another height, where its skyline differs.
+  const antennaTerrain = useMemo(
+    () =>
+      antennaHorizon && antennaHorizon.mast_m !== horizon.mast_m ? skylineOf(antennaHorizon, leftAz, x, y) : null,
+    [antennaHorizon, horizon.mast_m, leftAz, x, y],
+  )
 
   const paths = useMemo(() => {
     if (!series || !range) return null
@@ -117,11 +155,9 @@ export function SkyView({ horizon, series, startMs, endMs, nowMs, stationLabel =
     const contact: { x: number; y: number; kind: ContactKind; i: number }[] = []
     const every2h = Math.max(12, Math.ceil((range.i1 - range.i0) / MAX_CONTACT_POINTS))
     for (let i = range.i0; i <= range.i1; i += every2h) {
-      const kind: ContactKind = series.earth_visible[i]
-        ? 'contact'
-        : series.earth_station_up[i]
-          ? 'blocked'
-          : 'no-station'
+      const answer = series.contact[i]
+      const kind: ContactKind =
+        answer === null ? 'unknown' : answer === 1 ? 'contact' : series.earth_station_up[i] ? 'blocked' : 'no-station'
       contact.push({ x: x(series.earth_az[i]), y: y(series.earth_el[i]), kind, i })
     }
     return {
@@ -146,14 +182,15 @@ export function SkyView({ horizon, series, startMs, endMs, nowMs, stationLabel =
   const step = elMax - elMin > 20 ? 5 : 2
   for (let el = Math.ceil(elMin / step) * step; el <= elMax; el += step) gridEls.push(el)
 
+  const hoverIndex = hoverAz === null ? 0 : Math.round(hoverAz / horizon.az_step_deg) % horizon.elevation_deg.length
+  const hoverEl = horizon.elevation_deg[hoverIndex]
+  const hoverKm = horizon.distance_km[hoverIndex]
   const hoverText =
     hoverAz === null
       ? null
-      : `Az ${hoverAz.toFixed(1)}° · terrain ${horizon.elevation_deg[
-          Math.round(hoverAz / horizon.az_step_deg) % horizon.elevation_deg.length
-        ].toFixed(2)}° · ${horizon.distance_km[
-          Math.round(hoverAz / horizon.az_step_deg) % horizon.distance_km.length
-        ].toFixed(1)} km away`
+      : hoverEl === null
+        ? `Az ${hoverAz.toFixed(1)}° · terrain unknown (missing data)`
+        : `Az ${hoverAz.toFixed(1)}° · terrain ${hoverEl.toFixed(2)}°${hoverKm === null ? '' : ` · ${hoverKm.toFixed(1)} km away`}`
 
   return (
     <figure className="sky-view">
@@ -249,6 +286,12 @@ export function SkyView({ horizon, series, startMs, endMs, nowMs, stationLabel =
           {/* Terrain sits in front of the bodies, so a Sun behind a ridge is cut off. */}
           <path d={terrain.area} fill={`url(#${uid}-terrain)`} />
           <path d={terrain.line} className="sky-terrain-edge" />
+          {antennaTerrain && <path d={antennaTerrain.line} className="sky-terrain-edge-antenna" />}
+          {terrain.unknown.map((u) => (
+            <rect key={u.x0} x={u.x0} y={PAD.top} width={u.width} height={PLOT_H} className="sky-unknown-band">
+              <title>Terrain unknown here (missing data)</title>
+            </rect>
+          ))}
 
           {/* The hidden parts of each path still show, faint and dashed, over the terrain. */}
           {paths && (
@@ -262,7 +305,9 @@ export function SkyView({ horizon, series, startMs, endMs, nowMs, stationLabel =
                       ? `Contact with ${stationLabel}`
                       : p.kind === 'blocked'
                         ? 'No contact: terrain blocks the Earth'
-                        : `No contact: ${stationLabel} cannot see the Moon`}
+                        : p.kind === 'unknown'
+                          ? 'Unknown: the terrain here is missing'
+                          : `No contact: ${stationLabel} cannot see the Moon`}
                   </title>
                 </circle>
               ))}
@@ -297,10 +342,16 @@ export function SkyView({ horizon, series, startMs, endMs, nowMs, stationLabel =
       <figcaption className="sky-caption">
         <span className="legend legend-sun">Sun</span>
         <span className="legend legend-earth">Earth</span>
-        <span className="legend legend-terrain">Terrain at {horizon.mast_m} m mast</span>
+        <span className="legend legend-terrain">Terrain at {horizon.mast_m} m (panel)</span>
+        {antennaTerrain && antennaHorizon && (
+          <span className="legend legend-terrain-antenna">Terrain at {antennaHorizon.mast_m} m (antenna)</span>
+        )}
         <span className="legend-dot legend-contact">Contact with {stationLabel}</span>
         <span className="legend-dot legend-blocked">Blocked by terrain</span>
         <span className="legend-dot legend-no-station">Station can't see the Moon</span>
+        {paths?.contact.some((p) => p.kind === 'unknown') && (
+          <span className="legend-dot legend-unknown">Unknown (missing terrain)</span>
+        )}
         <span className="sky-hover-text" aria-live="off">
           {hoverText ?? 'Azimuth: 0° north, 90° east, 180° south, 270° west · hover for terrain height · small dots mark mission days'}
         </span>

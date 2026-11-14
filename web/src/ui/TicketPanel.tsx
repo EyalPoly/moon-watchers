@@ -237,9 +237,11 @@ function TicketGraph({
   tau: number
   stationLabel: string
 }) {
-  const mission = { t0: ticket.t0, days: ticket.days, mast: ticket.mast, tau }
-  const scenario = useScenario(site.id, mission, { station: ticket.station, lat: ticket.lat, lon: ticket.lon })
-  const horizon = useHorizon(config, search, site.id, ticket.mast)
+  const mission = { t0: ticket.t0, days: ticket.days, panel: ticket.panel, antenna: ticket.antenna, tau }
+  const scenario = useScenario(site.id, mission, ticket.station)
+  const horizon = useHorizon(config, search, site.id, ticket.panel)
+  // Same query key as the panel's when the heights match, so it costs no extra request.
+  const antennaHorizon = useHorizon(config, search, site.id, ticket.antenna)
   const series = useMissionSeries(config, search, scenario)
   const t0Ms = parseIsoMinute(ticket.t0) as number
   const endMs = t0Ms + ticket.days * DAY_MS
@@ -272,7 +274,15 @@ function TicketGraph({
           </span>
         </div>
       )}
-      <SkyView horizon={horizon.data} series={series.data} startMs={t0Ms} endMs={endMs} nowMs={nowMs} stationLabel={stationLabel} />
+      <SkyView
+        horizon={horizon.data}
+        antennaHorizon={antennaHorizon.data}
+        series={series.data}
+        startMs={t0Ms}
+        endMs={endMs}
+        nowMs={nowMs}
+        stationLabel={stationLabel}
+      />
     </div>
   )
 }

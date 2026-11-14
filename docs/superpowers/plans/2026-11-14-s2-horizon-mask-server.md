@@ -333,6 +333,28 @@ tests/test_engine_cli.py  tests/test_reference_horizon.py  tests/test_converge.p
   - The spec's acceptance is `sun_pct` / `dte_pct` changing by less than 0.5 percentage points. Mask change is the proxy until S4 exists, and S4 re-runs the check on percentages.
   - Then commit `test(engine): horizon reference comparison and convergence check`.
 
+### Task 9: Real-data run (RTX 4060 PC, before S3)
+
+Not code. It produces the real bundle and the evidence that S2 is right, and S3 starts only after it is done. Nothing here needs the GPU: the PC is chosen for its disk (about 10 GB free) and speed. Use `uv run ...` directly if `make` is not installed on Windows.
+
+**Files:**
+- Modify: `data/sources.lock.json` (sha256 values), `docs/spikes/horizon-check.md` (results)
+- Output, not committed: `bundle/<bundle_id>/`, the CSVs
+
+- [ ] **Step 1: Get the branch.** `git fetch && git checkout s2-horizon-mask && git pull`, then `uv sync --group reference`. Run `uv run pytest`; expected: all pass, 2 skipped.
+- [ ] **Step 2: Download the terrain** (about 7.9 GB in all; each prefix also matches its `_ERR` file):
+  - `uv run python -m build.fetch_sources --only lola/LDEM_80S_80MPP_ADJ`
+  - `uv run python -m build.fetch_sources --only lola/LDEM_60S_240MPP_ADJ`
+  - `uv run python -m build.fetch_sources --only lola/LDEM_80S_20MPP_ADJ`
+  - Each run prints `unpinned <path>: add sha256 <hash>`. Write every hash into `data/sources.lock.json`, run the same command again (expected: `fetched 0 file(s)`), and commit `chore(data): pin LOLA terrain checksums`.
+- [ ] **Step 3: Check the units.** `uv run pytest tests/test_real_dem.py -v`; expected PASS. Then print the height range of the 80 m window (the test file shows how): the south-pole terrain should lie within about −7,000 m to +7,000 m (the physics team's 240 m crop spans −6,722 to +7,025 m). Half or double that means the GeoTIFF scale was not applied correctly. Stop and fix `load_dem` in that case.
+- [ ] **Step 4: Build the real bundle.** `uv run python -m build.make_masks`. It prints `bundle/<bundle_id>`; keep that id. Open `manifest.json` and note every site with warnings.
+- [ ] **Step 5: Convergence.** `uv run python -m build.converge --sites sample_a,sample_b,sample_c`. Record the three changes per site in `docs/spikes/horizon-check.md`. Each line must not end with "directions compared". The spec's goal is a change under 0.5 percentage points of `sun_pct` / `dte_pct`. The mask change is only a proxy until S4, so a change above 0.01° is written down as a finding, not hidden.
+- [ ] **Step 6: Serve and look.** `BUNDLE_DIR=bundle/<bundle_id> uv run uvicorn api.main:create_app --factory`, then `curl "http://localhost:8000/api/v1/sites/sample_a/horizon?height=2"`. Expected: 720 elevations, `algo_version` "1", warnings listed. Tell the web owner to run the sky view against it.
+- [ ] **Step 7: CSVs for the physics team.** For each sample site, at `--height 2` (panel) and `--height 3` (antenna): `uv run python -m engine.cli horizon --site sample_a --height 2 --out sample_a_h2.csv`. Attach the 6 files to the S2 pull request. Do not commit them: they use the placeholder catalog.
+- [ ] **Step 8: Package the bundle.** Zip `bundle/<bundle_id>` and keep it for the deploy (a GitHub Release asset or the hosting disk). Put its id and size in the pull request.
+- [ ] **Step 9: Commit and push** the lock file and `horizon-check.md`: `docs: S2 real-data results`. Then say "S2 real run done" so S3 can be planned.
+
 ---
 
 ## Self-review
@@ -360,7 +382,7 @@ tests/test_engine_cli.py  tests/test_reference_horizon.py  tests/test_converge.p
 - **Types:** `Dem`, `March`, `SiteMasks` and `HorizonResponse` keep the same names and fields in every task that uses them; the query parameter is `height` throughout.
 - **Open for the user:** decisions 1–3 above; the new reference scores for points A and B ("Physics team update").
 
-## What follows (separate plans, written when S2 is merged)
+## What follows (separate plans, written when S2 is merged and Task 9 is done)
 
 - **S3 Series:** `engine/geometry.py`.
   - The ephemeris table, 2026–2031 hourly: Sun and Earth with CN+S, the Earth geometric, and the ITRF93 → MOON_ME rotation (`earth_rotation.npy`).
