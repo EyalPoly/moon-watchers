@@ -2,13 +2,30 @@
 name = "clps-lunar-mission-browser"
 version = "0.0.0"
 requires-python = ">=3.12,<3.14"
-dependencies = ["fastapi", "pydantic>=2", "pyyaml", "httpx", "uvicorn"]
+dependencies = [
+    "fastapi",
+    "pydantic>=2",
+    "pyyaml",
+    "httpx",
+    "uvicorn",
+    "numpy>=2.5.4",
+    "rasterio>=1.5.2",
+]
 
 [project.optional-dependencies]
 gpu = ["torch"]
 
 [dependency-groups]
-dev = ["pytest", "mypy", "types-pyyaml"]
+dev = [
+    "pytest",
+    "mypy",
+    "types-pyyaml",
+    "pyproj>=3.8.0",
+]
+reference = [
+    "scipy>=1.18.1",
+    "shapely>=2.2.0",
+]
 
 [tool.uv]
 package = false
@@ -22,7 +39,7 @@ strict = true
 files = ["api", "engine", "build"]
 
 [[tool.mypy.overrides]]
-module = ["torch"]
+module = ["torch", "rasterio", "rasterio.*"]
 ignore_missing_imports = true
 
 [[tool.uv.index]]

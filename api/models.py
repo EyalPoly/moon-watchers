@@ -149,8 +149,13 @@ class HorizonResponse(BaseModel):
     mast_m: float
     part: Literal["full", "far"]
     az_step_deg: float
-    elevation_deg: list[float] = Field(min_length=720, max_length=720)
-    distance_km: list[float] = Field(min_length=720, max_length=720)
+    # null: the terrain along that direction is unknown (missing data or truncated)
+    elevation_deg: list[float | None] = Field(min_length=720, max_length=720)
+    distance_km: list[float | None] = Field(min_length=720, max_length=720)
+    low_deg: list[float | None] | None = Field(default=None, min_length=720, max_length=720)
+    high_deg: list[float | None] | None = Field(default=None, min_length=720, max_length=720)
+    algo_version: str | None = None
+    warnings: list[str] | None = None
 
 
 # --- Series (spec §8.3) ---------------------------------------------------------------

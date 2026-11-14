@@ -231,12 +231,18 @@ export interface components {
         };
         /** HorizonResponse */
         HorizonResponse: {
+            /** Algo Version */
+            algo_version?: string | null;
             /** Az Step Deg */
             az_step_deg: number;
             /** Distance Km */
-            distance_km: number[];
+            distance_km: (number | null)[];
             /** Elevation Deg */
-            elevation_deg: number[];
+            elevation_deg: (number | null)[];
+            /** High Deg */
+            high_deg?: (number | null)[] | null;
+            /** Low Deg */
+            low_deg?: (number | null)[] | null;
             /** Mast M */
             mast_m: number;
             /**
@@ -246,6 +252,8 @@ export interface components {
             part: "full" | "far";
             /** Site Id */
             site_id: string;
+            /** Warnings */
+            warnings?: string[] | null;
         };
         /** Layer */
         Layer: {
@@ -769,6 +777,7 @@ export interface operations {
             query?: {
                 mast?: number;
                 part?: "full" | "far";
+                v?: string;
             };
             header?: never;
             path: {

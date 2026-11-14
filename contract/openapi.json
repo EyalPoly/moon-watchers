@@ -197,13 +197,31 @@
       },
       "HorizonResponse": {
         "properties": {
+          "algo_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Algo Version"
+          },
           "az_step_deg": {
             "title": "Az Step Deg",
             "type": "number"
           },
           "distance_km": {
             "items": {
-              "type": "number"
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
             },
             "maxItems": 720,
             "minItems": 720,
@@ -212,12 +230,65 @@
           },
           "elevation_deg": {
             "items": {
-              "type": "number"
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
             },
             "maxItems": 720,
             "minItems": 720,
             "title": "Elevation Deg",
             "type": "array"
+          },
+          "high_deg": {
+            "anyOf": [
+              {
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "maxItems": 720,
+                "minItems": 720,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "High Deg"
+          },
+          "low_deg": {
+            "anyOf": [
+              {
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "maxItems": 720,
+                "minItems": 720,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Low Deg"
           },
           "mast_m": {
             "title": "Mast M",
@@ -234,6 +305,20 @@
           "site_id": {
             "title": "Site Id",
             "type": "string"
+          },
+          "warnings": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Warnings"
           }
         },
         "required": [
@@ -1645,6 +1730,16 @@
                 "far"
               ],
               "title": "Part",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "v",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "V",
               "type": "string"
             }
           }

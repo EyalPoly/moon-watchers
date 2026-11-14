@@ -127,3 +127,17 @@ def test_unpinned_existing_file_of_wrong_size_is_redownloaded(tmp_path: Path) ->
     fetch = FakeFetch()
     assert fetch_all(lock, dest, fetch) == ["spice/a.bsp"]
     assert (dest / "spice" / "a.bsp").read_bytes() == CONTENT
+
+
+def test_fetch_only_filters_by_prefix(tmp_path: Path) -> None:
+    lock = tmp_path / "lock.json"
+    entries = [
+        {"path": "lola/LDEM_80S_80MPP_ADJ.TIF", "url": "https://x/a", "sha256": "", "bytes": 11, "note": ""},
+        {"path": "lola/LDEM_80S_80MPP_ADJ_ERR.TIF", "url": "https://x/b", "sha256": "", "bytes": 11, "note": ""},
+        {"path": "lola/LDEM_60S_240MPP_ADJ.TIF", "url": "https://x/c", "sha256": "", "bytes": 11, "note": ""},
+    ]
+    lock.write_text(json.dumps({"files": entries}))
+    fetch = FakeFetch()
+    fetched = fetch_all(lock, tmp_path / "sources", fetch, only="lola/LDEM_80S_80MPP")
+    assert fetched == ["lola/LDEM_80S_80MPP_ADJ.TIF", "lola/LDEM_80S_80MPP_ADJ_ERR.TIF"]
+    assert fetch.calls == ["https://x/a", "https://x/b"]
