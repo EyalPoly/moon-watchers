@@ -11,7 +11,14 @@ import numpy as np
 from api.catalog import load_catalog
 from api.models import Site
 from build.fetch_sources import sha256_of
-from engine.horizons import HORIZON_ALGO_VERSION, compute_site_masks
+from engine.horizons import (
+    FAR_ONLY_HEIGHT_M,
+    FAR_ONLY_START_M,
+    HEIGHTS_M,
+    HORIZON_ALGO_VERSION,
+    compute_site_masks,
+    ray_distances,
+)
 from engine.terrain import Dem, load_dem, project
 
 FRAME_NOTE = (
@@ -91,6 +98,13 @@ def build_bundle(catalog: dict[str, Site], sources: Path, out_dir: Path) -> Path
             "algo_version": HORIZON_ALGO_VERSION,
             "frame_note": FRAME_NOTE,
             "sources": used,
+            "parameters": {
+                "heights_m": list(HEIGHTS_M),
+                "far_only_start_m": FAR_ONLY_START_M,
+                "far_only_height_m": FAR_ONLY_HEIGHT_M,
+                "ray_distances_sha256": hashlib.sha256(ray_distances().tobytes()).hexdigest(),
+                "sites": {s.id: [s.lat_deg, s.lon_deg] for s in catalog.values()},
+            },
             "sites": {site_id: {"warnings": w} for site_id, w in site_warnings.items()},
         }
         digest = hashlib.sha256(json.dumps(manifest, sort_keys=True).encode()).hexdigest()[:8]

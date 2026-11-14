@@ -93,3 +93,11 @@ def test_site_far_from_dems_is_rejected(tmp_path: Path) -> None:
     assert project(-85.0, 0.0)[1] > 50_000
     with pytest.raises(ValueError, match="x"):
         build_bundle(far_site, sources, tmp_path / "bundle")
+
+
+def test_moving_a_site_changes_the_bundle_id(tmp_path: Path) -> None:
+    sources = make_sources(tmp_path)
+    first = build_bundle(CATALOG, sources, tmp_path / "bundle")
+    moved = {**CATALOG, "s1": site("s1", -89.2, 0.0)}
+    second = build_bundle(moved, sources, tmp_path / "bundle")
+    assert second.name != first.name

@@ -176,3 +176,43 @@ def test_startup_refuses_corrupt_manifest(
     (broken / "manifest.json").write_text(content)
     with pytest.raises(BundleError, match="manifest.json"):
         create_app(catalog_path=catalog_path, bundle_dir=broken)
+
+
+def test_startup_refuses_empty_masks_file(bundle_dir: Path, catalog_path: Path, tmp_path: Path) -> None:
+    broken = copy_bundle(bundle_dir, tmp_path)
+    (broken / "server" / "sites" / "s1" / "masks.npy").write_bytes(b"")
+    with pytest.raises(BundleError, match="masks.npy"):
+        create_app(catalog_path=catalog_path, bundle_dir=broken)
+
+
+def test_startup_refuses_binary_manifest(bundle_dir: Path, catalog_path: Path, tmp_path: Path) -> None:
+    broken = copy_bundle(bundle_dir, tmp_path)
+    (broken / "manifest.json").write_bytes(b"\xff\xfe\x00\x80")
+    with pytest.raises(BundleError, match="manifest.json"):
+        create_app(catalog_path=catalog_path, bundle_dir=broken)
+
+
+def edited_manifest(bundle_dir: Path, tmp_path: Path, change: object) -> Path:
+    broken = copy_bundle(bundle_dir, tmp_path)
+    manifest = json.loads((broken / "manifest.json").read_text())
+    change(manifest)  # type: ignore[operator]
+    (broken / "manifest.json").write_text(json.dumps(manifest))
+    return broken
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        lambda m: m.pop("sites"),
+        lambda m: m["sites"].pop("s1"),
+        lambda m: m["sites"].update(s1="x"),
+        lambda m: m["sites"].update(s1={"warnings": "DEM_GAPS"}),
+    ],
+    ids=["no-sites", "site-missing", "site-not-object", "warnings-not-list"],
+)
+def test_startup_refuses_bad_site_entries(
+    bundle_dir: Path, catalog_path: Path, tmp_path: Path, change: object
+) -> None:
+    broken = edited_manifest(bundle_dir, tmp_path, change)
+    with pytest.raises(BundleError, match="manifest.json"):
+        create_app(catalog_path=catalog_path, bundle_dir=broken)
