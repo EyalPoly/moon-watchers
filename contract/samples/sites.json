@@ -1,0 +1,46 @@
+{
+  "sites": [
+    {
+      "id": "sample_a",
+      "name": "Sample site A",
+      "source": "catalog",
+      "category": "ridge",
+      "region": "south_pole",
+      "lat_deg": -85.5,
+      "lon_deg": 0,
+      "elevation_m": 1450,
+      "slope_deg": 4.2,
+      "slope_baseline_m": 240,
+      "source_url": "placeholder: replaced by the physics team's catalog",
+      "is_placeholder": true
+    },
+    {
+      "id": "sample_b",
+      "name": "Sample site B",
+      "source": "catalog",
+      "category": "crater floor",
+      "region": "south_pole",
+      "lat_deg": -87.5,
+      "lon_deg": 100,
+      "elevation_m": -310,
+      "slope_deg": 2.1,
+      "slope_baseline_m": 240,
+      "source_url": "placeholder: replaced by the physics team's catalog",
+      "is_placeholder": true
+    },
+    {
+      "id": "sample_c",
+      "name": "Sample site C",
+      "source": "catalog",
+      "category": "rim",
+      "region": "south_pole",
+      "lat_deg": -88.5,
+      "lon_deg": -120,
+      "elevation_m": 780,
+      "slope_deg": 6.8,
+      "slope_baseline_m": 240,
+      "source_url": "placeholder: replaced by the physics team's catalog",
+      "is_placeholder": true
+    }
+  ]
+}

@@ -1,0 +1,570 @@
+{
+  "components": {
+    "schemas": {
+      "Capabilities": {
+        "properties": {
+          "alternatives": {
+            "title": "Alternatives",
+            "type": "boolean"
+          },
+          "calendar": {
+            "title": "Calendar",
+            "type": "boolean"
+          },
+          "custom_grids": {
+            "title": "Custom Grids",
+            "type": "boolean"
+          },
+          "custom_points": {
+            "title": "Custom Points",
+            "type": "boolean"
+          },
+          "dust": {
+            "title": "Dust",
+            "type": "boolean"
+          },
+          "globe": {
+            "title": "Globe",
+            "type": "boolean"
+          },
+          "insights": {
+            "title": "Insights",
+            "type": "boolean"
+          },
+          "nl": {
+            "title": "Nl",
+            "type": "boolean"
+          },
+          "power": {
+            "title": "Power",
+            "type": "boolean"
+          },
+          "search": {
+            "title": "Search",
+            "type": "boolean"
+          },
+          "stations": {
+            "title": "Stations",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "custom_points",
+          "custom_grids",
+          "insights",
+          "calendar",
+          "search",
+          "alternatives",
+          "stations",
+          "dust",
+          "globe",
+          "power",
+          "nl"
+        ],
+        "title": "Capabilities",
+        "type": "object"
+      },
+      "CustomArea": {
+        "properties": {
+          "max_lat_deg": {
+            "title": "Max Lat Deg",
+            "type": "number"
+          },
+          "min_lat_deg": {
+            "title": "Min Lat Deg",
+            "type": "number"
+          }
+        },
+        "required": [
+          "min_lat_deg",
+          "max_lat_deg"
+        ],
+        "title": "CustomArea",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "Health": {
+        "properties": {
+          "status": {
+            "const": "ok",
+            "title": "Status",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "version"
+        ],
+        "title": "Health",
+        "type": "object"
+      },
+      "Layer": {
+        "properties": {
+          "attribution": {
+            "title": "Attribution",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "wmts",
+              "local"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "legend_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Legend Url"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "url_template": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url Template"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "kind",
+          "url_template",
+          "attribution",
+          "legend_url"
+        ],
+        "title": "Layer",
+        "type": "object"
+      },
+      "Limits": {
+        "properties": {
+          "max_cards": {
+            "title": "Max Cards",
+            "type": "integer"
+          },
+          "max_days": {
+            "title": "Max Days",
+            "type": "integer"
+          },
+          "max_search_window_d": {
+            "title": "Max Search Window D",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "max_cards",
+          "max_days",
+          "max_search_window_d"
+        ],
+        "title": "Limits",
+        "type": "object"
+      },
+      "Meta": {
+        "properties": {
+          "bundle_id": {
+            "title": "Bundle Id",
+            "type": "string"
+          },
+          "capabilities": {
+            "$ref": "#/components/schemas/Capabilities"
+          },
+          "limits": {
+            "$ref": "#/components/schemas/Limits"
+          },
+          "mode": {
+            "enum": [
+              "event",
+              "judging"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "regions": {
+            "items": {
+              "$ref": "#/components/schemas/Region"
+            },
+            "title": "Regions",
+            "type": "array"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "bundle_id",
+          "mode",
+          "regions",
+          "capabilities",
+          "limits"
+        ],
+        "title": "Meta",
+        "type": "object"
+      },
+      "Region": {
+        "properties": {
+          "crs": {
+            "title": "Crs",
+            "type": "string"
+          },
+          "custom_area": {
+            "$ref": "#/components/schemas/CustomArea"
+          },
+          "extent_m": {
+            "maxItems": 4,
+            "minItems": 4,
+            "prefixItems": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "title": "Extent M",
+            "type": "array"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "layers": {
+            "items": {
+              "$ref": "#/components/schemas/Layer"
+            },
+            "title": "Layers",
+            "type": "array"
+          },
+          "proj4": {
+            "title": "Proj4",
+            "type": "string"
+          },
+          "tile_grid": {
+            "$ref": "#/components/schemas/TileGrid"
+          }
+        },
+        "required": [
+          "id",
+          "crs",
+          "proj4",
+          "extent_m",
+          "tile_grid",
+          "layers",
+          "custom_area"
+        ],
+        "title": "Region",
+        "type": "object"
+      },
+      "Site": {
+        "properties": {
+          "category": {
+            "title": "Category",
+            "type": "string"
+          },
+          "elevation_m": {
+            "title": "Elevation M",
+            "type": "number"
+          },
+          "id": {
+            "pattern": "^[a-z0-9_]{1,64}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "is_placeholder": {
+            "title": "Is Placeholder",
+            "type": "boolean"
+          },
+          "lat_deg": {
+            "maximum": -84.0,
+            "minimum": -90.0,
+            "title": "Lat Deg",
+            "type": "number"
+          },
+          "lon_deg": {
+            "exclusiveMaximum": 180.0,
+            "minimum": -180.0,
+            "title": "Lon Deg",
+            "type": "number"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "region": {
+            "title": "Region",
+            "type": "string"
+          },
+          "slope_baseline_m": {
+            "title": "Slope Baseline M",
+            "type": "number"
+          },
+          "slope_deg": {
+            "title": "Slope Deg",
+            "type": "number"
+          },
+          "source": {
+            "enum": [
+              "catalog",
+              "custom"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
+          "source_url": {
+            "title": "Source Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "source",
+          "category",
+          "region",
+          "lat_deg",
+          "lon_deg",
+          "elevation_m",
+          "slope_deg",
+          "slope_baseline_m",
+          "source_url",
+          "is_placeholder"
+        ],
+        "title": "Site",
+        "type": "object"
+      },
+      "SitesResponse": {
+        "properties": {
+          "sites": {
+            "items": {
+              "$ref": "#/components/schemas/Site"
+            },
+            "title": "Sites",
+            "type": "array"
+          }
+        },
+        "required": [
+          "sites"
+        ],
+        "title": "SitesResponse",
+        "type": "object"
+      },
+      "TileGrid": {
+        "properties": {
+          "origin": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "title": "Origin",
+            "type": "array"
+          },
+          "resolutions_m": {
+            "items": {
+              "type": "number"
+            },
+            "title": "Resolutions M",
+            "type": "array"
+          },
+          "tile_size_px": {
+            "title": "Tile Size Px",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "origin",
+          "resolutions_m",
+          "tile_size_px"
+        ],
+        "title": "TileGrid",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "title": "CLPS Lunar Mission Browser API",
+    "version": "0.0.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/api/v1/health": {
+      "get": {
+        "operationId": "health_api_v1_health_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Health"
+      }
+    },
+    "/api/v1/meta": {
+      "get": {
+        "operationId": "get_meta_api_v1_meta_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Meta"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Meta"
+      }
+    },
+    "/api/v1/sites": {
+      "get": {
+        "operationId": "list_sites_api_v1_sites_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SitesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Sites"
+      }
+    },
+    "/api/v1/sites/{site_id}": {
+      "get": {
+        "operationId": "get_site_api_v1_sites__site_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Site"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Site"
+      }
+    }
+  }
+}

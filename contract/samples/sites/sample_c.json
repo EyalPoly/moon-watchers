@@ -1,0 +1,14 @@
+{
+  "id": "sample_c",
+  "name": "Sample site C",
+  "source": "catalog",
+  "category": "rim",
+  "region": "south_pole",
+  "lat_deg": -88.5,
+  "lon_deg": -120,
+  "elevation_m": 780,
+  "slope_deg": 6.8,
+  "slope_baseline_m": 240,
+  "source_url": "placeholder: replaced by the physics team's catalog",
+  "is_placeholder": true
+}

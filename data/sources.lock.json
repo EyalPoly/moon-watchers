@@ -1,0 +1,18 @@
+{
+  "files": [
+    {"path": "spice/naif0012.tls", "url": "https://naif.jpl.nasa.gov/pub/naif/generic_kernels/lsk/naif0012.tls", "sha256": "678e32bdb5a744117a467cd9601cd6b373f0e9bc9bbde1371d5eee39600a039b", "bytes": 5257, "note": "leap seconds"},
+    {"path": "spice/pck00011.tpc", "url": "https://naif.jpl.nasa.gov/pub/naif/generic_kernels/pck/pck00011.tpc", "sha256": "3dff7b1dbeceaa01f25467767d3fa25816051c85d162d1edf04acb310ee28bb1", "bytes": 131226, "note": "body radii and constants"},
+    {"path": "spice/de440s.bsp", "url": "https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/planets/de440s.bsp", "sha256": "c1c7feeab882263fc493a9d5a5b2ddd71b54826cdf65d8d17a76126b260a49f2", "bytes": 32726016, "note": "planet and Moon positions, 1849-2150"},
+    {"path": "spice/moon_de440_250416.tf", "url": "https://naif.jpl.nasa.gov/pub/naif/generic_kernels/fk/satellites/moon_de440_250416.tf", "sha256": "a47c71e9c9f33796bdafb2c9d69a7ee447b6016ecad80f71cd6f3e479f9cf768", "bytes": 19478, "note": "lunar frames; defines MOON_ME and MOON_ME_DE440_ME421"},
+    {"path": "spice/moon_pa_de440_200625.bpc", "url": "https://naif.jpl.nasa.gov/pub/naif/generic_kernels/pck/moon_pa_de440_200625.bpc", "sha256": "60cd55aa401ea2ea97360636f567554bfe4e37bb829f901b4460a455dfaf783f", "bytes": 12863488, "note": "lunar orientation matching DE440"},
+    {"path": "spice/earth_1962_260806_2126_combined.bpc", "url": "https://naif.jpl.nasa.gov/pub/naif/generic_kernels/pck/earth_1962_260806_2126_combined.bpc", "sha256": "cc87ad1a495cf598800ba403763d350f087ac0b97da9fec603278a3864c6a53e", "bytes": 31318016, "note": "Earth orientation; observed to 2026-08-06, predicted after"},
+    {"path": "lola/LDEM_60S_240MPP_ADJ.TIF", "url": "https://pgda.gsfc.nasa.gov/data/LOLA_20mpp/LDEM_60S_240MPP_ADJ.TIF", "sha256": "", "bytes": 218961039, "note": "far DEM, 240 m, 60S to pole"},
+    {"path": "lola/LDEM_80S_80MPP_ADJ.TIF", "url": "https://pgda.gsfc.nasa.gov/data/LOLA_20mpp/LDEM_80S_80MPP_ADJ.TIF", "sha256": "", "bytes": 189158392, "note": "near DEM, 80 m, 80S to pole"},
+    {"path": "lola/LDEM_80S_20MPP_ADJ.TIF", "url": "https://pgda.gsfc.nasa.gov/data/LOLA_20mpp/LDEM_80S_20MPP_ADJ.TIF", "sha256": "", "bytes": 2696082051, "note": "fine DEM, 20 m, 80S to pole"},
+    {"path": "lola/LDEM_60S_240MPP_ADJ_ERR.TIF", "url": "https://pgda.gsfc.nasa.gov/data/LOLA_20mpp/LDEM_60S_240MPP_ADJ_ERR.TIF", "sha256": "", "bytes": 267005175, "note": "height error for the 240 m DEM"},
+    {"path": "lola/LDEM_80S_80MPP_ADJ_ERR.TIF", "url": "https://pgda.gsfc.nasa.gov/data/LOLA_20mpp/LDEM_80S_80MPP_ADJ_ERR.TIF", "sha256": "", "bytes": 254808965, "note": "height error for the 80 m DEM"},
+    {"path": "lola/LDEM_80S_20MPP_ADJ_ERR.TIF", "url": "https://pgda.gsfc.nasa.gov/data/LOLA_20mpp/LDEM_80S_20MPP_ADJ_ERR.TIF", "sha256": "", "bytes": 3954709201, "note": "height error for the 20 m DEM"},
+    {"path": "lola/LDEC_80S_80MPP_ADJ.TIF", "url": "https://pgda.gsfc.nasa.gov/data/LOLA_20mpp/LDEC_80S_80MPP_ADJ.TIF", "sha256": "", "bytes": 115657642, "note": "measurement counts, 80 m (warnings only)"},
+    {"path": "lola/LDEM_80S_80MPP_ADJ_EFFRES.TIF", "url": "https://pgda.gsfc.nasa.gov/data/LOLA_20mpp/LDEM_80S_80MPP_ADJ_EFFRES.TIF", "sha256": "", "bytes": 250228467, "note": "effective resolution, 80 m (warnings only)"}
+  ]
+}
