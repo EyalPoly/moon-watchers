@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import meta from '@samples/meta.json'
-import { anySample, resolveSource, type AppConfig } from './api/config'
+import { resolveSource, type AppConfig } from './api/config'
 import type { Region, Site } from './api/types'
 import { PolarMap } from './map/PolarMap'
 import { SitePins } from './map/SitePins'
@@ -37,18 +37,17 @@ export default function App({ config }: { config: AppConfig }) {
     [],
   )
 
-  const region = metaQuery.data?.regions[0] ?? (metaQuery.isError ? FALLBACK_REGION : undefined)
+  // The map never waits on the server: until meta arrives (or if it never does) the
+  // bundled region is used.
+  const region = metaQuery.data?.regions[0] ?? FALLBACK_REGION
+  const sitesAreSample = resolveSource(config, 'sites', search) === 'sample'
 
   return (
     <div style={{ position: 'fixed', inset: 0 }}>
-      <SampleBanner visible={anySample(config, search)} />
-      {region ? (
-        <PolarMap region={region}>
-          <SitePins sites={sites} selectedId={selected} onSelect={select} />
-        </PolarMap>
-      ) : (
-        <p>Loading…</p>
-      )}
+      <SampleBanner visible={sitesAreSample} />
+      <PolarMap region={region}>
+        <SitePins sites={sites} selectedId={selected} onSelect={select} />
+      </PolarMap>
       <div className="side-panel">
         {sitesQuery.isError ? (
           <ServerUnavailable onRetry={() => void sitesQuery.refetch()} />
@@ -57,7 +56,7 @@ export default function App({ config }: { config: AppConfig }) {
             siteId={selected}
             sites={sites}
             onChange={select}
-            isSample={resolveSource(config, 'sites', search) === 'sample'}
+            isSample={sitesAreSample}
             site={detail.data}
           />
         )}

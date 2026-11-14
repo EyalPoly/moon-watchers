@@ -18,6 +18,14 @@ class ChecksumMismatch(Exception):
         self.actual = actual
 
 
+class SizeMismatch(Exception):
+    def __init__(self, path: str, expected: int, actual: int) -> None:
+        super().__init__(f"{path}: expected {expected} bytes, got {actual} (truncated download?)")
+        self.path = path
+        self.expected = expected
+        self.actual = actual
+
+
 def sha256_of(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as handle:
@@ -31,7 +39,7 @@ def verify_file(path: Path, sha256: str) -> bool:
 
 
 def download(url: str, dest: Path) -> None:
-    with urllib.request.urlopen(url) as response, dest.open("wb") as out:  # noqa: S310
+    with urllib.request.urlopen(url, timeout=60) as response, dest.open("wb") as out:  # noqa: S310
         shutil.copyfileobj(response, out, CHUNK)
 
 
@@ -48,14 +56,19 @@ def fetch_all(
     for entry in entries:
         relative: str = entry["path"]
         expected: str = entry["sha256"]
+        size: int = entry["bytes"]
         target = dest / relative
-        if expected == "" and target.is_file():
+        if expected == "" and target.is_file() and target.stat().st_size == size:
             continue
         if expected != "" and verify_file(target, expected):
             continue
         target.parent.mkdir(parents=True, exist_ok=True)
         part = target.with_name(target.name + ".part")
         fetch(entry["url"], part)
+        if part.stat().st_size != size:
+            actual_size = part.stat().st_size
+            part.unlink()
+            raise SizeMismatch(relative, size, actual_size)
         actual = sha256_of(part)
         if expected == "":
             if on_unpinned is not None:

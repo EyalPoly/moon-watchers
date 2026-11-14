@@ -31,7 +31,7 @@ def test_unknown_site_404_problem_json(client: TestClient) -> None:
     assert response.json()["code"] == "INVALID_PARAM"
 
 
-@pytest.mark.parametrize("hostile", ["../x", "%2e%2e", "a" * 200, "x y", "%00", "..%2f..%2fetc%2fpasswd"])
+@pytest.mark.parametrize("hostile", ["../x", "%2e%2e", "a" * 200, "x y", "%00", "..%2f..%2fetc%2fpasswd", "", "sample_a/", "/"])
 def test_hostile_ids(client: TestClient, hostile: str) -> None:
     response = client.get(f"/api/v1/sites/{hostile}")
     assert response.status_code in (404, 422)

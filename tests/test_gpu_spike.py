@@ -6,7 +6,7 @@ from build.gpu_spike import run_spike  # noqa: E402
 
 
 def small() -> dict[str, object]:
-    return run_spike(device="cpu", n_dirs=4, n_steps=16, n_points=3, dem_size=32)
+    return run_spike(device="cpu", n_dirs=4, n_steps=16, n_points=3, dem_size=64)
 
 
 def test_result_has_all_keys() -> None:

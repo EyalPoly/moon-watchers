@@ -17,7 +17,7 @@ def create_app(
 ) -> FastAPI:
     meta = Meta.model_validate_json((sample_dir / "meta.json").read_text())
     catalog = load_catalog(catalog_path)
-    app = FastAPI(title="CLPS Lunar Mission Browser API", version=__version__)
+    app = FastAPI(title="CLPS Lunar Mission Browser API", version=__version__, redirect_slashes=False)
     install_error_handlers(app)
     app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["GET"])
 

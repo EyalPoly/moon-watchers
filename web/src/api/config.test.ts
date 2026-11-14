@@ -41,3 +41,32 @@ test('a missing config file falls back to all-sample', async () => {
   const config = await loadConfig('/config.json')
   expect(Object.values(config.sources).every((s) => s === 'sample')).toBe(true)
 })
+
+test('a real source with an empty api_base is rejected and falls back to all-sample', async () => {
+  vi.stubGlobal(
+    'fetch',
+    async () =>
+      new Response(
+        JSON.stringify({
+          api_base: '',
+          sources: { sites: 'real', horizon: 'sample', summary: 'sample' },
+        }),
+      ),
+  )
+  const config = await loadConfig('/config.json')
+  expect(Object.values(config.sources).every((s) => s === 'sample')).toBe(true)
+})
+
+test('an all-sample config may have an empty api_base', async () => {
+  vi.stubGlobal(
+    'fetch',
+    async () =>
+      new Response(
+        JSON.stringify({
+          api_base: '',
+          sources: { sites: 'sample', horizon: 'sample', summary: 'sample' },
+        }),
+      ),
+  )
+  expect((await loadConfig('/config.json')).sources.sites).toBe('sample')
+})

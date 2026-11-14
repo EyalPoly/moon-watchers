@@ -27,18 +27,26 @@ def synchronize(torch: Any, device: str) -> None:
         torch.mps.synchronize()
 
 
+def origin_bounds(dem_size: int, n_steps: int) -> tuple[int, int]:
+    """Cell range for ray origins such that no ray leaves the DEM (border clamping would
+    re-read the same cached cells and inflate throughput)."""
+    low = n_steps + 2
+    high = dem_size - n_steps - 3
+    if high <= low:
+        raise ValueError(f"dem_size {dem_size} is too small for rays of {n_steps} steps")
+    return low, high
+
+
 def run_spike(
     device: str, n_dirs: int, n_steps: int, n_points: int, dem_size: int
 ) -> dict[str, Any]:
     import torch
 
     device = pick_device(torch, device)
+    low, high = origin_bounds(dem_size, n_steps)
     generator = torch.Generator().manual_seed(0)
     dem = (torch.rand(dem_size, dem_size, generator=generator) * 2000.0).to(device)
-    margin = 2.0
-    origin = (
-        torch.rand(n_points, 2, generator=generator) * (dem_size - 2 * margin - 1) + margin
-    ).to(device)
+    origin = (low + torch.rand(n_points, 2, generator=generator) * (high - low)).to(device)
     angles = torch.arange(n_dirs, dtype=torch.float32) * (2 * math.pi / n_dirs)
     direction = torch.stack([torch.cos(angles), torch.sin(angles)], dim=1).to(device)
 
@@ -94,7 +102,7 @@ def main() -> None:
     parser.add_argument("--steps", type=int, default=1_458)
     parser.add_argument("--dem-size", type=int, default=0)
     args = parser.parse_args()
-    dem_size = args.dem_size or args.steps * 2 + 8
+    dem_size = args.dem_size or max(args.steps * 2 + 8, 8192)
     print(json.dumps(run_spike(args.device, args.dirs, args.steps, args.points, dem_size), indent=2))
 
 

@@ -2,14 +2,20 @@ import { z } from 'zod'
 
 const sourceMode = z.enum(['real', 'sample'])
 
-const appConfigSchema = z.object({
-  api_base: z.string(),
-  sources: z.object({
-    sites: sourceMode,
-    horizon: sourceMode,
-    summary: sourceMode,
-  }),
-})
+// A real source needs an api_base: with an empty one the "real" request would go to the
+// page's own origin, where the mock worker answers it with sample data.
+const appConfigSchema = z
+  .object({
+    api_base: z.string(),
+    sources: z.object({
+      sites: sourceMode,
+      horizon: sourceMode,
+      summary: sourceMode,
+    }),
+  })
+  .refine((c) => c.api_base !== '' || Object.values(c.sources).every((s) => s === 'sample'), {
+    message: 'api_base is required when a source is real',
+  })
 
 export type AppConfig = z.infer<typeof appConfigSchema>
 export type SourceName = 'sites' | 'horizon' | 'summary' | 'meta'

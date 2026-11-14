@@ -1,13 +1,8 @@
 import { expect, test } from '@playwright/test'
+import { stubTiles } from './helpers'
 
-test('sample banner shows and the map canvas is not blank', async ({ page }) => {
-  await page.route('https://trek.nasa.gov/**', async (route) => {
-    const png = Buffer.from(
-      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
-      'base64',
-    )
-    await route.fulfill({ status: 200, contentType: 'image/png', body: png })
-  })
+test('sample banner shows and the map canvas is not blank', async ({ page, context }) => {
+  await stubTiles(context)
   await page.goto('/?data=sample')
   await expect(page.getByText('Sample data')).toBeVisible()
   const canvas = page.locator('.polar-map canvas').first()
