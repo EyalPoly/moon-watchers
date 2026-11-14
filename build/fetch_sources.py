@@ -9,6 +9,7 @@ import urllib.request
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from typing import Any
 
 LOCK_PATH = Path("data/sources.lock.json")
 DEST = Path("data/sources")
@@ -49,6 +50,8 @@ ReadRange = Callable[[str, int, int], bytes]
 CONNECTIONS = 16
 RANGE_BYTES = 4 * CHUNK
 ATTEMPTS = 5
+# A 4 MB range takes about 50 s at 80 KB/s.
+RANGE_DEADLINE_S = 180.0
 
 
 def byte_ranges(size: int, step: int) -> list[tuple[int, int]]:
@@ -56,13 +59,28 @@ def byte_ranges(size: int, step: int) -> list[tuple[int, int]]:
     return [(start, min(start + step, size) - 1) for start in range(0, size, step)]
 
 
-def read_range(url: str, first: int, last: int) -> bytes:
+def read_range(
+    url: str,
+    first: int,
+    last: int,
+    open_url: Callable[..., Any] = urllib.request.urlopen,
+    clock: Callable[[], float] = time.monotonic,
+    deadline_s: float = RANGE_DEADLINE_S,
+) -> bytes:
+    started = clock()
     request = urllib.request.Request(url, headers={"Range": f"bytes={first}-{last}"})  # noqa: S310
-    with urllib.request.urlopen(request, timeout=60) as response:  # noqa: S310
+    with open_url(request, timeout=60) as response:
         content_range = response.headers.get("Content-Range", "")
         if response.status != 206 or not content_range.startswith(f"bytes {first}-{last}/"):
             raise OSError(f"bytes {first}-{last}: got status {response.status}, range {content_range!r}")
-        data: bytes = response.read()
+        # A connection can trickle a few bytes a second forever without tripping the socket
+        # timeout, so the whole range has a deadline; read1 returns after each receive.
+        parts: list[bytes] = []
+        while part := response.read1(CHUNK):
+            parts.append(part)
+            if clock() - started > deadline_s:
+                raise TimeoutError(f"bytes {first}-{last}: slower than {deadline_s:.0f} s")
+    data = b"".join(parts)
     if len(data) != last - first + 1:
         raise OSError(f"bytes {first}-{last}: got {len(data)} bytes")
     return data

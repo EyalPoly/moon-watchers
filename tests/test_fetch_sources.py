@@ -11,6 +11,7 @@ from build.fetch_sources import (
     byte_ranges,
     download_ranges,
     fetch_all,
+    read_range,
     verify_file,
 )
 
@@ -223,3 +224,40 @@ def test_download_ranges_stops_queued_ranges_after_a_failure(tmp_path: Path) -> 
         )
     assert read.calls.count(0) == 5
     assert len(set(read.calls)) < 10, "the queued ranges should be cancelled, not fetched"
+
+
+class FakeResponse:
+    """A 206 answer that hands out its body `chunk` bytes per read1 call."""
+
+    def __init__(self, first: int, last: int, chunk: int) -> None:
+        self.status = 206
+        self.headers = {"Content-Range": f"bytes {first}-{last}/{len(BLOB)}"}
+        self.body = BLOB[first : last + 1]
+        self.chunk = chunk
+
+    def read1(self, n: int) -> bytes:
+        part, self.body = self.body[: min(n, self.chunk)], self.body[min(n, self.chunk) :]
+        return part
+
+    def __enter__(self) -> "FakeResponse":
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        return None
+
+
+def test_read_range_returns_the_requested_bytes() -> None:
+    def opener(request: object, timeout: float) -> FakeResponse:
+        return FakeResponse(1000, 1999, chunk=300)
+
+    assert read_range("https://x/f", 1000, 1999, open_url=opener, clock=lambda: 0.0) == BLOB[1000:2000]
+
+
+def test_read_range_gives_up_on_a_slow_trickle() -> None:
+    ticks = iter(range(0, 100_000, 100))
+
+    def opener(request: object, timeout: float) -> FakeResponse:
+        return FakeResponse(0, 999, chunk=10)
+
+    with pytest.raises(TimeoutError, match="0-999"):
+        read_range("https://x/f", 0, 999, open_url=opener, clock=lambda: float(next(ticks)), deadline_s=250.0)
