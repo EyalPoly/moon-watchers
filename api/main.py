@@ -21,12 +21,11 @@ from api.models import (
     SitesResponse,
     SummaryResponse,
 )
-from api.series_json import series_response
+from api.series_json import series_response, site_series
 from api.scenario import DEFAULT_STATION, Antenna, Days, Mast, MonthParam, Panel, StationParam, parse_station
 from engine import __version__
-from engine.geometry import OutOfRange, Station
+from engine.geometry import OutOfRange
 from engine.horizons import mask_at_height
-from engine.series import compute_series, month_times
 
 SHORT_CACHE = "public, max-age=60"
 IMMUTABLE_CACHE = "public, max-age=31536000, immutable"
@@ -148,21 +147,7 @@ def create_app(
         if bundle is None:
             raise ApiError(503, "FEATURE_DISABLED", "no horizon bundle is configured")
         try:
-            start, n = month_times(month)
-            masks = bundle.masks[site]
-            arrays = compute_series(
-                bundle.ephemeris,
-                entry.lat_deg,
-                entry.lon_deg,
-                entry.elevation_m,
-                mask_at_height(masks, panel)[0].astype(np.float64),
-                mask_at_height(masks, antenna)[0].astype(np.float64),
-                panel,
-                antenna,
-                Station(point.lat_deg, point.lon_deg, point.alt_m, point.min_el_deg),
-                start,
-                n,
-            )
+            arrays, start, n = site_series(bundle, entry, month, panel, antenna, point)
         except (OutOfRange, ValueError, OverflowError) as error:
             raise ApiError(422, "OUT_OF_TIME_RANGE", f"no ephemeris for month {month}") from error
         if v:

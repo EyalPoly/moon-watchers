@@ -77,3 +77,64 @@ def test_cli_unknown_is_empty_cell(tmp_path: Path) -> None:
 def test_cli_unknown_site_fails(bundle_dir: Path, tmp_path: Path) -> None:
     with pytest.raises(SystemExit):
         main(["horizon", "--site", "nope", "--bundle", str(bundle_dir), "--out", str(tmp_path / "x.csv")])
+
+
+def run_series(bundle_dir: Path, catalog: Path, out: Path, *extra: str) -> int:
+    return main(
+        ["series", "--site", "s1", "--month", "2027-03", "--bundle", str(bundle_dir),
+         "--catalog", str(catalog), "--out", str(out), *extra]
+    )
+
+
+@pytest.fixture(scope="module")
+def catalog_file(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    return catalog_yaml(tmp_path_factory.mktemp("cat") / "sites.yaml")
+
+
+def test_series_cli_rows(bundle_dir: Path, catalog_file: Path, tmp_path: Path) -> None:
+    out = tmp_path / "s.csv"
+    assert run_series(bundle_dir, catalog_file, out) == 0
+    header, rows = read_csv(out)
+    assert header.startswith("# site=s1 month=2027-03 panel_m=2 antenna_m=3 station=29.7604,-95.3698,0,0 bundle=")
+    assert len(rows) == 4464
+    assert rows[0]["utc"] == "2027-03-01T00:00Z" and rows[-1]["utc"] == "2027-03-31T23:50Z"
+    assert list(rows[0])[:3] == ["utc", "sun_az", "sun_el"] and "contact" in rows[0]
+    assert set(r["earth_station_up"] for r in rows) == {"0", "1"}
+
+
+def test_series_cli_matches_api(bundle_dir: Path, catalog_file: Path, tmp_path: Path) -> None:
+    out = tmp_path / "s.csv"
+    assert run_series(bundle_dir, catalog_file, out, "--panel", "2.5", "--antenna", "4.25") == 0
+    _, rows = read_csv(out)
+    api = TestClient(create_app(catalog_path=catalog_file, bundle_dir=bundle_dir))
+    body = api.get("/api/v1/scenario/series?site=s1&t0=2027-03-01T00:00Z&month=2027-03&panel=2.5&antenna=4.25").json()
+    for name in ("sun_az", "station_el", "sun_lit_frac", "sun_horizon_el"):
+        assert [float(r[name]) for r in rows] == body[name]
+    assert [int(r["contact"]) for r in rows] == body["contact"]
+    assert [int(r["earth_station_up"]) for r in rows] == [int(v) for v in body["earth_station_up"]]
+
+
+def test_series_cli_unknown_is_empty_cell(tmp_path: Path) -> None:
+    root = tmp_path / "holed"
+    write_world(root / "sources", hole_at=(52_000.0, 30_300.0))
+    bundle = build_bundle(CATALOG, root / "sources", root / "bundle", default_ephemeris())
+    catalog = catalog_yaml(tmp_path / "c.yaml")
+    out = tmp_path / "s.csv"
+    assert run_series(bundle, catalog, out) == 0
+    _, rows = read_csv(out)
+    assert any(r["sun_horizon_el"] == "" for r in rows) and any(r["sun_horizon_el"] != "" for r in rows)
+
+
+@pytest.mark.parametrize("extra", [["--station", "1,2,3"], ["--panel", "2.555"], ["--station", "95,0,0,0"]])
+def test_series_cli_bad_input_exits_nonzero(bundle_dir: Path, catalog_file: Path, tmp_path: Path, extra: list[str]) -> None:
+    with pytest.raises(SystemExit) as error:
+        run_series(bundle_dir, catalog_file, tmp_path / "s.csv", *extra)
+    assert error.value.code not in (0, None)
+    assert not (tmp_path / "s.csv").exists()
+
+
+def test_series_cli_month_outside_table_exits_nonzero(bundle_dir: Path, catalog_file: Path, tmp_path: Path) -> None:
+    with pytest.raises(SystemExit) as error:
+        main(["series", "--site", "s1", "--month", "2031-05", "--bundle", str(bundle_dir),
+              "--catalog", str(catalog_file), "--out", str(tmp_path / "s.csv")])
+    assert error.value.code not in (0, None)

@@ -1,12 +1,19 @@
 import argparse
 import os
 import sys
+from datetime import timedelta
 from pathlib import Path
 
 import numpy as np
 from numpy.typing import NDArray
 
 from api.bundle import BundleError, load_bundle
+from api.catalog import load_catalog
+from api.errors import ApiError
+from api.models import SeriesResponse
+from api.scenario import DEFAULT_STATION, check_height, parse_station, station_text
+from api.series_json import series_response, site_series
+from engine.geometry import OutOfRange
 
 FAR_ROW = 10
 COLUMNS = "az_deg,elevation_deg,low_deg,high_deg,blocking_distance_km"
@@ -34,6 +41,47 @@ def _rows(masks: NDArray[np.float32], blocking: NDArray[np.float32], row: int) -
     return lines
 
 
+def _series_cell(value: object) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, bool):
+        return str(int(value))
+    return str(value)
+
+
+def _write_series(args: argparse.Namespace) -> int:
+    try:
+        panel = check_height(args.panel, "panel")
+        antenna = check_height(args.antenna, "antenna")
+        station = parse_station(args.station)
+    except ApiError as error:
+        raise SystemExit(f"invalid input: {error.detail}") from error
+    catalog = load_catalog(args.catalog)
+    if args.site not in catalog:
+        raise SystemExit(f"unknown site {args.site!r}")
+    bundle_dir: Path = args.bundle or _default_bundle()
+    try:
+        bundle = load_bundle(bundle_dir, [args.site])
+    except BundleError as error:
+        raise SystemExit(f"cannot read bundle for site {args.site!r}: {error}") from error
+    try:
+        arrays, start, n = site_series(bundle, catalog[args.site], args.month, panel, antenna, station)
+    except (OutOfRange, ValueError) as error:
+        raise SystemExit(f"no ephemeris for month {args.month}: outside the bundle's table") from error
+    body = series_response(arrays, start, n).model_dump()
+    names = [name for name in SeriesResponse.model_fields if isinstance(body[name], list)]
+    header = (
+        f"# site={args.site} month={args.month} panel_m={panel:g} antenna_m={antenna:g} "
+        f"station={station_text(station)} bundle={bundle.bundle_id}"
+    )
+    lines = [header, ",".join(["utc", *names])]
+    for i in range(n):
+        utc = (start + timedelta(seconds=600 * i)).strftime("%Y-%m-%dT%H:%MZ")
+        lines.append(",".join([utc, *(_series_cell(body[name][i]) for name in names)]))
+    args.out.write_text("\n".join(lines) + "\n")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="engine.cli")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -43,7 +91,18 @@ def main(argv: list[str] | None = None) -> int:
     horizon.add_argument("--part", choices=["full", "far"], default="full")
     horizon.add_argument("--bundle", type=Path)
     horizon.add_argument("--out", type=Path, required=True)
+    series = sub.add_parser("series")
+    series.add_argument("--site", required=True)
+    series.add_argument("--month", required=True, help="YYYY-MM")
+    series.add_argument("--panel", type=float, default=2.0)
+    series.add_argument("--antenna", type=float, default=3.0)
+    series.add_argument("--station", default=DEFAULT_STATION)
+    series.add_argument("--bundle", type=Path)
+    series.add_argument("--catalog", type=Path, default=Path("catalog/sites.yaml"))
+    series.add_argument("--out", type=Path, required=True)
     args = parser.parse_args(argv)
+    if args.command == "series":
+        return _write_series(args)
 
     bundle_dir: Path = args.bundle or _default_bundle()
     try:

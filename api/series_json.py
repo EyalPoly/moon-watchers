@@ -3,8 +3,11 @@ from datetime import datetime
 import numpy as np
 from numpy.typing import NDArray
 
-from api.models import SeriesResponse
-from engine.series import SeriesArrays
+from api.bundle import Bundle
+from api.models import Site, SeriesResponse, StationPoint
+from engine.geometry import Station
+from engine.horizons import mask_at_height
+from engine.series import SeriesArrays, compute_series, month_times
 
 
 def _floats(values: NDArray[np.float64], digits: int) -> list[float | None]:
@@ -48,3 +51,25 @@ def series_response(s: SeriesArrays, start: datetime, n: int) -> SeriesResponse:
         earth_station_up=s.earth_station_up.tolist(),
         station_moon_el=_floats(s.station_moon_el, 3),  # type: ignore[arg-type]
     )
+
+
+def site_series(
+    bundle: Bundle, site: Site, month: str, panel: float, antenna: float, station: StationPoint
+) -> tuple[SeriesArrays, datetime, int]:
+    """The month's series for a catalog site; raises OutOfRange (or ValueError) outside the table."""
+    start, n = month_times(month)
+    masks = bundle.masks[site.id]
+    arrays = compute_series(
+        bundle.ephemeris,
+        site.lat_deg,
+        site.lon_deg,
+        site.elevation_m,
+        mask_at_height(masks, panel)[0].astype(np.float64),
+        mask_at_height(masks, antenna)[0].astype(np.float64),
+        panel,
+        antenna,
+        Station(station.lat_deg, station.lon_deg, station.alt_m, station.min_el_deg),
+        start,
+        n,
+    )
+    return arrays, start, n
