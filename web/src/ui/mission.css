@@ -319,6 +319,10 @@ input[type="range"] {
   color: var(--muted);
 }
 
+.live-state-unknown {
+  color: #d4a017;
+}
+
 .live-values {
   display: grid;
   grid-template-columns: repeat(3, auto);
@@ -437,6 +441,13 @@ input[type="range"] {
   stroke-width: 1.2;
 }
 
+.sky-terrain-edge-antenna {
+  fill: none;
+  stroke: var(--earth);
+  stroke-width: 0.8;
+  opacity: 0.9;
+}
+
 .sky-hover {
   stroke: var(--primary);
   stroke-width: 1;
@@ -473,6 +484,11 @@ input[type="range"] {
 .legend-terrain::before {
   height: 8px;
   background: #3b4250;
+}
+
+.legend-terrain-antenna::before {
+  height: 1px;
+  background: var(--earth);
 }
 
 .sky-hover-text {
@@ -583,4 +599,21 @@ input[type="range"] {
 .legend-no-station::before {
   border: 1px solid #9aa3ae;
   box-sizing: border-box;
+}
+
+/* Unknown terrain: not "no", so neither red nor green */
+
+.sky-contact-unknown {
+  fill: #d4a017;
+  opacity: 0.85;
+}
+
+.legend-unknown::before {
+  background: #d4a017;
+}
+
+.sky-unknown-band {
+  fill: #d4a017;
+  opacity: 0.18;
+  pointer-events: none;
 }

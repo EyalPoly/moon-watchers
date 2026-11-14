@@ -1,4 +1,5 @@
 import type { AppConfig } from '../api/config'
+import { presetsFrom, stationQuery } from '../api/stations'
 import type { Meta, Site } from '../api/types'
 import type { TicketRank } from '../state/ranking'
 import type { Ticket } from '../state/tickets'
@@ -36,13 +37,20 @@ export interface TicketCardProps {
 export function TicketCard(props: TicketCardProps) {
   const { index, ticket, sites, site, open, isSample, canDelete, config, search, rank } = props
   const label = ticketLabel(index, ticket.name)
-  const mission: MissionState = { t0: ticket.t0, days: ticket.days, mast: ticket.mast, tau: props.tau }
-  const earth = { station: ticket.station, lat: ticket.lat, lon: ticket.lon }
+  const mission: MissionState = {
+    t0: ticket.t0,
+    days: ticket.days,
+    panel: ticket.panel,
+    antenna: ticket.antenna,
+    tau: props.tau,
+  }
+  const station = ticket.station
   const onMissionChange = (next: Partial<MissionState>, mode: 'push' | 'replace') => {
     const patch: Partial<Ticket> = {}
     if (next.t0 !== undefined) patch.t0 = next.t0
     if (next.days !== undefined) patch.days = next.days
-    if (next.mast !== undefined) patch.mast = next.mast
+    if (next.panel !== undefined) patch.panel = next.panel
+    if (next.antenna !== undefined) patch.antenna = next.antenna
     props.onChange(patch, mode)
   }
   const classes = ['ticket', open && 'ticket-open', rank?.best && 'ticket-best', !ticket.shown && 'ticket-hidden']
@@ -139,14 +147,14 @@ export function TicketCard(props: TicketCardProps) {
         </>
       )}
 
-      {site && <MissionVerdict config={config} search={search} site={site} mission={mission} earth={earth} />}
+      {site && <MissionVerdict config={config} search={search} site={site} mission={mission} station={station} />}
 
       {open && (
         <StationPicker
-          key={`${ticket.station}${ticket.lat}${ticket.lon}`}
-          value={earth}
-          stations={props.stations}
-          onChange={(next) => props.onChange(next, 'push')}
+          key={stationQuery(station)}
+          value={station}
+          presets={presetsFrom(props.stations)}
+          onChange={(next) => props.onChange({ station: next }, 'push')}
         />
       )}
 
@@ -156,7 +164,7 @@ export function TicketCard(props: TicketCardProps) {
           search={search}
           site={site}
           mission={mission}
-          earth={earth}
+          station={station}
           tau={props.tau}
           sliderMaxTau={props.sliderMaxTau}
           onMissionChange={onMissionChange}

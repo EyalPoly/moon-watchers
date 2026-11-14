@@ -1,13 +1,13 @@
 import { expect, test, vi } from 'vitest'
+import { HOUSTON } from './stations'
 import { rankTickets, type RankInput } from './ranking'
 
 const base: Omit<RankInput, 'key' | 'site'> = {
   t0: '2027-03-01T00:00Z',
   days: 29.53,
-  mast: 2,
-  station: 'any',
-  station_lat: null,
-  station_lon: null,
+  panel: 2,
+  antenna: 3,
+  station: HOUSTON,
 }
 const site = (id: string, elevation_m: number, slope_deg: number) => ({ id, lat_deg: -87, lon_deg: 0, elevation_m, slope_deg })
 

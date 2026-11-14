@@ -1,6 +1,6 @@
-import { useState } from 'react'
 import { MISSION_RANGE, type MissionState } from '../state/urlState'
 import { LUNAR_DAY_MS, formatIsoMinute, parseIsoMinute, snapToStep } from '../time'
+import { HeightControl } from './HeightControl'
 import { MissionLength } from './MissionLength'
 
 export interface MissionControlsProps {
@@ -22,14 +22,6 @@ const fromInput = (value: string) => {
 export function MissionControls({ mission, onChange }: MissionControlsProps) {
   const t0Ms = parseIsoMinute(mission.t0) as number
   const canAddLunarDay = t0Ms + LUNAR_DAY_MS <= LAST_MS
-  // While the mast slider moves, its value is a local draft; it is committed on release.
-  const [draftMast, setDraftMast] = useState<number | null>(null)
-  const mast = draftMast ?? mission.mast
-  const commitMast = () => {
-    if (draftMast !== null && draftMast !== mission.mast) onChange({ mast: draftMast }, 'replace')
-    setDraftMast(null)
-  }
-
   return (
     <div className="controls">
       <label className="control control-wide">
@@ -64,23 +56,8 @@ export function MissionControls({ mission, onChange }: MissionControlsProps) {
         days={mission.days}
         onChange={(days) => onChange({ days, tau: 0 }, 'push')}
       />
-      <label className="control">
-        <span>
-          Mast <span className="num">{mast.toFixed(1)} m</span>
-        </span>
-        <input
-          type="range"
-          min={1}
-          max={10}
-          step={0.5}
-          value={mast}
-          onChange={(e) => setDraftMast(Number(e.target.value))}
-          onPointerUp={commitMast}
-          onKeyUp={commitMast}
-          onBlur={commitMast}
-          aria-label="Mast height in meters"
-        />
-      </label>
+      <HeightControl label="Panel" value={mission.panel} onChange={(panel) => onChange({ panel }, 'replace')} />
+      <HeightControl label="Antenna" value={mission.antenna} onChange={(antenna) => onChange({ antenna }, 'replace')} />
     </div>
   )
 }

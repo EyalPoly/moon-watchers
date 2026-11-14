@@ -48,7 +48,7 @@ export function CompareView({ tickets, sitesById, config, search, isSample, onCl
         const site = t.site === null ? undefined : sitesById.get(t.site)
         // Only the tickets the user chose to show are compared.
         if (!site || !t.shown) return []
-        const scenario: Scenario = toScenario(site.id, t, { station: t.station, lat: t.lat, lon: t.lon })
+        const scenario: Scenario = toScenario(site.id, t, t.station)
         return [{ index, ticket: t, site, scenario }]
       }),
     [tickets, sitesById],
@@ -90,7 +90,7 @@ export function CompareView({ tickets, sitesById, config, search, isSample, onCl
                   </button>
                   <div className="compare-site">{c.site.name}</div>
                   <div className="compare-when num">
-                    {formatUtc(parseIsoMinute(c.ticket.t0) as number)} · {c.ticket.days} d · {c.ticket.mast} m mast
+                    {formatUtc(parseIsoMinute(c.ticket.t0) as number)} · {c.ticket.days} d · panel {c.ticket.panel} m · antenna {c.ticket.antenna} m
                   </div>
                   {k === optimal && <span className="optimal">Optimal</span>}
                 </th>

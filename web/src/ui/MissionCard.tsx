@@ -1,10 +1,9 @@
 import { useMemo } from 'react'
 import type { AppConfig } from '../api/config'
-import type { Site } from '../api/types'
+import type { Site, StationPoint } from '../api/types'
 import { useMissionSeries, useSummary } from '../state/queries'
 import { useScenario } from '../state/scenario'
 import { indexAt, liveStatus } from '../state/series'
-import type { EarthStationChoice } from '../state/tickets'
 import type { MissionState } from '../state/urlState'
 import { parseIsoMinute } from '../time'
 import { LivePanel } from './LivePanel'
@@ -18,7 +17,7 @@ export interface MissionParts {
   search: string
   site: Site
   mission: MissionState
-  earth: EarthStationChoice
+  station: StationPoint
   /** The time being viewed; differs from mission.tau while dragging or playing. */
   tau: number
   /** Slider range: the longest mission among the tickets, so all share one clock. */
@@ -37,8 +36,8 @@ export function Pending({ label }: { label: string }) {
 }
 
 /** Verdict chips and score: the ticket's header, also shown when it is collapsed. */
-export function MissionVerdict({ config, search, site, mission, earth }: Pick<MissionParts, 'config' | 'search' | 'site' | 'mission' | 'earth'>) {
-  const scenario = useScenario(site.id, mission, earth)
+export function MissionVerdict({ config, search, site, mission, station }: Pick<MissionParts, 'config' | 'search' | 'site' | 'mission' | 'station'>) {
+  const scenario = useScenario(site.id, mission, station)
   const summary = useSummary(config, search, scenario)
   if (summary.isError) return <ServerUnavailable onRetry={() => void summary.refetch()} />
   if (!summary.data) return <Pending label="Computing verdict…" />
@@ -51,14 +50,14 @@ export function MissionBody({
   search,
   site,
   mission,
-  earth,
+  station,
   tau,
   sliderMaxTau,
   onMissionChange,
   onTauInput,
   onTauCommit,
 }: MissionParts) {
-  const scenario = useScenario(site.id, mission, earth)
+  const scenario = useScenario(site.id, mission, station)
   const series = useMissionSeries(config, search, scenario)
   const summary = useSummary(config, search, scenario)
 

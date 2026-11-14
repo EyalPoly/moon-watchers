@@ -1,7 +1,7 @@
 import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, expect, test } from 'vitest'
 import { samples } from '../api/mocks/samples'
-import { monthSeries } from '../api/mocks/synthetic'
+import { horizonAtMast, monthSeries } from '../api/mocks/synthetic'
 import { DAY_MS, parseIsoMinute } from '../time'
 import { SkyView } from './SkyView'
 
@@ -31,4 +31,36 @@ test('without a series it still draws the horizon', () => {
   expect(container.querySelector('.sky-terrain-edge')).not.toBeNull()
   expect(container.querySelector('.sky-disk-sun')).toBeNull()
   expect(screen.getByRole('img').getAttribute('aria-label')).toBe('Sky view: terrain horizon around the site')
+})
+
+test('with the panel and the antenna at different heights, a second skyline is drawn', () => {
+  const panel = samples.horizon.sample_a
+  const antenna = horizonAtMast(panel, 4)
+  const series = monthSeries(samples.site.sample_a, panel, '2027-03', { antennaHorizon: antenna })
+  const view = (antennaHorizon?: typeof antenna) => (
+    <SkyView horizon={panel} antennaHorizon={antennaHorizon} series={series} startMs={t0} endMs={t0 + DAY_MS} nowMs={t0} />
+  )
+  const { container, rerender } = render(view(antenna))
+  expect(container.querySelector('.sky-terrain-edge-antenna')).not.toBeNull()
+  rerender(view(panel))
+  expect(container.querySelector('.sky-terrain-edge-antenna')).toBeNull()
+  rerender(view(undefined))
+  expect(container.querySelector('.sky-terrain-edge-antenna')).toBeNull()
+})
+
+test('an unknown contact step is drawn with the unknown class', () => {
+  const series = monthSeries(samples.site.sample_a, samples.horizon.sample_a, '2027-03')
+  series.contact[0] = null
+  const { container } = render(
+    <SkyView horizon={samples.horizon.sample_a} series={series} startMs={t0} endMs={t0 + DAY_MS} nowMs={t0} />,
+  )
+  expect(container.querySelector('.sky-contact-unknown')).not.toBeNull()
+})
+
+test('unknown terrain does not break the drawing', () => {
+  const horizon = { ...samples.horizon.sample_a, elevation_deg: samples.horizon.sample_a.elevation_deg.map((v, i) => (i < 60 ? null : v)) }
+  const { container } = render(<SkyView horizon={horizon} series={null} startMs={t0} endMs={t0 + DAY_MS} nowMs={t0} />)
+  expect(container.querySelector('.sky-terrain-edge')).not.toBeNull()
+  expect(container.querySelector('.sky-unknown-band')).not.toBeNull()
+  expect(container.innerHTML).not.toContain('NaN')
 })

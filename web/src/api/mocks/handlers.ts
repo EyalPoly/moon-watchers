@@ -1,8 +1,10 @@
 import { http, HttpResponse } from 'msw'
 import { POINT_AREA, formatLatLon, inPointArea, parsePointId, pointId } from '../points'
-import type { Horizon, Scenario } from '../types'
+import { HEIGHT_RANGE, roundCm } from '../heights'
+import { HOUSTON, normalizeStation } from '../stations'
+import type { Horizon, Scenario, StationPoint } from '../types'
 import { parseIsoMinute } from '../../time'
-import { horizonAtMast, monthSeries, stationOf, syntheticSummary } from './synthetic'
+import { horizonAtMast, monthSeries, syntheticSummary } from './synthetic'
 
 interface SampleSite {
   id: string
@@ -48,7 +50,32 @@ function clampParam(url: URL, name: string, min: number, max: number, fallback: 
   return v === null ? fallback : Math.min(max, Math.max(min, v))
 }
 
-const STATIONS: readonly string[] = ['any', 'goldstone', 'madrid', 'canberra', 'custom']
+const NUMBER = /^-?\d+(?:\.\d+)?$/
+
+/** A height in meters, 1-10 in steps of 0.01 m; the text of the error otherwise. */
+function heightParam(url: URL, name: string, fallback: number): number | string {
+  const raw = url.searchParams.get(name)
+  if (raw === null) return fallback
+  const v = Number(raw)
+  const ok =
+    NUMBER.test(raw) &&
+    v >= HEIGHT_RANGE.min &&
+    v <= HEIGHT_RANGE.max &&
+    Math.abs(v * 100 - Math.round(v * 100)) < 1e-6
+  return ok ? roundCm(v) : `${name} must be 1-10 m in steps of 0.01 m`
+}
+
+/** The station query value lat,lon,alt_m,min_el_deg; the text of the error otherwise. */
+function stationParam(url: URL): StationPoint | string {
+  const raw = url.searchParams.get('station')
+  if (raw === null) return HOUSTON
+  const parts = raw.split(',')
+  const point =
+    parts.length === 4 && parts.every((p) => NUMBER.test(p))
+      ? normalizeStation(Number(parts[0]), Number(parts[1]), Number(parts[2]), Number(parts[3]))
+      : null
+  return point ?? 'station must be lat,lon,alt_m,min_el_deg (four numbers in range)'
+}
 
 function invalid(detail: string) {
   return HttpResponse.json(
@@ -62,21 +89,20 @@ function scenarioFrom(url: URL, siteId: string): Scenario | string {
   if (parseIsoMinute(t0) === null) return 't0 must be YYYY-MM-DDTHH:MMZ'
   const w = (url.searchParams.get('w') ?? '1,1,1,0').split(',').map(Number)
   if (w.length !== 4 || w.some((x) => !(x >= 0 && x <= 1))) return 'w must be four weights in [0, 1]'
-  const station = url.searchParams.get('station') ?? 'any'
-  if (!STATIONS.includes(station)) return 'unknown station'
-  const lat = numberParam(url, 'station_lat')
-  const lon = numberParam(url, 'station_lon')
-  const custom = station === 'custom'
-  if (custom !== (lat !== null && lon !== null)) return 'station=custom needs station_lat and station_lon, and only then'
-  if (custom && (Math.abs(lat as number) > 90 || Math.abs(lon as number) > 180)) return 'station_lat or station_lon out of range'
+  const station = stationParam(url)
+  if (typeof station === 'string') return station
+  const panel = heightParam(url, 'panel', 2)
+  if (typeof panel === 'string') return panel
+  const antenna = heightParam(url, 'antenna', 3)
+  if (typeof antenna === 'string') return antenna
   return {
     site: siteId,
     t0,
-    days: clampParam(url, 'days', 1, 365, 29.53),
-    mast: clampParam(url, 'mast', 1, 10, 2),
+    days: clampParam(url, 'days', 1, 365, 30),
+    panel,
+    antenna,
     w: w as Scenario['w'],
-    station: station as Scenario['station'],
-    ...(custom ? { station_lat_deg: lat as number, station_lon_deg: lon as number } : {}),
+    station,
   }
 }
 
@@ -154,8 +180,10 @@ export function buildHandlers(samples: Samples, origin: string) {
     http.get(`${origin}/api/v1/sites/:id/horizon`, ({ params, request }) => {
       const id = String(params.id)
       const url = new URL(request.url)
+      const mast = heightParam(url, 'mast', 2)
+      if (typeof mast === 'string') return invalid(mast)
       const used = sampleFor(id, url)
-      const horizon = horizonAtMast(samples.horizon[used.id], clampParam(url, 'mast', 1, 10, 2))
+      const horizon = horizonAtMast(samples.horizon[used.id], mast)
       return HttpResponse.json({ ...horizon, site_id: id }, { headers: fallbackHeader(id, used) })
     }),
     http.get(`${origin}/api/v1/scenario/series`, ({ request }) => {
@@ -166,10 +194,12 @@ export function buildHandlers(samples: Samples, origin: string) {
       const month = url.searchParams.get('month') ?? ''
       if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) return invalid('month must be YYYY-MM')
       const used = sampleFor(id, url)
-      const horizon = horizonAtMast(samples.horizon[used.id], scenario.mast)
-      return HttpResponse.json(monthSeries(used, horizon, month, stationOf(scenario)), {
-        headers: fallbackHeader(id, used),
+      const base = samples.horizon[used.id]
+      const series = monthSeries(used, horizonAtMast(base, scenario.panel), month, {
+        station: scenario.station,
+        antennaHorizon: horizonAtMast(base, scenario.antenna),
       })
+      return HttpResponse.json(series, { headers: fallbackHeader(id, used) })
     }),
     http.get(`${origin}/api/v1/scenario/summary`, ({ request }) => {
       const url = new URL(request.url)
@@ -177,9 +207,8 @@ export function buildHandlers(samples: Samples, origin: string) {
       const scenario = scenarioFrom(url, id)
       if (typeof scenario === 'string') return invalid(scenario)
       const used = sampleFor(id, url)
-      const horizon = horizonAtMast(samples.horizon[used.id], scenario.mast)
       const t0 = parseIsoMinute(scenario.t0) as number
-      return HttpResponse.json(syntheticSummary(scenario, used, horizon, t0), {
+      return HttpResponse.json(syntheticSummary(scenario, used, samples.horizon[used.id], t0), {
         headers: fallbackHeader(id, used),
       })
     }),
