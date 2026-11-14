@@ -1,4 +1,4 @@
-"""Earth stations in the contract: the DSN list in /meta and the custom-station parameters."""
+"""Earth stations in the contract: the presets in /meta and the station parameter."""
 
 import pytest
 from fastapi.testclient import TestClient
@@ -13,28 +13,18 @@ def client() -> TestClient:
     return TestClient(create_app())
 
 
-@pytest.mark.parametrize(
-    "query",
-    [
-        "station=custom",
-        "station=custom&station_lat=10",
-        "station=madrid&station_lat=10&station_lon=10",
-        "station=any&station_lon=10",
-        "station=custom&station_lat=95&station_lon=10",
-    ],
-)
-def test_station_parameters_must_match(client: TestClient, query: str) -> None:
-    response = client.get(f"{SUMMARY}&{query}")
-    assert response.status_code == 422
-    assert response.json()["code"] == "INVALID_PARAM"
+def test_meta_lists_station_presets(client: TestClient) -> None:
+    meta = client.get("/api/v1/meta").json()
+    assert [s["id"] for s in meta["stations"]] == ["houston", "goldstone", "madrid", "canberra"]
+    assert meta["default_station"] == "houston"
+    assert all(s["alt_m"] == 0 and s["min_el_deg"] == 0 for s in meta["stations"])
 
 
-def test_custom_station_with_coordinates_passes_validation(client: TestClient) -> None:
-    response = client.get(f"{SUMMARY}&station=custom&station_lat=31.25&station_lon=34.79")
+def test_custom_station_passes_validation(client: TestClient) -> None:
+    response = client.get(f"{SUMMARY}&station=31.25,34.79,100,5")
     assert response.status_code == 503
     assert response.json()["code"] == "FEATURE_DISABLED"
 
 
-def test_meta_lists_the_dsn_stations(client: TestClient) -> None:
-    stations = client.get("/api/v1/meta").json()["stations"]
-    assert [s["id"] for s in stations] == ["goldstone", "madrid", "canberra"]
+def test_default_station_is_houston(client: TestClient) -> None:
+    assert client.get(SUMMARY).json()["code"] == "FEATURE_DISABLED"

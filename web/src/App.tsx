@@ -5,7 +5,7 @@ import type { Meta, Region, Site } from './api/types'
 import { isPointId } from './api/points'
 import { useCustomSites, useMeta, useSites } from './state/queries'
 import { useTicketRanking } from './state/ranking'
-import { stationLabel } from './state/scenario'
+import { presetsFrom, stationLabel } from './api/stations'
 import {
   addTicket,
   addTicketsFor,
@@ -71,6 +71,7 @@ export default function App({ config }: { config: AppConfig }) {
   const sitesQuery = useSites(config, search)
   const sites = sitesQuery.data?.sites ?? NO_SITES
   const stations = metaQuery.data?.stations ?? FALLBACK_STATIONS
+  const presets = presetsFrom(stations)
   const screen = parseScreen2(search)
   // Custom points (new sites by lat/lon) come from POST /sites/custom, one per point.
   const customIds = [...new Set(screen.tickets.flatMap((t) => (t.site !== null && isPointId(t.site) ? [t.site] : [])))]
@@ -206,7 +207,7 @@ export default function App({ config }: { config: AppConfig }) {
                   config={config}
                   search={search}
                   tau={tau}
-                  stationLabel={stationLabel(t, stations)}
+                  stationLabel={stationLabel(t.station, presets)}
                   best={ranking.byIndex.get(i)?.best ?? false}
                   stacked={stacked}
                   expanded={expanded === i}

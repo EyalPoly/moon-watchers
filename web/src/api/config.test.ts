@@ -76,3 +76,24 @@ test('custom points follow the horizon switch, since they need the terrain engin
   expect(resolveSource(config, 'custom', '')).toBe('sample')
   expect(resolveSource({ ...config, sources: { ...config.sources, horizon: 'real' } }, 'custom', '')).toBe('real')
 })
+
+test('series follows summary until sources.series says otherwise', () => {
+  const config = { api_base: 'https://api.example', sources: { sites: 'real', horizon: 'real', summary: 'real' } } as const
+  expect(resolveSource(config, 'series', '')).toBe('real')
+  const own = { ...config, sources: { ...config.sources, series: 'sample' } } as const
+  expect(resolveSource(own, 'series', '')).toBe('sample')
+  expect(resolveSource(own, 'summary', '')).toBe('real')
+})
+
+test('a config without sources.series is valid, and one with it too', async () => {
+  const body = { api_base: 'https://api.example', sources: { sites: 'real', horizon: 'real', summary: 'real' } }
+  vi.stubGlobal('fetch', async () => new Response(JSON.stringify(body)))
+  expect((await loadConfig('/config.json')).sources.series).toBeUndefined()
+  vi.stubGlobal('fetch', async () => new Response(JSON.stringify({ ...body, sources: { ...body.sources, series: 'sample' } })))
+  expect((await loadConfig('/config.json')).sources.series).toBe('sample')
+})
+
+test('the sample banner shows while the series is on sample', () => {
+  const config = { api_base: 'https://api.example', sources: { sites: 'real', horizon: 'real', summary: 'real', series: 'sample' } } as const
+  expect(anySample(config, '')).toBe(true)
+})

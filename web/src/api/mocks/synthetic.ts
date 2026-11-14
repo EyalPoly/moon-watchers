@@ -6,8 +6,9 @@
 // the mock layer: the real numbers come from the engine. Every screen that shows them
 // carries the "Sample data" label.
 
-import type { Horizon, Scenario, Series, Summary } from '../types'
+import type { Horizon, Scenario, Series, StationPoint, Summary } from '../types'
 import { DAY_MS, STEP_MS, formatIsoMinute, monthEndMs, monthStartMs } from '../../time'
+import { HOUSTON } from '../stations'
 
 export const SUN_RADIUS_DEG = 0.267
 export const EARTH_RADIUS_DEG = 0.95
@@ -25,18 +26,21 @@ export interface SiteLike {
   lon_deg: number
 }
 
-/** Mast height lowers each horizon sample by about atan(Δh / distance). */
+/** Mast height lowers each horizon sample by about atan(Δh / distance). Unknown stays unknown. */
 export function horizonAtMast(base: Horizon, mast: number): Horizon {
   const dh = mast - base.mast_m
   if (dh === 0) return base
   const elevation_deg = base.elevation_deg.map((el, i) => {
-    const distM = Math.max(base.distance_km[i], 0.2) * 1000
+    const distance = base.distance_km[i]
+    if (el === null || distance === null) return el
+    const distM = Math.max(distance, 0.2) * 1000
     return Math.round((el - (Math.atan(dh / distM) * 180) / Math.PI) * 1000) / 1000
   })
   return { ...base, mast_m: mast, elevation_deg }
 }
 
-export function horizonAt(h: Horizon, az: number): number {
+/** The skyline at an azimuth; null where the terrain is unknown. */
+export function horizonAt(h: Horizon, az: number): number | null {
   const n = h.elevation_deg.length
   const i = Math.round(az / h.az_step_deg) % n
   return h.elevation_deg[(i + n) % n]
@@ -53,39 +57,15 @@ function skyPosition(site: SiteLike, subLat: number, subLon: number) {
   return { el, az }
 }
 
-export interface StationLocation {
-  lat_deg: number
-  lon_deg: number
-}
-
-/** "any": contact while at least one DSN complex sees the Moon. */
-export type StationChoice = 'any' | StationLocation
-
-// Same coordinates as the meta sample's station list.
-export const DSN: Record<'goldstone' | 'madrid' | 'canberra', StationLocation> = {
-  goldstone: { lat_deg: 35.4267, lon_deg: -116.89 },
-  madrid: { lat_deg: 40.4314, lon_deg: -4.2481 },
-  canberra: { lat_deg: -35.4014, lon_deg: 148.9819 },
-}
-
-export function stationOf(scenario: Scenario): StationChoice {
-  if (scenario.station === 'any') return 'any'
-  if (scenario.station === 'custom') {
-    return { lat_deg: scenario.station_lat_deg ?? 0, lon_deg: scenario.station_lon_deg ?? 0 }
-  }
-  return DSN[scenario.station]
-}
-
-// The Moon crosses a station's sky once every ~24.8 h, shifted by the station's longitude,
-// and stays above its 10° mask for about half of that; a little less far from the equator.
+// The Moon crosses a station's sky once every ~24.8 h, shifted by the station's longitude.
+// It is above a 0° mask for about half of that, a little less far from the equator, and
+// a higher mask shortens it.
 const MOON_TRANSIT_D = 1.035
-function moonUpAt(st: StationLocation, days: number): boolean {
-  const threshold = -0.15 + Math.abs(st.lat_deg) / 300
-  return Math.sin(TAU * (days / MOON_TRANSIT_D + st.lon_deg / 360)) > threshold
-}
+const stationPhase = (st: StationPoint, days: number) => TAU * (days / MOON_TRANSIT_D + st.lon_deg / 360)
 
-function stationUp(station: StationChoice, days: number): boolean {
-  return station === 'any' ? Object.values(DSN).some((st) => moonUpAt(st, days)) : moonUpAt(station, days)
+function moonElevation(st: StationPoint, days: number): number {
+  const threshold = -0.15 + Math.abs(st.lat_deg) / 300
+  return 60 * (Math.sin(stationPhase(st, days)) - threshold)
 }
 
 function sunLitFraction(el: number, horizon: number): number {
@@ -96,21 +76,35 @@ function sunLitFraction(el: number, horizon: number): number {
 }
 
 const r3 = (v: number) => Math.round(v * 1000) / 1000
+// A fraction above zero is never written as 0: the web app reads "> 0" as "visible".
+const r4 = (v: number) => (v > 0 ? Math.max(0.0001, Math.round(v * 10000) / 10000) : 0)
+const wrap360 = (az: number) => ((az % 360) + 360) % 360
 
+export interface SeriesOptions {
+  station?: StationPoint
+  /** The skyline at the antenna's height; the panel skyline when absent. */
+  antennaHorizon?: Horizon
+}
+
+/**
+ * `horizon` is the skyline at the panel's height: it decides the Sun. The antenna's skyline
+ * decides the Earth and the station. A null skyline value gives null in every field that
+ * reads it, except where a known "no" settles the answer.
+ */
 export function syntheticSeries(
   site: SiteLike,
   horizon: Horizon,
   startMs: number,
   n: number,
-  station: StationChoice = 'any',
+  { station = HOUSTON, antennaHorizon = horizon }: SeriesOptions = {},
 ): Series {
   const s: Series = {
     start: formatIsoMinute(startMs),
     step_s: STEP_MS / 1000,
     n,
     sun_az: [], sun_el: [], sun_vis_el: [], sun_horizon_el: [], sun_lit_frac: [],
-    earth_az: [], earth_el: [], earth_vis_el: [], earth_horizon_el: [], earth_visible: [],
-    earth_station_up: [],
+    earth_az: [], earth_el: [], earth_vis_el: [], earth_horizon_el: [], earth_any: [], earth_whole: [],
+    contact: [], station_az: [], station_el: [], station_horizon_el: [], earth_station_up: [], station_moon_el: [],
     power_w: null,
     soc_pct: null,
   }
@@ -123,33 +117,41 @@ export function syntheticSeries(
       7.9 * Math.sin((TAU * d) / ANOMALISTIC_D),
     )
     const sunH = horizonAt(horizon, sun.az)
-    const earthH = horizonAt(horizon, earth.az)
-    const up = stationUp(station, d)
-    const earthVis = earth.el - EARTH_RADIUS_DEG
+    const earthH = horizonAt(antennaHorizon, earth.az)
+
+    const moonEl = moonElevation(station, d)
+    const up = moonEl >= station.min_el_deg
+    // The station sits somewhere on the Earth's disk, which turns once a day.
+    const phase = stationPhase(station, d)
+    const stationAz = wrap360(earth.az + (EARTH_RADIUS_DEG * Math.cos(rad(station.lat_deg)) * Math.cos(phase)) / Math.max(Math.cos(rad(earth.el)), 0.2))
+    const stationEl = earth.el + EARTH_RADIUS_DEG * Math.sin(rad(station.lat_deg)) * 0.9
+    const stationH = horizonAt(antennaHorizon, stationAz)
+
     s.sun_az.push(r3(sun.az))
     s.sun_el.push(r3(sun.el))
     s.sun_vis_el.push(r3(sun.el + SUN_RADIUS_DEG))
-    s.sun_horizon_el.push(r3(sunH))
-    s.sun_lit_frac.push(r3(sunLitFraction(sun.el, sunH)))
+    s.sun_horizon_el.push(sunH === null ? null : r3(sunH))
+    s.sun_lit_frac.push(sunH === null ? null : r4(sunLitFraction(sun.el, sunH)))
     s.earth_az.push(r3(earth.az))
     s.earth_el.push(r3(earth.el))
-    s.earth_vis_el.push(up ? r3(earthVis) : 90)
-    s.earth_horizon_el.push(r3(earthH))
-    s.earth_visible.push(up && earthVis > earthH)
+    s.earth_vis_el.push(up ? r3(stationEl) : 90)
+    s.earth_horizon_el.push(earthH === null ? null : r3(earthH))
+    s.earth_any.push(earthH === null ? null : earth.el + EARTH_RADIUS_DEG > earthH ? 1 : 0)
+    s.earth_whole.push(earthH === null ? null : earth.el - EARTH_RADIUS_DEG >= earthH ? 1 : 0)
+    s.station_az.push(r3(stationAz))
+    s.station_el.push(r3(stationEl))
+    s.station_horizon_el.push(stationH === null ? null : r3(stationH))
+    s.contact.push(!up ? 0 : stationH === null ? null : stationEl > stationH ? 1 : 0)
     s.earth_station_up.push(up)
+    s.station_moon_el.push(r3(moonEl))
   }
   return s
 }
 
-export function monthSeries(
-  site: SiteLike,
-  horizon: Horizon,
-  month: string,
-  station: StationChoice = 'any',
-): Series {
+export function monthSeries(site: SiteLike, horizon: Horizon, month: string, options: SeriesOptions = {}): Series {
   const start = monthStartMs(month)
   const n = Math.round((monthEndMs(month) - start) / STEP_MS)
-  return syntheticSeries(site, horizon, start, n, station)
+  return syntheticSeries(site, horizon, start, n, options)
 }
 
 // --- Summary ---------------------------------------------------------------------------
@@ -196,6 +198,7 @@ const pct = (flags: boolean[]) => (flags.length ? (100 * flags.filter(Boolean).l
 const r1 = (v: number) => Math.round(v * 10) / 10
 const hours = (steps: number) => r1((steps * STEP_MS) / 3_600_000)
 
+/** `horizon` is the site's skyline at any height; the panel's and the antenna's are derived from it. */
 export function syntheticSummary(
   scenario: Scenario,
   site: SiteLike & { slope_deg: number },
@@ -203,9 +206,13 @@ export function syntheticSummary(
   t0Ms: number,
 ): Summary {
   const n = Math.round((scenario.days * DAY_MS) / STEP_MS)
-  const s = syntheticSeries(site, horizon, t0Ms, n, stationOf(scenario))
-  const sun = s.sun_lit_frac.map((f) => f > 0)
-  const dte = s.earth_visible
+  const s = syntheticSeries(site, horizonAtMast(horizon, scenario.panel), t0Ms, n, {
+    station: scenario.station,
+    antennaHorizon: horizonAtMast(horizon, scenario.antenna),
+  })
+  // Unknown terrain counts as not visible: the summary has no third state yet.
+  const sun = s.sun_lit_frac.map((f) => f !== null && f > 0)
+  const dte = s.contact.map((c) => c === 1)
   const both = sun.map((v, i) => v && dte[i])
   const S = pct(sun)
   const D = pct(dte)

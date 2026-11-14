@@ -1,4 +1,5 @@
 import { expect, test } from 'vitest'
+import { HOUSTON, PRESETS } from '../api/stations'
 import {
   EMPTY_TICKET,
   MAX_URL_TICKETS,
@@ -19,12 +20,13 @@ const B = {
   site: 'sample_b',
   t0: '2027-06-01T00:00Z',
   days: 14,
-  mast: 3,
+  panel: 3,
+  antenna: 4.5,
   view: 'graph' as const,
   shown: false,
-  station: 'madrid' as const,
+  station: PRESETS[2].point,
 }
-const C = { ...EMPTY_TICKET, site: 'sample_c', station: 'custom' as const, lat: 31.25, lon: 34.79 }
+const C = { ...EMPTY_TICKET, site: 'sample_c', station: { lat_deg: 31.25, lon_deg: 34.79, alt_m: 100, min_el_deg: 5 } }
 
 test('a fresh start is one empty ticket and an empty URL', () => {
   const s = parseScreen2('')
@@ -36,16 +38,47 @@ test('tickets round-trip through the URL, flags and stations included', () => {
   const s: Screen2State = { tickets: [A, B, C], open: 1, tau: 60, compare: false }
   const url = serializeScreen2(s, '?data=sample')
   expect(decodeURIComponent(url)).toBe(
-    '?data=sample&tk=sample_a~2027-03-01T00:00Z~29.53~2&tk=sample_b~2027-06-01T00:00Z~14~3~g~h~s:madrid' +
-      '&tk=sample_c~2027-03-01T00:00Z~29.53~2~s:@31.25,34.79&open=1&tau=60',
+    '?data=sample&tk=sample_a~2027-03-01T00:00Z~29.53~2~3' +
+      '&tk=sample_b~2027-06-01T00:00Z~14~3~4.5~g~h~s:40.4314,-4.2481,0,0' +
+      '&tk=sample_c~2027-03-01T00:00Z~29.53~2~3~s:31.25,34.79,100,5&open=1&tau=60',
   )
   expect(parseScreen2(url)).toEqual(s)
 })
 
 test('an old one-site link opens as a single ticket', () => {
   expect(parseScreen2('?site=sample_b&t0=2027-06-01T00:00Z&mast=3').tickets).toEqual([
-    { ...EMPTY_TICKET, site: 'sample_b', t0: '2027-06-01T00:00Z', mast: 3 },
+    { ...EMPTY_TICKET, site: 'sample_b', t0: '2027-06-01T00:00Z', panel: 3 },
   ])
+})
+
+test('an old ticket link with one mast height opens with panel 2, antenna 3 and Houston', () => {
+  const [t] = parseScreen2('?tk=sample_a~2027-03-01T00:00Z~29.53~2').tickets
+  expect(t).toEqual({ ...EMPTY_TICKET, site: 'sample_a' })
+  expect(t.station).toEqual(HOUSTON)
+})
+
+test('old station flags open as the preset and as a custom point at altitude 0 and mask 0°', () => {
+  const link = (flag: string) => `?tk=sample_a~2027-03-01T00:00Z~29.53~2~${flag}`
+  expect(parseScreen2(link('s:madrid')).tickets[0].station).toEqual(PRESETS[2].point)
+  expect(parseScreen2(link('s:@31.25,34.79')).tickets[0].station).toEqual({
+    lat_deg: 31.25,
+    lon_deg: 34.79,
+    alt_m: 0,
+    min_el_deg: 0,
+  })
+})
+
+test('an old link keeps its flags when it has no antenna height', () => {
+  const [t] = parseScreen2('?tk=sample_a~2027-03-01T00:00Z~29.53~2~g~h~n:Plan%20B').tickets
+  expect(t).toMatchObject({ view: 'graph', shown: false, name: 'Plan B', panel: 2, antenna: 3 })
+})
+
+test('heights round to the nearest centimetre and are written without trailing zeros', () => {
+  const [t] = parseScreen2('?tk=sample_a~2027-03-01T00:00Z~29.53~2.555~2.5').tickets
+  expect(t.panel).toBe(2.56)
+  expect(t.antenna).toBe(2.5)
+  const url = serializeScreen2({ tickets: [t], open: 0, tau: 0, compare: false })
+  expect(decodeURIComponent(url)).toContain('~29.53~2.56~2.5')
 })
 
 test.each([
@@ -53,8 +86,10 @@ test.each([
   ['?tk=sample_c~garbage~abc~-1', { ...EMPTY_TICKET, site: 'sample_c' }],
   ['?tk=~~~~', { ...EMPTY_TICKET }],
   ['?tk=~~~~s:houston', { ...EMPTY_TICKET }],
+  ['?tk=~~~~s:nowhere', { ...EMPTY_TICKET }],
   ['?tk=~~~~s:@95,10', { ...EMPTY_TICKET }],
   ['?tk=~~~~s:@1,2,3', { ...EMPTY_TICKET }],
+  ['?tk=~~~~s:0,0,0,50', { ...EMPTY_TICKET }],
 ])('broken ticket fields %j fall back to defaults', (search, ticket) => {
   expect(parseScreen2(search).tickets).toEqual([ticket])
 })

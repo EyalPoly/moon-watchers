@@ -1,23 +1,23 @@
 // Reading the engine's series. No physics here: only lookups and comparisons of numbers
-// the engine prepared (spec principle 1).
+// the engine prepared (spec principle 1). Where the terrain is unknown the engine sends
+// null; it stays null here and is never read as "hidden".
 
 import type { Series } from '../api/types'
 import { parseIsoMinute } from '../time'
 
-type ArrayKey = {
-  [K in keyof Series]: Series[K] extends (number | boolean)[] ? K : never
-}[keyof Series]
+type ListKey = Exclude<keyof Series, 'start' | 'step_s' | 'n' | 'power_w' | 'soc_pct'>
 
-const ARRAY_KEYS: ArrayKey[] = [
+const LIST_KEYS: ListKey[] = [
   'sun_az', 'sun_el', 'sun_vis_el', 'sun_horizon_el', 'sun_lit_frac',
-  'earth_az', 'earth_el', 'earth_vis_el', 'earth_horizon_el', 'earth_visible', 'earth_station_up',
+  'earth_az', 'earth_el', 'earth_vis_el', 'earth_horizon_el', 'earth_any', 'earth_whole', 'contact',
+  'station_az', 'station_el', 'station_horizon_el', 'earth_station_up', 'station_moon_el',
 ]
 
 /** Joins consecutive month series into one. */
 export function stitchSeries(parts: Series[]): Series {
   if (parts.length === 1) return parts[0]
   const out: Series = { ...parts[0], n: 0, power_w: null, soc_pct: null }
-  for (const key of ARRAY_KEYS) (out[key] as unknown[]) = parts.flatMap((p) => p[key] as unknown[])
+  for (const key of LIST_KEYS) (out[key] as unknown[]) = parts.flatMap((p) => p[key] as unknown[])
   out.n = parts.reduce((sum, p) => sum + p.n, 0)
   return out
 }
@@ -36,15 +36,25 @@ export function indexAt(s: Series, ms: number): number | null {
   return i >= 0 && i < s.n ? i : null
 }
 
-export const sunVisible = (s: Series, i: number) => s.sun_lit_frac[i] > 0
-export const earthVisible = (s: Series, i: number) => s.earth_visible[i]
+/** A yes, a no, or null when the terrain behind the answer is unknown. */
+export type Tri = boolean | null
+
+export function sunVisible(s: Series, i: number): Tri {
+  const fraction = s.sun_lit_frac[i]
+  return fraction === null ? null : fraction > 0
+}
+
+export function contactAt(s: Series, i: number): Tri {
+  const contact = s.contact[i]
+  return contact === null ? null : contact === 1
+}
 
 export type Change =
   | { kind: 'at'; ms: number; inMs: number }
   | { kind: 'not-before'; ms: number }
 
-/** The next step where `flag` flips, searching to the end of the loaded series. */
-export function nextChange(s: Series, i: number, flag: (s: Series, i: number) => boolean): Change {
+/** The next step where `flag` changes (yes, no and unknown all count), searching to the end of the loaded series. */
+export function nextChange(s: Series, i: number, flag: (s: Series, i: number) => Tri): Change {
   const now = flag(s, i)
   for (let j = i + 1; j < s.n; j++) {
     if (flag(s, j) !== now) {
@@ -58,17 +68,20 @@ export function nextChange(s: Series, i: number, flag: (s: Series, i: number) =>
 export interface BodyStatus {
   az: number
   el: number
-  horizon: number
-  /** el − horizon at the body's center. */
-  clearance: number
-  visible: boolean
+  /** The skyline in that direction; null where the terrain is unknown. */
+  horizon: number | null
+  /** el − horizon at the body's center; null where the terrain is unknown. */
+  clearance: number | null
+  visible: Tri
   change: Change
 }
 
 export interface LiveStatus {
-  sun: BodyStatus & { litFraction: number }
+  sun: BodyStatus & { litFraction: number | null }
   earth: BodyStatus & { stationUp: boolean }
 }
+
+const clearance = (el: number, horizon: number | null) => (horizon === null ? null : el - horizon)
 
 export function liveStatus(s: Series, i: number): LiveStatus {
   return {
@@ -76,19 +89,21 @@ export function liveStatus(s: Series, i: number): LiveStatus {
       az: s.sun_az[i],
       el: s.sun_el[i],
       horizon: s.sun_horizon_el[i],
-      clearance: s.sun_el[i] - s.sun_horizon_el[i],
+      clearance: clearance(s.sun_el[i], s.sun_horizon_el[i]),
       visible: sunVisible(s, i),
       litFraction: s.sun_lit_frac[i],
       change: nextChange(s, i, sunVisible),
     },
+    // The Earth row is about the station: contact needs the station's direction to clear
+    // the antenna's skyline, not the Earth's center.
     earth: {
-      az: s.earth_az[i],
-      el: s.earth_el[i],
-      horizon: s.earth_horizon_el[i],
-      clearance: s.earth_el[i] - s.earth_horizon_el[i],
-      visible: earthVisible(s, i),
+      az: s.station_az[i],
+      el: s.station_el[i],
+      horizon: s.station_horizon_el[i],
+      clearance: clearance(s.station_el[i], s.station_horizon_el[i]),
+      visible: contactAt(s, i),
       stationUp: s.earth_station_up[i],
-      change: nextChange(s, i, earthVisible),
+      change: nextChange(s, i, contactAt),
     },
   }
 }

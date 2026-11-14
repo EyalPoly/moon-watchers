@@ -1,6 +1,8 @@
 import createClient from 'openapi-fetch'
 import { resolveSource, type AppConfig, type SourceName } from './config'
+import { roundCm } from './heights'
 import type { paths } from './schema'
+import { stationQuery } from './stations'
 import type { Horizon, Meta, Scenario, Series, Site, SitesResponse, Summary } from './types'
 
 const REQUEST_TIMEOUT_MS = 8000
@@ -11,15 +13,10 @@ export function scenarioQuery(s: Scenario) {
     site: s.site,
     t0: s.t0,
     days: Math.round(s.days * 100) / 100,
-    mast: Math.round(s.mast * 10) / 10,
+    panel: roundCm(s.panel),
+    antenna: roundCm(s.antenna),
     w: s.w.map((x) => x.toFixed(1)).join(','),
-    station: s.station,
-    ...(s.station === 'custom'
-      ? {
-          station_lat: Math.round((s.station_lat_deg ?? 0) * 100) / 100,
-          station_lon: Math.round((s.station_lon_deg ?? 0) * 100) / 100,
-        }
-      : {}),
+    station: stationQuery(s.station),
   }
 }
 
@@ -61,7 +58,7 @@ export function createApi(config: AppConfig, search: string) {
     },
     async getHorizon(id: string, mast: number): Promise<Horizon> {
       const { data, error } = await clientFor('horizon').GET('/api/v1/sites/{site_id}/horizon', {
-        params: { path: { site_id: id }, query: { mast, part: 'full' } },
+        params: { path: { site_id: id }, query: { mast: roundCm(mast), part: 'full' } },
       })
       if (data === undefined) throw new Error(`horizon request failed: ${JSON.stringify(error)}`)
       return data
