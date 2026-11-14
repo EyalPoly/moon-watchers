@@ -66,10 +66,12 @@ rays ended 302.2 km away on the map, outside the window. The synthetic tests nev
 from the pole. Each window is now scaled by the map scale at the farthest latitude its rays reach;
 the fix changed only those 7 directions, from unknown to known.
 
-### The served bundle: `20m`, `20261114-30fa9171`
+### The served bundle: `20m`, `20261114-43266f39`
 
-20 m, 80 m and 240 m terrain with their error rasters. Built in 9 s (3 sites), 0.3 GB peak memory;
-382 KB on disk, 230 KB zipped.
+20 m, 80 m and 240 m terrain with their error rasters, plus the S3 ephemeris and Earth-rotation
+tables. The masks take 9 s to build (3 sites, 0.3 GB peak memory) and 382 KB on disk; with the tables
+the bundle is 8.0 MB, 7.3 MB zipped. Rebuilt after merging S3: the masks are identical to the first
+build's (`20261114-30fa9171`, before bundles carried the ephemeris).
 
 | Site | 2 m skyline | Blocking distance | Unknown | Warnings |
 |---|---|---|---|---|
@@ -110,8 +112,8 @@ Whether these matter is S4's question: its acceptance is under 0.5 percentage po
 
 ### Resolution comparison
 
-One bundle per finest terrain, built with `make_masks --terrain 40m|80m` (`20261114-b419d6cc` and
-`20261114-12e21613`), compared with `python -m build.compare_bundles <20m> <40m> <80m>`: the
+One bundle per finest terrain, built with `make_masks --terrain 40m|80m` (`20261114-7d13cc29` and
+`20261114-e8bee846`), compared with `python -m build.compare_bundles <20m> <40m> <80m>`: the
 largest nominal change from the served `20m` bundle. No direction is unknown in one bundle only.
 
 | Bundle | Site | Panel 2 m | Antenna 3 m | Far-only |
@@ -134,5 +136,5 @@ largest nominal change from the served `20m` bundle. No direction is unknown in 
 
 ### CSVs for the physics team
 
-`python -m engine.cli horizon --site <id> --height 2|3 --bundle bundle/20261114-30fa9171`: 6 files,
+`python -m engine.cli horizon --site <id> --height 2|3 --bundle bundle/20261114-43266f39`: 6 files,
 720 rows each, attached to the pull request (not committed: placeholder catalog).
