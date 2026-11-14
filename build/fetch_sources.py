@@ -1,10 +1,15 @@
 import argparse
 import hashlib
+import http.client
 import json
 import shutil
+import threading
+import time
 import urllib.request
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from typing import Any
 
 LOCK_PATH = Path("data/sources.lock.json")
 DEST = Path("data/sources")
@@ -39,9 +44,116 @@ def verify_file(path: Path, sha256: str) -> bool:
     return path.is_file() and sha256_of(path) == sha256
 
 
+ReadRange = Callable[[str, int, int], bytes]
+
+# PGDA serves about 80 KB/s per connection, so the 2-4 GB terrain files come as parallel ranges.
+CONNECTIONS = 16
+RANGE_BYTES = 4 * CHUNK
+ATTEMPTS = 5
+# A 4 MB range takes about 50 s at 80 KB/s.
+RANGE_DEADLINE_S = 180.0
+
+
+def byte_ranges(size: int, step: int) -> list[tuple[int, int]]:
+    """Inclusive (first, last) byte pairs covering the file once."""
+    return [(start, min(start + step, size) - 1) for start in range(0, size, step)]
+
+
+def read_range(
+    url: str,
+    first: int,
+    last: int,
+    open_url: Callable[..., Any] = urllib.request.urlopen,
+    clock: Callable[[], float] = time.monotonic,
+    deadline_s: float = RANGE_DEADLINE_S,
+) -> bytes:
+    started = clock()
+    request = urllib.request.Request(url, headers={"Range": f"bytes={first}-{last}"})  # noqa: S310
+    with open_url(request, timeout=60) as response:
+        content_range = response.headers.get("Content-Range", "")
+        if response.status != 206 or not content_range.startswith(f"bytes {first}-{last}/"):
+            raise OSError(f"bytes {first}-{last}: got status {response.status}, range {content_range!r}")
+        # A connection can trickle a few bytes a second forever without tripping the socket
+        # timeout, so the whole range has a deadline; read1 returns after each receive.
+        parts: list[bytes] = []
+        while part := response.read1(CHUNK):
+            parts.append(part)
+            if clock() - started > deadline_s:
+                raise TimeoutError(f"bytes {first}-{last}: slower than {deadline_s:.0f} s")
+    data = b"".join(parts)
+    if len(data) != last - first + 1:
+        raise OSError(f"bytes {first}-{last}: got {len(data)} bytes")
+    return data
+
+
+def download_ranges(
+    url: str,
+    dest: Path,
+    size: int,
+    read: ReadRange = read_range,
+    connections: int = CONNECTIONS,
+    step: int = RANGE_BYTES,
+    pause: Callable[[float], None] = time.sleep,
+    report: Callable[[int], None] | None = None,
+) -> None:
+    with dest.open("wb") as out:
+        out.truncate(size)
+    lock = threading.Lock()
+    done = 0
+
+    def fetch_one(first: int, last: int) -> None:
+        nonlocal done
+        for attempt in range(1, ATTEMPTS + 1):
+            try:
+                data = read(url, first, last)
+                break
+            except (OSError, http.client.HTTPException) as error:
+                if attempt == ATTEMPTS:
+                    raise OSError(f"{url} bytes {first}-{last}: {error}") from error
+                pause(2.0 * attempt)
+        with dest.open("r+b") as out:
+            out.seek(first)
+            out.write(data)
+        with lock:
+            done += len(data)
+            if report is not None:
+                report(done)
+
+    with ThreadPoolExecutor(max_workers=connections) as pool:
+        futures = [pool.submit(fetch_one, first, last) for first, last in byte_ranges(size, step)]
+        try:
+            for future in futures:
+                future.result()
+        except BaseException:
+            pool.shutdown(cancel_futures=True)
+            raise
+
+
+def remote_size(url: str) -> int | None:
+    """The file's size when the server accepts byte ranges, else None."""
+    request = urllib.request.Request(url, method="HEAD")  # noqa: S310
+    with urllib.request.urlopen(request, timeout=60) as response:  # noqa: S310
+        length = response.headers.get("Content-Length")
+        if response.headers.get("Accept-Ranges") != "bytes" or length is None:
+            return None
+        return int(length)
+
+
 def download(url: str, dest: Path) -> None:
-    with urllib.request.urlopen(url, timeout=60) as response, dest.open("wb") as out:  # noqa: S310
-        shutil.copyfileobj(response, out, CHUNK)
+    size = remote_size(url)
+    if size is None or size <= RANGE_BYTES:
+        with urllib.request.urlopen(url, timeout=60) as response, dest.open("wb") as out:  # noqa: S310
+            shutil.copyfileobj(response, out, CHUNK)
+        return
+    tenth = max(1, size // 10)
+    last_tenth = [0]
+
+    def report(done: int) -> None:
+        if done // tenth > last_tenth[0]:
+            last_tenth[0] = done // tenth
+            print(f"  {dest.name}: {100 * done // size}% of {size / 1e9:.2f} GB", flush=True)
+
+    download_ranges(url, dest, size, report=report)
 
 
 def fetch_all(

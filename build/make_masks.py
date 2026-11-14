@@ -23,7 +23,7 @@ from engine.horizons import (
     ray_distances,
 )
 from engine.geometry import MOON_FRAME, Ephemeris
-from engine.terrain import Dem, load_dem, project
+from engine.terrain import MOON_RADIUS_M, Dem, load_dem, project
 
 FRAME_NOTE = (
     "Engine frame MOON_ME_DE440_ME421; LOLA DEMs are MOON_ME_DE421, "
@@ -37,16 +37,43 @@ class Layer:
     half_width_m: float
 
 
-# Finest first; the half-widths cover the 10 km near zone and the 300 km reach.
-LAYERS = (
-    Layer("lola/LDEM_80S_20MPP_ADJ.TIF", 12_000.0),
-    Layer("lola/LDEM_80S_80MPP_ADJ.TIF", 12_000.0),
-    Layer("lola/LDEM_60S_240MPP_ADJ.TIF", 302_000.0),
-)
+@dataclass(frozen=True)
+class Terrain:
+    layers: tuple[Layer, ...]
+    required: tuple[Layer, ...] = ()
+
+
+# Half-widths are ground distances covering the 10 km near zone and the 300 km reach;
+# load_windows widens them for the map scale.
+DEM_20 = Layer("lola/LDEM_80S_20MPP_ADJ.TIF", 12_000.0)
+DEM_40 = Layer("lola/LDEM_80S_40MPP_ADJ.TIF", 12_000.0)
+DEM_80 = Layer("lola/LDEM_80S_80MPP_ADJ.TIF", 12_000.0)
+DEM_240 = Layer("lola/LDEM_60S_240MPP_ADJ.TIF", 302_000.0)
+
+# Each set is named by its finest terrain, finest first. "20m" is the one the API serves and
+# stays buildable without the 20 m file; "40m" and "80m" exist to compare resolutions, so
+# their finest file must be present.
+TERRAINS: dict[str, Terrain] = {
+    "20m": Terrain((DEM_20, DEM_80, DEM_240)),
+    "40m": Terrain((DEM_40, DEM_80, DEM_240), required=(DEM_40,)),
+    "80m": Terrain((DEM_80, DEM_240), required=(DEM_80,)),
+}
+DEFAULT_TERRAIN = "20m"
+LAYERS = TERRAINS[DEFAULT_TERRAIN].layers
 
 
 def error_path(dem: str) -> str:
     return dem.replace(".TIF", "_ERR.TIF")
+
+
+def map_half_width_m(lat_deg: float, ground_m: float) -> float:
+    """The map distance holding every point within `ground_m` of the site on the ground.
+
+    The polar map stretches distances away from the pole (by 1.6% at 75°S, 7% at 60°S),
+    so the scale at the farthest latitude reached bounds the stretch along the way.
+    """
+    outer_colatitude = np.radians(90.0 + lat_deg) + ground_m / MOON_RADIUS_M
+    return float(ground_m * 2.0 / (1.0 + np.cos(outer_colatitude)))
 
 
 def load_windows(
@@ -57,12 +84,8 @@ def load_windows(
     terrain: list[Dem] = []
     errors: list[Dem] = []
     for layer in layers:
-        window = (
-            cx - layer.half_width_m,
-            cy - layer.half_width_m,
-            cx + layer.half_width_m,
-            cy + layer.half_width_m,
-        )
+        half = map_half_width_m(site.lat_deg, layer.half_width_m)
+        window = (cx - half, cy - half, cx + half, cy + half)
         try:
             terrain.append(load_dem(sources / layer.dem, layer.dem, window))
             if (sources / error_path(layer.dem)).is_file():
@@ -111,8 +134,15 @@ def build_bundle(
     out_dir: Path,
     ephemeris: Ephemeris,
     kernel_hashes: dict[str, str] | None = None,
+    terrain: str = DEFAULT_TERRAIN,
 ) -> Path:
-    present = [layer for layer in LAYERS if (sources / layer.dem).is_file()]
+    if terrain not in TERRAINS:
+        raise ValueError(f"unknown terrain {terrain!r}; choose from {', '.join(TERRAINS)}")
+    chosen = TERRAINS[terrain]
+    missing = [layer.dem for layer in chosen.required if not (sources / layer.dem).is_file()]
+    if missing:
+        raise FileNotFoundError(f"terrain {terrain} is missing {', '.join(missing)} under {sources}")
+    present = [layer for layer in chosen.layers if (sources / layer.dem).is_file()]
     if not present:
         raise FileNotFoundError(f"no LOLA DEM found under {sources}")
     used = {layer.dem: sha256_of(sources / layer.dem) for layer in present}
@@ -125,9 +155,9 @@ def build_bundle(
     try:
         site_warnings: dict[str, list[str]] = {}
         for site in catalog.values():
-            terrain, errors = load_windows(site, sources, present)
+            dems, errors = load_windows(site, sources, present)
             try:
-                masks = compute_site_masks(site.lat_deg, site.lon_deg, terrain, errors)
+                masks = compute_site_masks(site.lat_deg, site.lon_deg, dems, errors)
             except ValueError as error:
                 raise ValueError(f"site {site.id}: {error}") from error
             folder = staging / "server" / "sites" / site.id
@@ -143,6 +173,7 @@ def build_bundle(
             "frame_note": FRAME_NOTE,
             "sources": used,
             "parameters": {
+                "terrain": terrain,
                 "heights_m": list(HEIGHTS_M),
                 "far_only_start_m": FAR_ONLY_START_M,
                 "far_only_height_m": FAR_ONLY_HEIGHT_M,
@@ -195,7 +226,16 @@ def spice_hashes(spice_dir: Path) -> dict[str, str]:
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="build.make_masks")
     parser.add_argument("--ephemeris-only", action="store_true", help="add the ephemeris to the newest bundle")
+    parser.add_argument(
+        "--terrain",
+        default=DEFAULT_TERRAIN,
+        help=f"finest terrain: {', '.join(TERRAINS)}, or 'all' (default {DEFAULT_TERRAIN})",
+    )
     args = parser.parse_args(argv)
+    names = list(TERRAINS) if args.terrain == "all" else args.terrain.split(",")
+    unknown = [name for name in names if name not in TERRAINS]
+    if unknown:
+        raise SystemExit(f"unknown terrain {', '.join(unknown)}; choose from {', '.join(TERRAINS)} or all")
     spice_dir = Path("data/sources/spice")
     newest = newest_bundle(Path("bundle")) if args.ephemeris_only else None
     if args.ephemeris_only:
@@ -212,7 +252,9 @@ def main(argv: list[str] | None = None) -> None:
         print(add_ephemeris(newest, Path("bundle"), ephemeris, spice_hash))
         return
     catalog = load_catalog(Path("catalog/sites.yaml"))
-    print(build_bundle(catalog, Path("data/sources"), Path("bundle"), ephemeris, spice_hash))
+    for name in names:
+        path = build_bundle(catalog, Path("data/sources"), Path("bundle"), ephemeris, spice_hash, terrain=name)
+        print(f"{name}: {path}", flush=True)
 
 
 if __name__ == "__main__":
