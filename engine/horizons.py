@@ -4,6 +4,7 @@ from dataclasses import dataclass
 import numpy as np
 from numpy.typing import NDArray
 
+from engine.geometry import site_basis
 from engine.terrain import MOON_RADIUS_M, Dem, project, sample_stack
 
 HORIZON_ALGO_VERSION: str = "1"
@@ -34,18 +35,6 @@ class March:
     high_deg: NDArray[np.float32]
     blocking_km: NDArray[np.float32]
     warnings: list[str]
-
-
-def _site_basis(
-    lat_deg: float, lon_deg: float
-) -> tuple[NDArray[np.float64], NDArray[np.float64], NDArray[np.float64]]:
-    # North at the pole is defined as the direction of longitude 0.
-    lon = 0.0 if lat_deg <= -90.0 else lon_deg
-    phi, lam = np.radians(lat_deg), np.radians(lon)
-    up = np.array([np.cos(phi) * np.cos(lam), np.cos(phi) * np.sin(lam), np.sin(phi)])
-    east = np.array([-np.sin(lam), np.cos(lam), 0.0])
-    north = np.array([-np.sin(phi) * np.cos(lam), -np.sin(phi) * np.sin(lam), np.cos(phi)])
-    return up, east, north
 
 
 def _elevation_deg(
@@ -89,7 +78,7 @@ def march(
         raise ValueError("no terrain elevation at the site")
     site_error = float(sample_stack(errors, *site_xy)[0])
 
-    up, east, north = _site_basis(lat_deg, lon_deg)
+    up, east, north = site_basis(lat_deg, lon_deg)
     theta64 = distances_m / MOON_RADIUS_M
     theta = theta64.astype(np.float32)[None, :]
     n_h = len(heights_m)
