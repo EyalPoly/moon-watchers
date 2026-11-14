@@ -28,8 +28,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Meta */
-        get: operations["meta_api_v1_meta_get"];
+        /** Get Meta */
+        get: operations["get_meta_api_v1_meta_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -188,7 +188,7 @@ export interface operations {
             };
         };
     };
-    meta_api_v1_meta_get: {
+    get_meta_api_v1_meta_get: {
         parameters: {
             query?: never;
             header?: never;

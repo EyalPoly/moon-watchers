@@ -5,9 +5,9 @@ import sys
 import tempfile
 from pathlib import Path
 
-from fastapi import FastAPI
 from pydantic import BaseModel, ValidationError
 
+from api.main import create_app
 from api.models import Health, Meta
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -22,17 +22,7 @@ SAMPLE_MODELS: dict[str, type[BaseModel]] = {
 
 
 def build_schema() -> dict[str, object]:
-    app = FastAPI(title="CLPS Lunar Mission Browser API", version="0.0.0")
-
-    @app.get("/api/v1/health", response_model=Health)
-    def health() -> None:
-        raise NotImplementedError
-
-    @app.get("/api/v1/meta", response_model=Meta)
-    def meta() -> None:
-        raise NotImplementedError
-
-    return app.openapi()
+    return create_app(DEFAULT_SAMPLES).openapi()
 
 
 def render_openapi() -> str:

@@ -347,7 +347,7 @@
     },
     "/api/v1/meta": {
       "get": {
-        "operationId": "meta_api_v1_meta_get",
+        "operationId": "get_meta_api_v1_meta_get",
         "responses": {
           "200": {
             "content": {
@@ -360,7 +360,7 @@
             "description": "Successful Response"
           }
         },
-        "summary": "Meta"
+        "summary": "Get Meta"
       }
     }
   }
