@@ -7,6 +7,7 @@ from numpy.typing import NDArray
 
 from api.models import Site
 from build.make_masks import build_bundle
+from tests.ephemeris_helpers import default_ephemeris
 from engine.horizons import HORIZON_ALGO_VERSION
 from engine.terrain import project
 from tests.tif_helpers import write_tif
@@ -50,7 +51,7 @@ def make_sources(tmp_path: Path, with_20m: bool = True) -> Path:
 
 def test_build_bundle_on_synthetic_dems(tmp_path: Path) -> None:
     sources = make_sources(tmp_path)
-    bundle = build_bundle(CATALOG, sources, tmp_path / "bundle")
+    bundle = build_bundle(CATALOG, sources, tmp_path / "bundle", default_ephemeris())
     manifest = json.loads((bundle / "manifest.json").read_text())
     assert manifest["algo_version"] == HORIZON_ALGO_VERSION
     assert bundle.name == manifest["bundle_id"]
@@ -64,19 +65,19 @@ def test_build_bundle_on_synthetic_dems(tmp_path: Path) -> None:
     changed = tmp_path / "other"
     other = make_sources(changed)
     write_dem(other, DEM_240, 50_000, 500, value=101.0)
-    assert build_bundle(CATALOG, other, tmp_path / "bundle2").name != bundle.name
+    assert build_bundle(CATALOG, other, tmp_path / "bundle2", default_ephemeris()).name != bundle.name
 
 
 def test_build_is_deterministic(tmp_path: Path) -> None:
     sources = make_sources(tmp_path)
-    first = build_bundle(CATALOG, sources, tmp_path / "b1")
-    second = build_bundle(CATALOG, sources, tmp_path / "b2")
+    first = build_bundle(CATALOG, sources, tmp_path / "b1", default_ephemeris())
+    second = build_bundle(CATALOG, sources, tmp_path / "b2", default_ephemeris())
     assert first.name == second.name
 
 
 def test_build_without_20m_uses_80m(tmp_path: Path) -> None:
     sources = make_sources(tmp_path, with_20m=False)
-    bundle = build_bundle(CATALOG, sources, tmp_path / "bundle")
+    bundle = build_bundle(CATALOG, sources, tmp_path / "bundle", default_ephemeris())
     manifest = json.loads((bundle / "manifest.json").read_text())
     assert DEM_20 not in manifest["sources"]
     assert DEM_80 in manifest["sources"] and DEM_240 in manifest["sources"]
@@ -84,7 +85,7 @@ def test_build_without_20m_uses_80m(tmp_path: Path) -> None:
 
 def test_build_fails_without_any_dem(tmp_path: Path) -> None:
     with pytest.raises(FileNotFoundError):
-        build_bundle(CATALOG, tmp_path / "empty", tmp_path / "bundle")
+        build_bundle(CATALOG, tmp_path / "empty", tmp_path / "bundle", default_ephemeris())
 
 
 def test_site_far_from_dems_is_rejected(tmp_path: Path) -> None:
@@ -92,12 +93,12 @@ def test_site_far_from_dems_is_rejected(tmp_path: Path) -> None:
     far_site = {"x": site("x", -85.0, 0.0)}
     assert project(-85.0, 0.0)[1] > 50_000
     with pytest.raises(ValueError, match="x"):
-        build_bundle(far_site, sources, tmp_path / "bundle")
+        build_bundle(far_site, sources, tmp_path / "bundle", default_ephemeris())
 
 
 def test_moving_a_site_changes_the_bundle_id(tmp_path: Path) -> None:
     sources = make_sources(tmp_path)
-    first = build_bundle(CATALOG, sources, tmp_path / "bundle")
+    first = build_bundle(CATALOG, sources, tmp_path / "bundle", default_ephemeris())
     moved = {**CATALOG, "s1": site("s1", -89.2, 0.0)}
-    second = build_bundle(moved, sources, tmp_path / "bundle")
+    second = build_bundle(moved, sources, tmp_path / "bundle", default_ephemeris())
     assert second.name != first.name

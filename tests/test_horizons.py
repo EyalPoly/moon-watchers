@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 from numpy.typing import NDArray
 
-from engine.horizons import HEIGHTS_M, compute_site_masks, march, ray_distances
+from engine.horizons import HEIGHTS_M, compute_site_masks, mask_at_height, march, ray_distances
 from engine.terrain import MOON_RADIUS_M, Dem, project, sample_stack
 
 R = MOON_RADIUS_M
@@ -233,3 +233,71 @@ def test_warnings_merged() -> None:
     terrain = [make_dem(flat(0.0), 50_000, 500, "small")]
     masks = compute_site_masks(*SITE, terrain, ERRORS)
     assert masks.warnings.count("DEM_GAPS") == 1
+
+
+def rough_field(center: tuple[float, float]) -> Field:
+    """Bumpy ground of +-3 m within 200 m of the site, like the relief an antenna mast sees."""
+
+    def field(x: NDArray[np.float64], y: NDArray[np.float64]) -> NDArray[np.float64]:
+        near = (x - center[0]) ** 2 + (y - center[1]) ** 2 < 200.0**2
+        noise = (np.sin(x * 12.9898 + y * 78.233) * 43758.5453) % 1.0
+        return np.where(near, (noise - 0.5) * 6.0, 0.0)
+
+    return field
+
+
+BLEND_FIELDS = {
+    "mountain": lambda: terrain_with(dome_field(point_east(10_000.0))),
+    "rough": lambda: terrain_with(rough_field(SITE_XY)),
+}
+# Where the skyline switches between a near bump and a far ridge as the height changes, the
+# blend overshoots the true value. On smooth terrain that stays under 0.01 degrees; on bumpy
+# ground within a few metres of the mast it reaches about 0.2 degrees, always on the safe side.
+BLEND_TOLERANCE_DEG = {"mountain": 0.01, "rough": 0.25}
+
+
+@pytest.fixture(scope="module", params=sorted(BLEND_FIELDS))
+def blend_case(request: pytest.FixtureRequest):  # type: ignore[no-untyped-def]
+    terrain = BLEND_FIELDS[request.param]()
+    return terrain, compute_site_masks(*SITE, terrain, ERRORS), BLEND_TOLERANCE_DEG[request.param]
+
+
+def test_mask_at_whole_metre_is_exact(blend_case) -> None:  # type: ignore[no-untyped-def]
+    _, masks, _ = blend_case
+    for height in range(1, 11):
+        assert np.array_equal(
+            mask_at_height(masks.masks_deg, float(height)), masks.masks_deg[:, height - 1]
+        )
+
+
+@pytest.mark.parametrize("height", [1.5, 2.25, 2.5, 2.55, 9.99])
+def test_mask_at_height_close_to_march_and_conservative(blend_case, height: float) -> None:  # type: ignore[no-untyped-def]
+    terrain, masks, tolerance = blend_case
+    direct = march(*SITE, [height], terrain, ERRORS, DISTANCES).elevation_deg[0]
+    blend = mask_at_height(masks.masks_deg, height)[0]
+    finite = np.isfinite(direct)
+    assert np.abs(blend[finite] - direct[finite]).max() < tolerance
+    assert (blend[finite] - direct[finite]).min() > -1e-3
+
+
+def test_mask_at_height_nan_propagates() -> None:
+    masks = np.zeros((3, 11, 720), np.float32)
+    masks[0, 2, 100] = np.nan
+    blended = mask_at_height(masks, 2.5)
+    assert np.isnan(blended[0, 100]) and np.isfinite(blended[0, 101])
+    assert np.isnan(mask_at_height(masks, 3.5)[0, 100])
+    assert np.isfinite(mask_at_height(masks, 1.5)[0, 100])
+
+
+def test_mask_at_height_never_reads_the_far_row() -> None:
+    masks = np.zeros((3, 11, 720), np.float32)
+    masks[:, 10] = np.nan
+    assert np.isfinite(mask_at_height(masks, 10.0)).all()
+    assert np.isfinite(mask_at_height(masks, 9.5)).all()
+
+
+def test_mask_at_ten_metres_ignores_unknown_in_the_nine_metre_row() -> None:
+    masks = np.zeros((3, 11, 720), np.float32)
+    masks[:, 8, 5] = np.nan
+    assert np.isfinite(mask_at_height(masks, 10.0)).all()
+    assert np.isnan(mask_at_height(masks, 9.5)[0, 5])
