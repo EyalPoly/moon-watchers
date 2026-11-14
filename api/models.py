@@ -1,6 +1,6 @@
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 ErrorCode = Literal[
     "OUT_OF_COVERAGE",
@@ -103,3 +103,27 @@ class Problem(BaseModel):
     status: int
     code: ErrorCode
     detail: str | None = None
+
+
+class HorizonResponse(BaseModel):
+    site_id: str
+    height_m: int | None
+    part: Literal["full", "far"]
+    az_step_deg: float
+    elevation_deg: list[float | None]
+    low_deg: list[float | None]
+    high_deg: list[float | None]
+    blocking_distance_km: list[float | None]
+    algo_version: str
+    warnings: list[str]
+
+    @model_validator(mode="after")
+    def check_shape(self) -> "HorizonResponse":
+        if self.az_step_deg != 0.5:
+            raise ValueError("az_step_deg must be 0.5")
+        for name in ("elevation_deg", "low_deg", "high_deg", "blocking_distance_km"):
+            if len(getattr(self, name)) != 720:
+                raise ValueError(f"{name} must have 720 values")
+        if (self.height_m is None) != (self.part == "far"):
+            raise ValueError("height_m is null exactly when part is 'far'")
+        return self

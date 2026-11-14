@@ -9,7 +9,7 @@ from pathlib import Path
 from pydantic import BaseModel, ValidationError
 
 from api.main import create_app
-from api.models import Health, Meta, Site, SitesResponse
+from api.models import Health, HorizonResponse, Meta, Site, SitesResponse
 
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_OPENAPI = ROOT / "contract" / "openapi.json"
@@ -21,6 +21,7 @@ SAMPLE_MODELS: dict[str, type[BaseModel]] = {
     "health.json": Health,
     "sites.json": SitesResponse,
     "sites/*.json": Site,
+    "horizon/*.json": HorizonResponse,
 }
 
 
