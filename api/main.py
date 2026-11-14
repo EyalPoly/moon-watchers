@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from fastapi import FastAPI, Response
+from fastapi.middleware.cors import CORSMiddleware
 
 from api.catalog import load_catalog
 from api.errors import ApiError, install_error_handlers
@@ -18,6 +19,7 @@ def create_app(
     catalog = load_catalog(catalog_path)
     app = FastAPI(title="CLPS Lunar Mission Browser API", version=__version__)
     install_error_handlers(app)
+    app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["GET"])
 
     @app.get("/api/v1/health")
     def health(response: Response) -> Health:

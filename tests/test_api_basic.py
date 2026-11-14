@@ -41,3 +41,13 @@ def test_meta_is_validated_against_model(tmp_path: Path) -> None:
     (tmp_path / "samples" / "meta.json").write_text('{"version": 1}')
     with pytest.raises(ValueError):
         create_app(sample_dir=tmp_path / "samples")
+
+
+def test_cors_allows_read_only_cross_origin_gets(client: TestClient) -> None:
+    response = client.get("/api/v1/health", headers={"Origin": "https://example.github.io"})
+    assert response.headers["access-control-allow-origin"] == "*"
+    preflight = client.options(
+        "/api/v1/health",
+        headers={"Origin": "https://example.github.io", "Access-Control-Request-Method": "POST"},
+    )
+    assert "POST" not in preflight.headers.get("access-control-allow-methods", "")

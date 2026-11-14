@@ -9,7 +9,7 @@ import siteC from '@samples/sites/sample_c.json'
 import { buildHandlers } from './mocks/handlers'
 
 const siteSamples = { sample_a: siteA, sample_b: siteB, sample_c: siteC }
-const server = setupServer(...buildHandlers({ meta, health, sites, site: siteSamples }))
+const server = setupServer(...buildHandlers({ meta, health, sites, site: siteSamples }, 'http://localhost'))
 
 beforeAll(() => server.listen({ onUnhandledFrame: 'error' }))
 afterAll(() => server.close())

@@ -37,13 +37,13 @@ function numberParam(url: URL, name: string): number | null {
   return Number.isFinite(value) ? value : null
 }
 
-export function buildHandlers(samples: Samples) {
+export function buildHandlers(samples: Samples, origin: string) {
   const ordered = Object.values(samples.site)
   return [
-    http.get('*/api/v1/meta', () => HttpResponse.json(samples.meta as Record<string, unknown>)),
-    http.get('*/api/v1/health', () => HttpResponse.json(samples.health as Record<string, unknown>)),
-    http.get('*/api/v1/sites', () => HttpResponse.json(samples.sites as Record<string, unknown>)),
-    http.get('*/api/v1/sites/:id', ({ params, request }) => {
+    http.get(`${origin}/api/v1/meta`, () => HttpResponse.json(samples.meta as Record<string, unknown>)),
+    http.get(`${origin}/api/v1/health`, () => HttpResponse.json(samples.health as Record<string, unknown>)),
+    http.get(`${origin}/api/v1/sites`, () => HttpResponse.json(samples.sites as Record<string, unknown>)),
+    http.get(`${origin}/api/v1/sites/:id`, ({ params, request }) => {
       const id = String(params.id)
       const own = Object.hasOwn(samples.site, id) ? samples.site[id] : undefined
       if (own) return HttpResponse.json(own)

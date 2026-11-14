@@ -2,7 +2,10 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { anySample, loadConfig } from './api/config'
+
+const queryClient = new QueryClient()
 
 async function start() {
   const config = await loadConfig()
@@ -15,7 +18,9 @@ async function start() {
   }
   createRoot(document.getElementById('root')!).render(
     <StrictMode>
-      <App config={config} />
+      <QueryClientProvider client={queryClient}>
+        <App config={config} />
+      </QueryClientProvider>
     </StrictMode>,
   )
 }

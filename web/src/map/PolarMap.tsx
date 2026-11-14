@@ -100,7 +100,7 @@ export function PolarMap({ region, onBasemapError, tileLoader, onMapReady, child
         center: [0, 0],
         resolutions: region.tile_grid.resolutions_m,
         extent: region.extent_m,
-        resolution: region.tile_grid.resolutions_m[region.tile_grid.resolutions_m.length - 2],
+        resolution: region.tile_grid.resolutions_m[Math.min(4, region.tile_grid.resolutions_m.length - 1)],
       }),
     })
     setMap(created)
