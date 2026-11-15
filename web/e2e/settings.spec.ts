@@ -10,7 +10,8 @@ test('changing a weight rescored the card, lands in the link, survives a reload 
   page,
 }) => {
   await page.goto('/?site=sample_a')
-  const card = page.getByRole('region', { name: /^Point A(:|$)/ })
+  await page.getByRole('button', { name: 'Whole mission', exact: true }).click()
+  const card = page.getByRole('region', { name: /^Site A(:|$)/ })
   const score = card.locator('.score .num')
   await expect(score).toBeVisible()
   const before = await score.textContent()
@@ -27,6 +28,7 @@ test('changing a weight rescored the card, lands in the link, survives a reload 
   await expect(page.getByRole('button', { name: 'Score settings (custom)' })).toBeVisible()
 
   await page.reload()
+  await page.getByRole('button', { name: 'Whole mission', exact: true }).click()
   await expect(card.getByText('custom settings')).toBeVisible()
 
   await page.goBack()
@@ -55,7 +57,7 @@ test('an unrelated URL change after such a drag survives the next drag', async (
   await page.getByRole('button', { name: 'Score settings' }).click()
   await dragContact(page, ['0.5', '0.25'])
   await page.getByRole('button', { name: 'Close' }).click()
-  await page.getByRole('button', { name: '+ Add point' }).click()
+  await page.getByRole('button', { name: '+ Add site' }).click()
   const tickets = await page.evaluate(() => new URLSearchParams(location.search).get('tk'))
   expect(tickets).not.toBeNull()
   await page.getByRole('button', { name: 'Score settings' }).click()

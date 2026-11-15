@@ -1,3 +1,5 @@
+import { PRESETS, stationLabel } from '../api/stations'
+import { displayPresets } from './stationNetworks'
 import { useMemo } from 'react'
 import type { AppConfig } from '../api/config'
 import type { ScoreSettings } from '../api/scoreSettings'
@@ -6,6 +8,7 @@ import { useMeta, useSummaries } from '../state/queries'
 import { toScenario } from '../state/scenario'
 import type { Ticket } from '../state/tickets'
 import { formatUtc, parseIsoMinute } from '../time'
+import { siteDisplayName } from './points'
 import { Pending } from './Pending'
 import { ServerUnavailable } from './ServerUnavailable'
 import { ticketLabel, ticketVars } from './ticketStyle'
@@ -65,7 +68,7 @@ export function CompareView({ tickets, sitesById, config, search, settings, isSa
 
   const failed = results.find((r) => r.isError)
   if (failed) return <ServerUnavailable onRetry={() => results.forEach((r) => void r.refetch())} />
-  if (results.some((r) => !r.data)) return <Pending label="Comparing tickets…" />
+  if (results.some((r) => !r.data)) return <Pending label="Comparing sites…" />
   const summaries = results.map((r) => r.data as Summary)
 
   const best = (row: Row) => {
@@ -80,11 +83,11 @@ export function CompareView({ tickets, sitesById, config, search, settings, isSa
   const optimal = best(ROWS[0])
 
   return (
-    <section className="compare" aria-label="Compare tickets">
+    <section className="compare" aria-label="Compare sites">
       <div className="compare-head">
-        <h2>Compare tickets</h2>
+        <h2>Compare sites</h2>
         <button type="button" className="secondary" onClick={onClose}>
-          Back to maps
+          Back to explorer
         </button>
       </div>
       <div className="compare-scroll">
@@ -94,11 +97,12 @@ export function CompareView({ tickets, sitesById, config, search, settings, isSa
               <th scope="col" />
               {columns.map((c, k) => (
                 <th key={c.index} scope="col" style={ticketVars(c.index)}>
-                  <button type="button" className="compare-ticket" onClick={() => onOpenTicket(c.index)} title="Open this ticket">
+                  <button type="button" className="compare-ticket" onClick={() => onOpenTicket(c.index)} title="Open this site">
                     <span className="ticket-dot" aria-hidden="true" />
                     {ticketLabel(c.index, c.ticket.name)}
                   </button>
-                  <div className="compare-site">{c.site.name}</div>
+                  <div className="compare-site">{siteDisplayName(c.site)}</div>
+                  <div className="compare-site">{stationLabel(c.ticket.station, displayPresets(PRESETS))}</div>
                   <div className="compare-when num">
                     {formatUtc(parseIsoMinute(c.ticket.t0) as number)} · {c.ticket.days} d · panel {c.ticket.panel} m · antenna {c.ticket.antenna} m
                   </div>

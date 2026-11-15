@@ -21,9 +21,16 @@ function Item({ w, known }: { w: Warning; known: boolean }) {
   )
 }
 
-const VISIBLE = 2
-
-export function WarningsStrip({ warnings, catalog }: { warnings: readonly Warning[]; catalog: readonly WarningEntry[] }) {
+export function WarningsStrip({
+  warnings,
+  catalog,
+  visible = 2,
+}: {
+  warnings: readonly Warning[]
+  catalog: readonly WarningEntry[]
+  /** How many show in full before "+N more". */
+  visible?: number
+}) {
   const [expanded, setExpanded] = useState(false)
   const [standingOpen, setStandingOpen] = useState(false)
   if (warnings.length === 0) return null
@@ -32,8 +39,8 @@ export function WarningsStrip({ warnings, catalog }: { warnings: readonly Warnin
   const known = new Set(catalog.map((c) => c.code))
   const isKnown = (code: string) => catalog.length === 0 || known.has(baseCode(code))
   const sorted = [...warnings].sort((a, b) => ORDER[a.severity] - ORDER[b.severity])
-  const shown = expanded ? sorted : sorted.slice(0, VISIBLE)
-  const hidden = sorted.length - VISIBLE
+  const shown = expanded ? sorted : sorted.slice(0, visible)
+  const hidden = sorted.length - visible
   const standing = catalog.filter((c) => c.standing)
 
   return (

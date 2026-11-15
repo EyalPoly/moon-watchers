@@ -61,7 +61,7 @@ export function HeightControl({ label, value, onChange }: HeightControlProps) {
           onChange={(e) => setTyped(e.target.value)}
           onBlur={commitTyped}
           onKeyDown={(e) => {
-            if (e.key === 'Enter') commitTyped()
+            if (e.key === 'Enter') { e.preventDefault(); commitTyped() }
             if (e.key === 'Escape') setTyped(null)
           }}
           aria-invalid={invalid}

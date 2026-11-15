@@ -1,24 +1,35 @@
-// "Visible layers" and "Map key" under the explorer (UI design). Layers with checkboxes are
-// overlays; the key rows only explain the map's symbols. Until the engine's grids exist,
-// the overlays can't be switched on, and only landing sites appear on the map.
+const MAP_LAYERS = ['Relief', 'Illumination', 'Earth DTE', 'Slope', 'Dust'] as const
+export type MapLayer = (typeof MAP_LAYERS)[number]
 
-const LAYERS = ['Illumination', 'Resources', 'Hazard']
+interface LayersBoxProps {
+  selected: MapLayer
+  onSelect: (layer: MapLayer) => void
+}
 
-export function LayersBox() {
+export function LayersBox({ selected, onSelect }: LayersBoxProps) {
   return (
     <section className="layers-box" aria-label="Map layers and key">
-      <div className="layers-row">
-        <span className="box-label">
+      <div className="layers-row" role="radiogroup" aria-labelledby="visible-layers-label">
+        <span className="box-label" id="visible-layers-label">
           <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.4">
             <path d="M8 2 1.5 5.5 8 9l6.5-3.5Z M1.5 8.5 8 12l6.5-3.5 M1.5 11 8 14.5l6.5-3.5" />
           </svg>
           VISIBLE LAYERS
         </span>
-        {LAYERS.map((layer) => (
-          <label key={layer} className="layer-check" title={`${layer}: coming with the engine's map grids`}>
-            <input type="checkbox" disabled /> {layer}
-          </label>
-        ))}
+        <div className="layer-options">
+          {MAP_LAYERS.map((layer) => (
+            <label key={layer} className="layer-choice">
+              <input
+                type="radio"
+                name="visible-layer"
+                value={layer}
+                checked={selected === layer}
+                onChange={() => onSelect(layer)}
+              />
+              {layer}
+            </label>
+          ))}
+        </div>
       </div>
       <div className="layers-row">
         <span className="box-label">MAP KEY</span>
@@ -43,7 +54,7 @@ export function LayersBox() {
           </li>
         </ul>
       </div>
-      <p className="layers-note">Overlays and markers other than landing sites appear once their data is available.</p>
+      <p className="layers-note">Additional map layers and markers appear as their data becomes available.</p>
     </section>
   )
 }

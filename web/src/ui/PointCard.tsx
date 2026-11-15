@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import type { AppConfig } from '../api/config'
 import { inPointArea, parsePointId, pointId } from '../api/points'
 import type { ScoreSettings } from '../api/scoreSettings'
-import { presetsFrom, sameStation, stationQuery } from '../api/stations'
+import { HOUSTON, presetsFrom, sameStation, stationLabel, stationQuery } from '../api/stations'
 import type { Meta, Site, StationPoint } from '../api/types'
 import { useMeta, useMissionSeries, useSummary } from '../state/queries'
 import type { TicketRank } from '../state/ranking'
@@ -15,9 +15,10 @@ import { HeightControl } from './HeightControl'
 import { LivePanel } from './LivePanel'
 import { MissionLength } from './MissionLength'
 import { Pending } from './Pending'
-import { formatLat, formatLon, parseCoord, pointLetter, siteTag, slopeWord, type Tone } from './points'
+import { formatLat, formatLon, parseCoord, pointLetter, siteDisplayName, siteTag, slopeWord, type Tone } from './points'
 import { SampleTag } from './SampleTag'
 import { ServerUnavailable } from './ServerUnavailable'
+import { displayPresets } from './stationNetworks'
 import { StationPicker } from './StationPicker'
 import { TimeSlider } from './TimeSlider'
 import { ticketVars } from './ticketStyle'
@@ -40,12 +41,13 @@ export interface PointCardProps {
   search: string
   settings: ScoreSettings
   tau: number
+  resultView: 'live' | 'mission'
   sliderMaxTau: number
-  freehand: boolean
+  active: boolean
+  onFocus: () => void
   onToggle: () => void
   onDelete: () => void
   onChange: (patch: Partial<Ticket>, mode: 'push' | 'replace') => void
-  onFreehand: () => void
   onTauInput: (tau: number) => void
   onTauCommit: (tau: number) => void
 }
@@ -62,7 +64,7 @@ interface Draft {
   /** Solar panel and antenna heights, in meters (whole centimetres). */
   panel: number
   antenna: number
-  station: StationPoint
+  stations: StationPoint[]
 }
 
 function draftOf(ticket: Ticket, site: Site | undefined): Draft {
@@ -77,14 +79,14 @@ function draftOf(ticket: Ticket, site: Site | undefined): Draft {
     days: ticket.days,
     panel: ticket.panel,
     antenna: ticket.antenna,
-    station: ticket.station,
+    stations: ticket.stationChoices ?? [ticket.station],
   }
 }
 
 type Resolved = { patch: Partial<Ticket>; error: string | null }
 
 /** Turns the draft into a ticket patch, or says what is wrong with it. */
-function resolve(d: Draft): Resolved {
+function resolve(d: Draft, currentStation: StationPoint): Resolved {
   const t0Ms = parseIsoMinute(`${d.date}T${d.time}Z`)
   const lat = parseCoord(d.lat, 'lat')
   const lon = parseCoord(d.lon, 'lon')
@@ -92,7 +94,7 @@ function resolve(d: Draft): Resolved {
   let error: string | null = null
   if (site === null && (d.lat.trim() !== '' || d.lon.trim() !== '')) {
     if (lat === null || lon === null) error = 'Latitude like 88.75° S and longitude like 044.20° E.'
-    else if (!inPointArea(lat, lon)) error = 'The point must be in the south-pole area, 84°S to 90°S.'
+    else if (!inPointArea(lat, lon)) error = 'The site must be in the south-pole area, 84°S to 90°S.'
     else site = pointId(lat, lon)
   }
   const patch: Partial<Ticket> = {
@@ -101,7 +103,8 @@ function resolve(d: Draft): Resolved {
     days: d.days,
     panel: d.panel,
     antenna: d.antenna,
-    station: d.station,
+    station: d.stations.find((p) => sameStation(p, currentStation)) ?? d.stations[0] ?? currentStation,
+    stationChoices: d.stations.length > 1 ? d.stations : undefined,
   }
   if (t0Ms === null) error ??= 'Choose a landing date and a time.'
   else {
@@ -110,12 +113,6 @@ function resolve(d: Draft): Resolved {
     else patch.t0 = t0
   }
   return { patch, error }
-}
-
-function changed(ticket: Ticket, patch: Partial<Ticket>): boolean {
-  return (Object.keys(patch) as (keyof Ticket)[]).some((k) =>
-    k === 'station' ? !sameStation(patch.station as StationPoint, ticket.station) : patch[k] !== ticket[k],
-  )
 }
 
 function Status({ label, word, tone }: { label: string; word: string; tone: Tone }) {
@@ -163,7 +160,7 @@ export function PointCard(props: PointCardProps) {
   const { index, ticket, catalog, site, open, config, search, rank } = props
   const letter = pointLetter(index)
   const isDraftPoint = ticket.site === null
-  const title = ticket.name || site?.name || (isDraftPoint ? 'New point' : 'Loading point…')
+  const title = ticket.name || siteDisplayName(site) || (isDraftPoint ? 'New site' : 'Loading site…')
 
   const mission = { t0: ticket.t0, days: ticket.days, panel: ticket.panel, antenna: ticket.antenna, tau: props.tau }
   const scenario = useScenario(site?.id ?? null, mission, ticket.station, props.settings)
@@ -183,14 +180,16 @@ export function PointCard(props: PointCardProps) {
   // Edits stay in the card until applied, layered over what the ticket and site give. A new
   // ticket from outside (Back, another card's apply) discards them; the site arriving from the
   // catalog does not, so typing during load is not lost.
-  const ticketKey = JSON.stringify(ticket)
+  const ticketKey = JSON.stringify([ticket.site, ticket.name, ticket.t0, ticket.days, ticket.panel, ticket.antenna, ticket.station, ticket.stationChoices])
+  const editing = isDraftPoint || ticket.editing === true
+  const presets = presetsFrom(props.stations)
+  const stationPresets = displayPresets(presets)
   const [edits, setEdits] = useState<{ key: string; fields: Partial<Draft> }>({ key: ticketKey, fields: {} })
   const own = edits.key === ticketKey ? edits.fields : {}
   const draft: Draft = { ...draftOf(ticket, site), ...own }
   const setDraft = (patch: Partial<Draft>) => setEdits({ key: ticketKey, fields: { ...own, ...patch } })
-  const { patch, error } = resolve(draft)
-  const pending = changed(ticket, patch)
-  const canApply = pending && error === null && patch.site !== null
+  const { patch, error } = resolve(draft, ticket.station)
+  const canApply = error === null && patch.site !== null && draft.stations.length > 0
 
   const addLunarDay = () => {
     const ms = parseIsoMinute(`${draft.date}T${draft.time}Z`)
@@ -204,18 +203,18 @@ export function PointCard(props: PointCardProps) {
     .join(' ')
 
   return (
-    <section className={classes} style={ticketVars(index)} aria-label={site ? `Point ${letter}: ${title}` : `Point ${letter}`}>
+    <section className={classes} style={ticketVars(index)} data-active={props.active} aria-label={`Site ${letter}`}>
       <div className="point-head">
         <span className="badge" aria-hidden="true">
           {letter}
         </span>
         <h2 className="point-heading">
-        <button type="button" className="point-title" onClick={props.onToggle} aria-expanded={open} title={open ? 'Collapse' : 'Open this point'}>
+        <button type="button" className="point-title" onClick={props.onFocus} aria-pressed={props.active} title="Select this site in the explorer">
           <span className="point-name">{title}</span>
           <span className="point-tag mono">{siteTag(site, catalog)}</span>
         </button>
         </h2>
-        {rank && (
+        {!editing && rank && (
           <span
             className={rank.best ? 'rank rank-best' : 'rank'}
             title={`Rank ${rank.rank} of ${props.rankedCount} (grade ${rank.grade.toFixed(1)} / 100) from the ranking function`}
@@ -226,40 +225,30 @@ export function PointCard(props: PointCardProps) {
           </span>
         )}
         <span className="point-actions">
-        <button
-          type="button"
-          className={props.freehand ? 'freehand freehand-on' : 'freehand'}
-          aria-pressed={props.freehand}
-          onClick={props.onFreehand}
-          title="Outline an area on this point's map and get its best landing spots"
-        >
-          <LassoIcon /> Freehand Select
-        </button>
+        {!editing && <button type="button" className="link-button edit-site" onClick={() => {
+          props.onChange({ editing: true, collapsed: undefined }, 'push')
+        }}>Edit input</button>}
         <label className="icon-plain show-toggle" title={ticket.shown ? 'Shown in the explorer' : 'Hidden from the explorer'}>
           <input
             type="checkbox"
             checked={ticket.shown}
             onChange={(e) => props.onChange({ shown: e.target.checked }, 'push')}
-            aria-label={`Show point ${letter} in the explorer`}
+            aria-label={`Show site ${letter} in the explorer`}
           />
           <EyeIcon off={!ticket.shown} />
         </label>
         {props.canDelete && (
-          <button type="button" className="icon-plain" onClick={props.onDelete} aria-label={`Delete point ${letter}`} title="Delete this point">
+          <button type="button" className="icon-plain" onClick={props.onDelete} aria-label={`Delete site ${letter}`} title="Delete this site">
             <TrashIcon />
           </button>
         )}
-        <button type="button" className="icon-plain chevron" onClick={props.onToggle} aria-label={open ? `Collapse point ${letter}` : `Open point ${letter}`}>
+        <button type="button" className="icon-plain chevron" onClick={props.onToggle} aria-label={open ? `Collapse site ${letter}` : `Open site ${letter}`}>
           {open ? '⌃' : '⌄'}
         </button>
         </span>
       </div>
 
-      {isDraftPoint ? (
-        <p className="awaiting">
-          <TargetIcon /> Awaiting a landing point
-        </p>
-      ) : (
+      {!editing && (
         <div className="status-row">
           <Status label="LIGHT" {...status.light} />
           <Status label="EARTH DTE" {...status.earth} />
@@ -267,24 +256,24 @@ export function PointCard(props: PointCardProps) {
         </div>
       )}
 
-      {open && (
-        <form
-          className="point-body"
-          onSubmit={(e) => {
-            e.preventDefault()
-            if (canApply) props.onChange(patch, 'push')
-          }}
-        >
+      {open && editing && (
+        <form className="point-body" onSubmit={(e) => {
+          e.preventDefault()
+          if (canApply) {
+            setEdits({ key: '', fields: {} })
+            props.onChange({ ...patch, editing: undefined }, 'push')
+          }
+        }}>
           <div className="field-grid">
             <label className="field field-wide">
-              <span className="field-label">POINT NAME</span>
+              <span className="field-label">SITE NAME</span>
               <input
                 type="text"
                 value={draft.name}
-                placeholder={site?.name ?? `Point ${letter}`}
+                placeholder={siteDisplayName(site) ?? `Site ${letter}`}
                 maxLength={40}
                 onChange={(e) => setDraft({ name: e.target.value })}
-                aria-label="Point name"
+                aria-label="Site name"
               />
             </label>
 
@@ -299,7 +288,7 @@ export function PointCard(props: PointCardProps) {
                 }}
                 aria-label="Site"
               >
-                <option value="">Custom point (latitude, longitude)</option>
+                <option value="">Custom site (latitude, longitude)</option>
                 {catalog.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.name}
@@ -333,7 +322,7 @@ export function PointCard(props: PointCardProps) {
 
             <div className="field-row field-wide">
               <label className="field">
-                <span className="field-label">POINT LANDING DATE</span>
+                <span className="field-label">LANDING DATE</span>
                 <input
                   type="date"
                   value={draft.date}
@@ -363,22 +352,39 @@ export function PointCard(props: PointCardProps) {
 
             <div className="field field-wide">
               <StationPicker
-                key={stationQuery(draft.station)}
-                value={draft.station}
-                presets={presetsFrom(props.stations)}
-                onChange={(next) => setDraft({ station: next })}
+                value={draft.stations}
+                presets={presets}
+                onChange={(stations) => setDraft({ stations })}
               />
             </div>
           </div>
 
-          {isDraftPoint ? (
-            <div className="conditions-empty">
-              <strong>Site conditions</strong>
-              <p>Available after applying point {letter}.</p>
-            </div>
+          {error && (draft.lat !== '' || draft.lon !== '' || !isDraftPoint) && <p className="field-error">{error}</p>}
+          <button type="submit" className={canApply ? 'apply apply-ready' : 'apply'} disabled={!canApply}>
+            Apply site {letter}
+          </button>
+        </form>
+      )}
+
+      {open && !editing && (
+        <div className="point-body site-output">
+          {ticket.stationChoices && ticket.stationChoices.length > 1 ? (
+            <label className="result-station field">
+              <span className="field-label">Results for station</span>
+              <select value={stationQuery(ticket.station)} onChange={(e) => {
+                const station = ticket.stationChoices?.find((p) => stationQuery(p) === e.target.value)
+                if (station) props.onChange({ station }, 'push')
+              }}>
+                {ticket.stationChoices.map((p) => <option key={stationQuery(p)} value={stationQuery(p)}>{stationLabel(p, stationPresets)}</option>)}
+              </select>
+            </label>
           ) : (
-            <>
-              <dl className="stats">
+            <p className="result-station" title={stationLabel(ticket.station, stationPresets)}>
+              <span className="field-label">Earth station</span>
+              {sameStation(ticket.station, HOUSTON) ? 'Houston (demonstration location)' : stationLabel(ticket.station, stationPresets)}
+            </p>
+          )}
+              {props.resultView === 'live' && <dl className="stats">
                 <div>
                   <dt>SUN ELEV.</dt>
                   <dd className="num">{live ? signed(live.sun.el) : '—'}</dd>
@@ -395,9 +401,9 @@ export function PointCard(props: PointCardProps) {
                   <dt>DUST</dt>
                   <dd className="num muted">n/a</dd>
                 </div>
-              </dl>
+              </dl>}
 
-              <div className="mission-time">
+              {props.resultView === 'live' ? <div className="mission-time">
                 <span className="field-label">MISSION TIME</span>
                 <TimeSlider
                   tau={Math.min(props.tau, props.sliderMaxTau)}
@@ -413,41 +419,23 @@ export function PointCard(props: PointCardProps) {
                 ) : (
                   <Pending label="Loading Sun and Earth positions…" />
                 )}
-              </div>
-
-              <div className="whole-mission">
+              </div> : <div className="whole-mission">
                 <span className="field-label">WHOLE MISSION {props.isSample && <SampleTag />}</span>
                 {summary.isError ? (
                   <ServerUnavailable onRetry={() => void summary.refetch()} />
                 ) : summary.data && site ? (
                   <>
                     <VerdictChips summary={summary.data} slopeDeg={site.slope_deg} />
-                    <WarningsStrip warnings={summary.data.warnings} catalog={meta.data?.warning_catalog ?? []} />
+                    <WarningsStrip warnings={summary.data.warnings} catalog={meta.data?.warning_catalog ?? []} visible={1} />
                     <MissionMetrics summary={summary.data} />
                   </>
                 ) : (
                   <Pending label="Computing verdict…" />
                 )}
-              </div>
-            </>
-          )}
-
-          {error && (draft.lat !== '' || draft.lon !== '' || !isDraftPoint) && <p className="field-error">{error}</p>}
-          <button type="submit" className={canApply ? 'apply apply-ready' : 'apply'} disabled={!canApply}>
-            ✓ {pending || isDraftPoint ? `Apply point ${letter}` : `Point ${letter} applied`}
-          </button>
-        </form>
+              </div>}
+        </div>
       )}
     </section>
-  )
-}
-
-function LassoIcon() {
-  return (
-    <svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.5">
-      <path d="M4 9c0-3 3-5 7-5s6 2 6 4.5S14 13 10 13c-2 0-3.5-.4-4.5-1" />
-      <path d="M5.5 12c-1.2.8-1.5 2.2-.6 3.2.8.9 2.3.9 3.1-.1M8 15.2 7 18" />
-    </svg>
   )
 }
 
@@ -465,15 +453,6 @@ function TrashIcon() {
   return (
     <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.4">
       <path d="M2.5 4h11M6 4V2.5h4V4M4 4l.7 9.5h6.6L12 4M6.6 6.5v4.5M9.4 6.5v4.5" />
-    </svg>
-  )
-}
-
-function TargetIcon() {
-  return (
-    <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.3">
-      <circle cx="8" cy="8" r="4" />
-      <path d="M8 1v3M8 12v3M1 8h3M12 8h3" />
     </svg>
   )
 }
