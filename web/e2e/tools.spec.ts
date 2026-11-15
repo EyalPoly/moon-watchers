@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
-import { pinSampleConfig, stubTiles } from './helpers'
+import { clickMapAvoidingPins, pinSampleConfig, stubTiles } from './helpers'
 
 test.beforeEach(async ({ page }) => {
   await pinSampleConfig(page)
@@ -48,7 +48,7 @@ test('clicking the map places a new point', async ({ page, context }) => {
   await expect(page.getByTestId('pin-sample_b')).toBeVisible()
   // With no site the map is centered on the pole, inside the custom-point area.
   const map = (await page.locator('.panel .polar-map').first().boundingBox())!
-  await page.mouse.click(map.x + map.width / 2 - 40, map.y + map.height / 2 + 30)
+  await clickMapAvoidingPins(page, map.x + map.width / 2 - 40, map.y + map.height / 2 + 30)
   await expect(page).toHaveURL(/tk=pt_s\d+_[ew]\d+/)
   await expect(page.getByRole('heading', { name: /^Site \d/ })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Edit site A' })).toBeVisible()
@@ -58,9 +58,9 @@ test('a second click on the map adds another card with results', async ({ page, 
   await stubTiles(context)
   await page.goto('/')
   const map = (await page.locator('.panel .polar-map').first().boundingBox())!
-  await page.mouse.click(map.x + map.width / 2 - 40, map.y + map.height / 2 + 30)
+  await clickMapAvoidingPins(page, map.x + map.width / 2 - 40, map.y + map.height / 2 + 30)
   await expect(page).toHaveURL(/tk=pt_s/)
-  await page.mouse.click(map.x + map.width / 2 + 60, map.y + map.height / 2 - 50)
+  await clickMapAvoidingPins(page, map.x + map.width / 2 + 60, map.y + map.height / 2 - 50)
   await expect(page.getByRole('region', { name: 'Site B' })).toBeVisible()
   await expect(page.getByRole('region', { name: 'Site A' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Apply site B' })).toHaveCount(0)
@@ -133,7 +133,7 @@ test('Freehand Select outlines an area on the grid and opens the best spots as p
   const cx = map.x + map.width / 2
   const dialog = (await tool.boundingBox())!
   const cy = (dialog.y + dialog.height + map.y + map.height) / 2
-  for (const [dx, dy] of [[-30, -17], [30, -17], [30, 17], [-30, 17]]) await page.mouse.click(cx + dx, cy + dy)
+  for (const [dx, dy] of [[-19, -11], [19, -11], [19, 11], [-19, 11]]) await page.mouse.click(cx + dx, cy + dy)
   await expect(tool.getByText(/4 selected/)).toBeVisible()
 
   await tool.getByRole('button', { name: 'Choose On Map' }).click()
@@ -227,7 +227,7 @@ test('the over-cap message goes away when the grid is changed', async ({ page, c
 
 test('graded areas are cleared when the grading weights change', async ({ page, context }) => {
   await stubTiles(context)
-  const tool = await openToolAndDraw(page, '10', [30, 17])
+  const tool = await openToolAndDraw(page, '10', [19, 11])
   await tool.getByRole('button', { name: 'Choose On Map' }).click()
   await expect(tool.getByRole('list', { name: 'Best areas' })).toBeVisible()
   await tool.getByRole('button', { name: /Grading Weights/ }).click()

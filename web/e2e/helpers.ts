@@ -53,3 +53,26 @@ export async function pinSampleConfig(page: Page) {
     route.fulfill({ contentType: 'application/json', body: JSON.stringify(ALL_SAMPLE) }),
   )
 }
+
+/** Click the map at (x, y), or at the nearest nearby spot that is not on a site pin. */
+export async function clickMapAvoidingPins(page: Page, x: number, y: number) {
+  const pins = await page.getByTestId(/^pin-/).evaluateAll((els) =>
+    els.map((el) => {
+      const r = el.getBoundingClientRect()
+      return [r.x + r.width / 2, r.y + r.height / 2]
+    }),
+  )
+  const clear = (px: number, py: number) => pins.every(([ox, oy]) => Math.hypot(px - ox, py - oy) > 30)
+  for (let radius = 0; radius <= 120; radius += 10) {
+    for (let step = 0; step < Math.max(1, radius / 5); step++) {
+      const angle = (2 * Math.PI * step) / Math.max(1, radius / 5)
+      const px = x + radius * Math.cos(angle)
+      const py = y + radius * Math.sin(angle)
+      if (clear(px, py)) {
+        await page.mouse.click(px, py)
+        return
+      }
+    }
+  }
+  throw new Error('no map spot clear of site pins')
+}
