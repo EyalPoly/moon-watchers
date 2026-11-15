@@ -114,6 +114,7 @@ def main(argv: list[str] | None = None) -> int:
             (slug(name), name, IAU_FEATURES[name], float(row["center_lat"]), float(row["center_lon"]), str(row["link"]).replace("http://", "https://", 1))
         )
     points += [(e.id, e.name, e.category, e.lat, e.lon, e.url) for e in EXTRAS]
+    points.sort(key=lambda point: point[2] == "crater floor")
     sites: list[dict[str, object]] = []
     with rasterio.open(DEM) as dem, rasterio.open(SLOPE) as slope:
         for site_id, name, category, lat, lon, url in points:

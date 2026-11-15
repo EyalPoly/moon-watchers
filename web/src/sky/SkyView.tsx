@@ -2,6 +2,7 @@ import { useEffect, useId, useMemo, useRef, useState, type PointerEvent, type Re
 import type { Horizon, Series } from '../api/types'
 import { DAY_MS } from '../time'
 import { indexAt, seriesTimeAt } from '../state/series'
+import { seasonOutline, type SunSeason } from './season'
 
 // Sky view (spec §9.3): azimuth across, elevation up, terrain silhouette from the horizon
 // mask, the Sun's and the Earth's paths over the mission with day ticks, and both disks
@@ -23,6 +24,8 @@ export interface SkyViewProps {
   nowMs: number
   /** The Earth station the contact points are for, e.g. "Madrid (Spain)". */
   stationLabel?: string
+  /** Where the Sun can be at any time of year, drawn as a faint band behind the paths. */
+  sunSeason?: SunSeason
 }
 
 const INITIAL_SIZE = { width: 420, height: 244 }
@@ -80,7 +83,7 @@ function skylineOf(h: Horizon, leftAz: number, y: (el: number) => number, plotWi
 
 const known = (values: readonly (number | null)[]) => values.filter((v): v is number => v !== null)
 
-export function SkyView({ horizon, antennaHorizon, series, observationSeries = series, controls, startMs, endMs, nowMs, stationLabel = 'the Earth station' }: SkyViewProps) {
+export function SkyView({ horizon, antennaHorizon, series, observationSeries = series, controls, startMs, endMs, nowMs, stationLabel = 'the Earth station', sunSeason }: SkyViewProps) {
   const svg = useRef<SVGSVGElement>(null)
   const [{ width, height }, setSize] = useState(INITIAL_SIZE)
   useEffect(() => {
@@ -137,6 +140,11 @@ export function SkyView({ horizon, antennaHorizon, series, observationSeries = s
       pxPerDeg: plotHeight / (elMax - elMin),
     }),
     [leftAz, elMin, elMax, plotTop, plotHeight, plotWidth],
+  )
+
+  const seasonBand = useMemo(
+    () => (sunSeason ? seasonOutline(sunSeason, (az) => LEFT + (az / 360) * plotWidth, y, 3, leftAz) : null),
+    [sunSeason, y, leftAz, plotWidth],
   )
 
   const terrain = useMemo(() => skylineOf(horizon, leftAz, y, plotWidth, plotBottom), [horizon, leftAz, y, plotWidth, plotBottom])
@@ -299,6 +307,11 @@ export function SkyView({ horizon, antennaHorizon, series, observationSeries = s
         })}
 
         <g clipPath={`url(#${uid}-plot)`}>
+          {seasonBand && (
+            <path d={seasonBand} className="sky-sun-season">
+              <title>Where the Sun can be at any time of year</title>
+            </path>
+          )}
           {paths && (
             <>
               <path d={paths.earth} className="sky-path sky-path-earth" />
@@ -405,6 +418,7 @@ export function SkyView({ horizon, antennaHorizon, series, observationSeries = s
         <details className="sky-key">
         <summary>Graph Key</summary><div className="sky-key-items">
         <span className="legend legend-sun">Sun</span>
+        {seasonBand && <span className="legend legend-season">Sun's range over the year</span>}
         <span className="legend legend-earth">Earth</span>
         <span className="legend-dot legend-obscured">Gray disk: behind terrain</span>
         <span className="legend legend-terrain">Terrain at {horizon.mast_m} m (panel)</span>

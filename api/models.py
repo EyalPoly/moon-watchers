@@ -164,6 +164,9 @@ class Meta(BaseModel):
     score: ScoreConfig
     rag: RagThresholds
     warning_catalog: list[WarningEntry]
+    # Lowest and highest Sun declination (degrees, Moon-centred) over the ephemeris table, for the
+    # sky view's seasonal band. Null when no bundle is loaded.
+    sun_declination_deg: list[float] | None = Field(default=None, min_length=2, max_length=2)
 
     @model_validator(mode="after")
     def _default_station_is_a_preset(self) -> "Meta":

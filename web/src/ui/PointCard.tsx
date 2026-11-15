@@ -153,6 +153,8 @@ function statusOf(live: LiveStatus | null, site: Site | undefined) {
   }
 }
 
+const CRATER_CATEGORY = 'crater floor'
+
 const signed = (v: number) => `${v >= 0 ? '+' : ''}${v.toFixed(1)}°`
 
 /** One point in the Site calculator (UI design pages 3–13). */
@@ -287,11 +289,18 @@ export function PointCard(props: PointCardProps) {
                 id={`${fieldId}-catalog`} aria-label="Site"
               >
                 <option value="">Custom site (latitude, longitude)</option>
-                {catalog.map((s) => (
+                {catalog.filter((s) => s.category !== CRATER_CATEGORY).map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.name}
                   </option>
                 ))}
+                <optgroup label="Craters">
+                  {catalog.filter((s) => s.category === CRATER_CATEGORY).map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+                </optgroup>
               </select>
             </div>
 
