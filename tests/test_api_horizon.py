@@ -17,11 +17,12 @@ from tests.tif_helpers import write_tif
 
 HALF_M = 400_000.0
 CELL_M = 2000.0
+GROUND_M = 3000.0  # high enough that the trace reaches the test holes (~112 km)
 
 
 def write_world(sources: Path, hole_at: tuple[float, float] | None = None) -> None:
     n = int(2 * HALF_M / CELL_M)
-    data = np.zeros((n, n), np.float32)
+    data = np.full((n, n), GROUND_M, np.float32)
     if hole_at is not None:
         col = round((hole_at[0] + HALF_M) / CELL_M)
         row = round((HALF_M - hole_at[1]) / CELL_M)

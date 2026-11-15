@@ -23,7 +23,7 @@ def entry(**overrides: Any) -> dict[str, Any]:
         "lon_deg": 10.0,
         "elevation_m": 1.0,
         "slope_deg": 1.0,
-        "slope_baseline_m": 240.0,
+        "slope_resolution_m": 20.0,
         "source_url": "https://example.org/x",
         "is_placeholder": False,
     }

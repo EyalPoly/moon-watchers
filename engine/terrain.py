@@ -24,7 +24,7 @@ def unproject(
     y = np.asarray(y_m, dtype=np.float64)
     rho = np.hypot(x, y)
     lat = np.degrees(2.0 * np.arctan(rho / (2.0 * MOON_RADIUS_M)) - np.pi / 2)
-    lon = np.degrees(np.arctan2(x, y))
+    lon = np.mod(np.degrees(np.arctan2(x, y)), 360.0)
     return lat, lon
 
 

@@ -7,8 +7,9 @@ from numpy.typing import NDArray
 from engine.geometry import site_basis
 from engine.terrain import MOON_RADIUS_M, Dem, project, sample_stack
 
-HORIZON_ALGO_VERSION: str = "1"
-TERRAIN_CEILING_M: float = 20_000.0
+HORIZON_ALGO_VERSION: str = "2"
+MAX_REACH_M: float = 200_000.0
+REACH_MARGIN_M: float = 10_000.0
 
 _AZ_CHUNK = 120
 
@@ -17,15 +18,21 @@ def ray_distances(
     near_step_m: float = 40.0,
     near_m: float = 10_000.0,
     far_step_m: float = 240.0,
-    reach_m: float = 300_000.0,
+    reach_m: float = MAX_REACH_M,
 ) -> NDArray[np.float64]:
     return np.concatenate(
         (
-            np.arange(near_step_m / 2, near_m, near_step_m),
+            np.arange(near_step_m / 2, min(near_m, reach_m), near_step_m),
             np.arange(near_m, reach_m, far_step_m),
             [reach_m],
         )
     )
+
+
+def reach_for_ground(ground_m: float) -> float:
+    """How far to trace from a point: its geometric horizon to a feature at the reference sphere
+    (a peak of height h hides behind the curve beyond sqrt(2*R*h)), plus a margin, capped."""
+    return min(MAX_REACH_M, float(np.sqrt(2.0 * MOON_RADIUS_M * abs(ground_m))) + REACH_MARGIN_M)
 
 
 @dataclass(frozen=True)
@@ -110,8 +117,6 @@ def march(
 
         unknown[sel] = np.isnan(h_t).any(axis=1)
         error_missing[sel] = np.isnan(err).any(axis=1) | np.isnan(site_error)
-        if np.nanmax(h_t, initial=-np.inf) > TERRAIN_CEILING_M:
-            raise ValueError("terrain exceeds the conservative elevation ceiling")
 
         radius_t = (MOON_RADIUS_M + h_t.astype(np.float64)).astype(np.float32)
         for i in range(n_h):
@@ -127,19 +132,7 @@ def march(
     if unknown.any():
         warnings.append("DEM_GAPS")
 
-    far = float(theta64[-1])
-    ceiling_radius = MOON_RADIUS_M + TERRAIN_CEILING_M
-    unseen = np.degrees(
-        np.arctan2(
-            ceiling_radius * np.cos(far) - (MOON_RADIUS_M + observer),
-            ceiling_radius * np.sin(far),
-        )
-    )
-    truncated = (unseen[:, None] > nominal) & ~unknown[None, :]
-    if truncated.any():
-        warnings.append("HORIZON_TRUNCATED")
-
-    bad = unknown[None, :] | truncated
+    bad = np.broadcast_to(unknown[None, :], nominal.shape)
     nominal[bad] = np.nan
     blocking[bad] = np.nan
     bounds_bad = bad | error_missing[None, :]
@@ -166,7 +159,11 @@ class SiteMasks:
 def compute_site_masks(
     lat_deg: float, lon_deg: float, terrain: Sequence[Dem], errors: Sequence[Dem]
 ) -> SiteMasks:
-    distances = ray_distances()
+    site_x, site_y = project(lat_deg, lon_deg)
+    ground = float(sample_stack(terrain, np.atleast_1d(site_x), np.atleast_1d(site_y))[0])
+    if not np.isfinite(ground):
+        raise ValueError("no terrain elevation at the site")
+    distances = ray_distances(reach_m=reach_for_ground(ground))
     full = march(lat_deg, lon_deg, HEIGHTS_M, terrain, errors, distances)
     far = march(
         lat_deg,

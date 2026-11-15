@@ -120,7 +120,7 @@ function customSite(id: string, at: { lat: number; lon: number }, near: SampleSi
     lon_deg: at.lon,
     elevation_m: Math.round(((near as SampleSite & { elevation_m?: number }).elevation_m ?? 0) + (h - 0.5) * 600),
     slope_deg: Math.round(Math.max(0.5, near.slope_deg + (h - 0.4) * 6) * 10) / 10,
-    slope_baseline_m: 240,
+    slope_resolution_m: 20,
     source_url: `sample: built from ${near.id}, the nearest sample site`,
     is_placeholder: true,
   }
@@ -148,7 +148,7 @@ export function buildHandlers(samples: Samples, origin: string) {
       const body = (await request.json().catch(() => null)) as { lat_deg?: unknown; lon_deg?: unknown } | null
       const lat = Number(body?.lat_deg)
       const lon = Number(body?.lon_deg)
-      if (typeof body?.lat_deg !== 'number' || typeof body?.lon_deg !== 'number' || Math.abs(lat) > 90 || Math.abs(lon) > 180) {
+      if (typeof body?.lat_deg !== 'number' || typeof body?.lon_deg !== 'number' || Math.abs(lat) > 90 || lon < 0 || lon > 360) {
         return invalid('lat_deg and lon_deg must be numbers in range')
       }
       if (!inPointArea(lat, lon)) {

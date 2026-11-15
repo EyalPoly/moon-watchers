@@ -1,8 +1,7 @@
 - {code: DEM_GAPS, severity: caution, affects: skyline, standing: false, text: "Some skyline directions cross missing terrain, so those directions are unknown."}
-- {code: HORIZON_TRUNCATED, severity: caution, affects: skyline, standing: false, text: "Terrain beyond 300 km could still block some directions."}
 - {code: UNCERTAINTY_UNAVAILABLE, severity: info, affects: skyline, standing: false, text: "The height-error map doesn't cover the whole skyline, so the range is unavailable."}
 - {code: SPARSE_MEASUREMENTS, severity: caution, affects: all, standing: false, text: "Fewer than one laser measurement per pixel at the site: the terrain here is interpolated."}
-- {code: EFFECTIVE_RESOLUTION, severity: caution, affects: slope, standing: false, text: "The data's effective resolution here is coarser than the 240 m slope baseline."}
+- {code: EFFECTIVE_RESOLUTION, severity: caution, affects: slope, standing: false, text: "The data's effective resolution here is coarser than the 20 m slope map."}
 - {code: EARTH_ORIENTATION_PREDICTED, severity: info, affects: contact, standing: false, text: "The mission runs past 2026-08-06, so the Earth's orientation, and the station's position, are predicted rather than observed."}
 - {code: NULL_GRADE, severity: caution, affects: score, standing: false, text: "{label} could not be computed, so its grade counts as 0."}
 - {code: PSR_UNKNOWN, severity: info, affects: score, standing: false, text: "The PSR map has no value at this site, so the PSR check wasn't applied."}

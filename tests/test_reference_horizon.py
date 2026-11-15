@@ -4,10 +4,10 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from engine.horizons import compute_site_masks, march, mask_at_height, ray_distances
-from engine.terrain import Dem, load_dem
+from engine.horizons import compute_site_masks, march, mask_at_height, ray_distances, reach_for_ground
+from engine.terrain import Dem, load_dem, project, sample_stack
 
-PROTOTYPE = Path("MenasimMoonV2")
+PROTOTYPE = Path("MenasimMoonV3")
 CROPS = PROTOTYPE / "data" / "terrain"
 LAYERS = {
     "terrain": ["fine-f371e253476d", "near-f5b4b53c1c91", "far-273b07c001d5"],
@@ -53,6 +53,11 @@ def ours(names: list[str]) -> list[Dem]:
     return [load_dem(CROPS / f"{n}.tif", n) for n in names]
 
 
+def reach_at(lat: float, lon: float, terrain: list[Dem]) -> float:
+    x, y = project(lat, lon)
+    return reach_for_ground(float(sample_stack(terrain, np.atleast_1d(x), np.atleast_1d(y))[0]))
+
+
 @pytest.mark.parametrize(("lat", "lon"), [(-89.0, 0.0), (-89.0, 8.0)])
 @pytest.mark.parametrize("height_m", [2.0, 3.0])
 def test_matches_prototype_build_horizon(
@@ -67,11 +72,13 @@ def test_matches_prototype_build_horizon(
 
     settings = Settings(
         horizon_step_deg=0.5, near_step_m=40, near_radius_m=10_000, far_step_m=240,
-        horizon_radius_m=300_000, terrain_ceiling_m=20_000,
+        horizon_radius_m=None,
     )
     reference = build_horizon(Site(lat, lon), height_m, prototype_terrain, settings)  # type: ignore[arg-type]
+    terrain = ours(LAYERS["terrain"])
+    assert reference.radius_m == pytest.approx(reach_at(lat, lon, terrain))
     result = march(
-        lat, lon, [height_m], ours(LAYERS["terrain"]), ours(LAYERS["error"]), ray_distances()
+        lat, lon, [height_m], terrain, ours(LAYERS["error"]), ray_distances(reach_m=reference.radius_m)
     )
     mine = result.elevation_deg[0]
     assert np.array_equal(np.isnan(mine), np.isnan(reference.elevation_deg))
@@ -89,7 +96,9 @@ def test_mask_at_height_on_real_terrain(lat: float, lon: float) -> None:
     masks = compute_site_masks(lat, lon, terrain, errors).masks_deg
     worst = 0.0
     for height in (2.5, 2.55):
-        direct = march(lat, lon, [height], terrain, errors, ray_distances()).elevation_deg[0]
+        direct = march(
+            lat, lon, [height], terrain, errors, ray_distances(reach_m=reach_at(lat, lon, terrain))
+        ).elevation_deg[0]
         blend = mask_at_height(masks, height)[0]
         finite = np.isfinite(direct)
         assert np.array_equal(finite, np.isfinite(blend))

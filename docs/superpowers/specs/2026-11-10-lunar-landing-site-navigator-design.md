@@ -260,12 +260,13 @@ The mode is a setting. The API reports it in `/meta.capabilities`, and the UI fo
 | SPICE kernels: `naif0012.tls`, `pck00011.tpc`, `de440s.bsp`, `moon_pa_de440_200625.bpc`, `moon_de440_250416.tf` | NAIF (NASA/JPL) | Sun and Earth positions; the Moon's orientation (the DE440 set, matching the physics team's prototype) | Downloaded and checksummed 14 Nov (`docs/spikes/sources-verified.md`) |
 | SPICE kernel for the Earth's orientation: `earth_1962_260806_2126_combined.bpc` | NAIF | Where the chosen Earth station is, and whether it sees the Moon (Earth contact, §7.3). Observed until 2026-08-06, predicted after | Downloaded 14 Nov |
 | LOLA DEMs, PGDA product 90: 20 m and 80 m (80°S to the pole), 240 m (60°S to the pole), each with its `_ERR` height-error raster; 80 m measurement counts (`LDEC`) and effective resolution (`EFFRES`) | NASA PGDA | Terrain for horizons, grids, heightmaps and slope (finest available first); height errors for the uncertainty range; counts and effective resolution for data warnings | Files and sizes verified 14 Nov; checksums pinned on first download |
-| NASA layers: average illumination, PSR, slope | LOLA products (PGDA/PDS) | Map colors when zoomed out; PSR validation | To find |
+| LOLA slope map, PGDA product 90: `LDSM_80S_20MPP_ADJ` (20 m, 80°S to the pole) and its `_ERR` raster | NASA PGDA | The slope of every point (§7.2), and its error as context | Added with the physics team's V3 (15 Nov); size and checksums pinned on first download |
+| NASA layers: average illumination, PSR | LOLA products (PGDA/PDS) | Map colors when zoomed out; PSR validation | To find |
 | Moon Trek basemap tiles | NASA Moon Trek, tile service (WMTS) for the south pole: color hillshade, hillshade and slope, up to 5 m per pixel for some sites (§9.3) | Zoomed-out basemap on Screen 2, loaded by the browser. Our own build tiles are the fallback when Moon Trek is slow or offline | Tile request and layer list worked on 13 Nov. Licence of each layer *verify* |
 | Moon Trek elevation service | NASA Moon Trek, ArcGIS ImageServer for the 5 m south-pole LOLA DEM (`identify` and `getSamples`) | Validation only: our local DEM against NASA's own service at 20–50 points (§11.4). Never used at runtime, never for horizon masks (about 200 points per call, so thousands of calls per site) | Worked on 13 Nov. Height reference *verify* |
 | Topographic layer | Rendered by the build from the LOLA DEMs above | Elevation colors on the map, and on the globe if it's built | From the DEMs |
 | Globe assets (Screen 1, Should) | Prepared at kickoff from public sources, as in the 3D teammate's test: LOLA LDEM_16 and 240 m polar DEMs; an LROC-WAC-based color map (CC BY-SA 4.0, via Stellarium); NASA Blue Marble | Visual context only | §9.3 |
-| Dust | Simulated (mock) index from the physics team: a fixed formula (§7.5), no data file | Dust grade in the score (weight 0 by default, users can raise it); the dust map layer (Nice) | Labeled "simulated" everywhere. LADEE/LDEX orbital dust data is not a surface map, so it isn't used. |
+| Dust | Simulated (mock) index from the physics team: a fixed formula (§7.5), no data file | Dust grade in the score (weight 0 by default, users can raise it); the dust map layer (Nice) | Labeled "simulated" everywhere. LADEE/LDEX orbital dust data is not a surface map, so it isn't used. The physics team's V3 adds a source matrix (`output/surface_source_matrix.csv`) that keeps four kinds of data apart: measured regolith records from landing missions, rock abundance, PSR references, and this synthetic dust score. Only the last one is in the score. |
 | JPL Horizons answers | JPL Horizons API (`ssd.jpl.nasa.gov/api/horizons.api`) | Validation only: Sun and Earth azimuth and elevation at test sites, fetched once and saved under `data/sources/horizons/` with checksums. Never called at runtime (§11.4) | Request recipe checked by hand on 13 Nov; see §11.4 |
 | GMAT checks | Physics team | Validation only: basic checks of the Sun and Earth positions | §12.3 |
 | Catalog | Physics team (`catalog/sites.yaml`), with a source link per site | Site list (south-polar, inside the 20 m DEM coverage) | To build |
@@ -323,6 +324,7 @@ $CACHE_DIR/<algo_version>/<cust_id>/ custom points at runtime, same layout as si
 | Far-field terrain (240 m, 60°S to the pole) | API | COG | ~220 MB |
 | 80 m terrain (80°S to the pole), fills gaps in the 20 m copy | API | COG | ~190 MB |
 | 20 m copy for custom points (to ~83°S) | API | COG, on the server's disk or in object storage | 0.5–1 GB |
+| Slope map and its error raster (20 m, 80°S to the pole), cropped to the clickable area | API | COG | Size to check at the first download |
 | Height errors (`_ERR`) of the three terrain copies above | API | COG, cropped and stored like the terrain it belongs to | ~270 MB (240 m), ~255 MB (80 m), 0.7–1.5 GB (20 m copy, *est.*) |
 
 **Formats:**
@@ -345,7 +347,7 @@ $CACHE_DIR/<algo_version>/<cust_id>/ custom points at runtime, same layout as si
 ### 6.5 Custom-point cache
 
 - **Layout:** the same as a catalog site, keyed by algorithm version.
-- **Ids:** canonical ids of the form `cust_<lat>_<lon>`, with 5 decimals and longitude in [−180, 180), for example `cust_-89.45000_-137.31000`. Ids are parsed and rewritten before they touch the disk.
+- **Ids:** canonical ids of the form `cust_<lat>_<lon>`, with 5 decimals and longitude in [0, 360), for example `cust_-89.45000_222.69000`. Ids are parsed and rewritten before they touch the disk.
 - **Recomputable:** every entry can be rebuilt from its id. A `GET` for a custom id that is missing recomputes it, so shared links survive restarts.
 - **Writes:** go to a temp folder that is then renamed. One lock per id.
 - **Eviction:** least recently used entries go first once the size cap is reached.
@@ -354,7 +356,8 @@ $CACHE_DIR/<algo_version>/<cust_id>/ custom points at runtime, same layout as si
 
 - **Clickable area:** 84°S to 90°S, shown as a dashed circle on the map. NASA places its Artemis III candidate regions within 6° of the pole (*verify*).
 - **The 20 m copy reaches about 83°S.** The margin is the near window, so even a point at the edge has detailed terrain all around it.
-- **The 240 m copy reaches 60°S,** which covers 300 km rays from any clickable point. It is loaded into memory at startup, with the 80 m copy (80°S to the pole) that fills gaps in the 20 m data.
+- **The 240 m copy reaches 60°S,** which covers 200 km rays (the longest reach, §7.2) from any clickable point. It is loaded into memory at startup, with the 80 m copy (80°S to the pole) that fills gaps in the 20 m data.
+- **The slope map** is the published LOLA slope raster (`LDSM_80S_20MPP_ADJ`, 20 m per pixel, 80°S to the pole) with its error raster (`LDSM_80S_20MPP_ADJ_ERR`), cropped and stored like the DEMs. It is read for slope only (§7.2).
 - **Each copy comes with its height-error raster** (`_ERR`), cropped and stored the same way, so a custom point gets the low and high skylines (§7.3) like a catalog site. Without it the range is unavailable (`UNCERTAINTY_UNAVAILABLE`). The errors double what the server holds: the 240 m and 80 m copies with their errors take about 950 MB as float32 in memory.
 - **Format:** both copies are COGs. The area is a setting, announced in `/meta`.
 
@@ -406,11 +409,11 @@ $CACHE_DIR/<algo_version>/<cust_id>/ custom points at runtime, same layout as si
   - The textbook form subtracts two radii of about 1.7 × 10⁶ m and loses about 0.2 m, which is 0.01° at 1 km.
   - This form only handles small numbers and is accurate to the millimeter.
   - Positions are relative to the site.
-- **How far (the physics team's settings):** rays run **300 km**. A peak Δh above the observer drops behind the curve beyond √(2RΔh), so 300 km covers about 26 km of relief.
-  - **Truncation check:** for each direction, the highest elevation that untraced terrain beyond 300 km could reach is computed from a terrain ceiling of 20 km above the sphere. Where it could exceed the traced skyline, that direction is marked unknown with a `HORIZON_TRUNCATED` warning. Terrain above the ceiling stops the build.
+- **How far (the physics team's settings, V3):** the reach is **computed for each point** from its terrain altitude `h` above the 1,737.4 km reference sphere: `min(200 km, √(2·R·|h|) + 10 km)`. A feature at that height hides behind the curve beyond √(2R|h|); the 10 km is a margin. Equipment height is not part of `h`. A point at the sphere's level traces 10 km, one 3 km up about 112 km, and anything above about 15 km up the 200 km cap.
+  - **No truncation check.** The terrain ceiling and the `HORIZON_TRUNCATED` warning were removed: terrain beyond the reach is simply not traced.
 - **How fine (the physics team's settings):**
   - Near window: 40 m steps out to 10 km, read from the 20 m DEM where it has data, otherwise the 80 m DEM.
-  - Beyond 10 km: 240 m steps out to 300 km.
+  - Beyond 10 km: 240 m steps out to the point's reach. A reach under 10 km stops the near steps at the reach.
   - The convergence test stays as a check: widening the near window, or shrinking the steps, must change `sun_pct` and `dte_pct` by less than 0.5 percentage points.
 - **Missing terrain:** a direction whose ray crosses a missing DEM cell is **unknown** (NaN), with a `DEM_GAPS` warning. It is never treated as open sky or as blocked (§7.3).
 - **Masks (for the numbers):** 720 directions, 0.5° apart.
@@ -429,13 +432,13 @@ $CACHE_DIR/<algo_version>/<cust_id>/ custom points at runtime, same layout as si
   - Optional speed-up: compute the far terrain for every 5th point and interpolate.
 - **Heightmap and slope:**
   - The heightmap is the 20 m DEM resampled onto the same 200 × 200 points, in the site frame, with the curvature drop included (−2.6 m at 3 km).
-  - **Slope (the physics team's method):** a plane fitted by least squares to a 5 × 5 grid of heights spanning a 240 m baseline, in the site's tangent plane (not in map pixels, because the projection's scale varies). The slope is that plane's tilt. It is labeled "over 240 m": it is not lander-footprint safety, and the data can't see rocks smaller than a cell.
+  - **Slope (the physics team's method, V3):** read from NASA's published LOLA slope raster (PGDA product 90, 20 m per pixel) at the native pixel that contains the point. Nothing is smoothed or blended with neighboring pixels, and there is **no fallback that fits a plane to the DEM**: a point with no valid value (outside the map, nodata, or outside 0–90°) has an **unavailable slope**. The error raster is stored as context (`slope_error_deg`); the gate uses the nominal slope. The slope is labeled "20 m pixel": it is not lander-footprint safety, and the data can't see rocks smaller than a pixel. Elevations still drive the horizons.
 - **Device:** PyTorch picks `cuda`, then `mps`, then `cpu` at startup (`ENGINE_DEVICE=auto`). It is imported only when horizons are needed.
 - **Custom points:**
   1. Validate the point and build its canonical id.
   2. Check the cache, then lock the id.
   3. Read a 20 m window and its height-error window from our copy (the 80 m and 240 m terrain and their errors are already in memory).
-  4. Compute the masks, heightmap and slope (~1–2 s on a CPU, *est.*).
+  4. Compute the masks and heightmap, and read the slope from the slope map (~1–2 s on a CPU, *est.*).
   5. Compute the grid, only on a GPU and one at a time.
   6. Write the result atomically.
 
@@ -459,7 +462,7 @@ The physics team defines these rules (**P2**, **P3**). They come from their prot
   2. **Earth side:** the station sees the antenna above its own minimum elevation (its mask).
   - Geometry is instantaneous (no light-time correction, §7.1).
   - **The station** is a point given by latitude, longitude, altitude and minimum elevation. **Default: Houston** (29.7604° N, 95.3698° W, altitude 0 m, minimum elevation 0°). Houston is a city reference chosen for the demonstration, not an operational antenna, and the UI says so.
-  - Picking another station (typed coordinates, or a preset) is a Should.
+  - Picking another station (typed coordinates, or a preset) is a Should. The presets are the NASA DSN complexes and the ESA ESTRACK stations, as the physics team's V3 lists them from the NAIF station kernels; ISRO and JAXA stations are not offered until their position kernels are configured. These are geometric positions only: no schedules and no link budget.
   - Contact is line-of-sight only: no scheduling, antenna pointing, link budget or relay (§2).
 - **Earth visibility** (reported, not used for contact or the score):
   - `earth_any`: some part of the Earth's disk clears the skyline at antenna height.
@@ -473,10 +476,10 @@ The physics team defines these rules (**P2**, **P3**). They come from their prot
   | Code | When |
   |---|---|
   | `DEM_GAPS` | Some skyline directions are unknown (a ray crossed missing terrain) |
-  | `HORIZON_TRUNCATED` | Terrain beyond 300 km could still block some directions (§7.2) |
   | `UNCERTAINTY_UNAVAILABLE` | The height-error raster doesn't cover the whole skyline |
   | `SPARSE_MEASUREMENTS` | The LOLA count layer shows fewer than one measurement per pixel at the site |
-  | `EFFECTIVE_RESOLUTION` | The data's effective resolution at the site is coarser than the 240 m slope baseline |
+  | `EFFECTIVE_RESOLUTION` | The data's effective resolution at the site is coarser than the 20 m slope map |
+  | `SLOPE_UNAVAILABLE` | The slope map has no valid value at the site, so the score is unavailable (§7.5) |
   | `EARTH_ORIENTATION_PREDICTED` | The mission runs past 2026-08-06, so the Earth's orientation is predicted, not observed |
 
   The score adds two more, with the same treatment (§7.5):
@@ -582,7 +585,7 @@ score = 100 × Σ w·grade / Σ w        over the 7 grades
     - The prototype takes this as a flag the user types (`in_psr`). We read it from the map at the site, for catalog, custom and alternatives points alike. A point on the edge of a PSR counts as inside.
     - It is on by default and the user can switch it off (`psr`, §7.5 settings). Switched off, the site is scored normally.
     - Where the map has no value at the site, the gate is not applied and the warning `PSR_UNKNOWN` is added.
-  - **Slope (`excluded_reason: "slope"`):** `slope_deg` above the maximum slope (default **15°**). The score is forced to 0; the grades keep their real values. An unknown slope doesn't trip the gate; its grade counts as 0 with `NULL_GRADE:slope`.
+  - **Slope (`excluded_reason: "slope"`):** `slope_deg` above the maximum slope (default **15°**). The score is forced to 0; the grades keep their real values. An **unavailable slope makes the whole score unavailable** (`value: null`, category `unknown`, warning `SLOPE_UNAVAILABLE`), even when the slope weight is 0: the score is never computed from a slope we don't have. The other numbers on the card are still shown.
   - If both apply, the reason is "psr".
 - **Colors:** green ≥ 70, amber ≥ 40, red below 40 (the physics team's values; their prototype calls amber "yellow"). "Excluded" has its own color.
 - **The dust index (simulated; the physics team's model).** A fixed formula over the map position (x, y in the region's projection):
@@ -744,7 +747,7 @@ The engine's functions return warnings with their results (data warnings, §7.3,
 
 - **Base path:** `/api/v1`.
 - **Conventions:**
-  - Latitude and longitude in degrees, east-positive longitude in [−180, 180).
+  - Latitude and longitude in degrees. **Lunar longitude is east-positive, 0 to 360 inclusive** (360 is the same as 0 and is returned as 0); negative values are rejected, never converted. Results show it in 0 to less than 360. The **Earth station's** longitude is a separate input and stays signed (−180 to 180; Houston is −95.3698).
   - Times in ISO 8601 UTC.
   - Units in field names.
 - **Source of truth:** the Pydantic models. The TypeScript client and the MSW mocks are generated from the OpenAPI schema.
@@ -793,7 +796,7 @@ Every setting is always written, with its default when unchanged, so the same sc
 // GET /sites/{id}
 { "id": "shackleton_rim_a", "name": "…", "source": "catalog", "category": "…",
   "region": "south_pole", "lat": -89.45, "lon": -137.31,            // example values
-  "elevation_m": 0, "slope_deg": 0, "slope_baseline_m": 240, "source_url": "…",
+  "elevation_m": 0, "slope_deg": 0, "slope_resolution_m": 20, "source_url": "…",
   "terrain": {"near": ["lola_20m_south", "lola_80m_south"], "far": "lola_240m_south"},
   "local_area": { "size": [200, 200], "spacing_m": 30,
                   "corners_latlon": [[0,0],[0,0],[0,0],[0,0]],
@@ -1123,7 +1126,7 @@ One input at the top. While it works, it shows its interpretation line and a spi
   - A mountain due east blocks the Sun exactly when the Sun is due east.
   - 32-bit and 64-bit results agree within 0.001°.
   - The projection matches pyproj within 1 cm.
-  - Results stay stable as the 300 km reach or the near window grows, and as the step size shrinks.
+  - Results stay stable as the 200 km reach cap or the near window grows, and as the step size shrinks.
 - **Rules and metrics:**
   - The disk fraction at 0, ½ and 1, a skyline that changes within the disk, and an Earth eclipse of the Sun.
   - The contact rule: the station direction against the antenna skyline, and no contact while the station sees the Moon below its mask.
@@ -1222,7 +1225,7 @@ On day 2, a teammate times one realistic comparison (one site, two landing dates
 
 - **Time:** UTC, written in ISO 8601.
 - **Angles:** degrees. Azimuth runs clockwise from north; elevation is measured upward.
-- **Coordinates:** east-positive longitude in [−180, 180).
+- **Coordinates:** lunar longitude is east-positive in [0, 360]; 360 is returned as 0. Earth-station longitude is signed.
 - **Units:** meters, with the unit in the field name.
 - **Frame:** `MOON_ME_DE440_ME421` (§7.1).
 - **Formats:**
@@ -1280,8 +1283,8 @@ score(metrics, slope_deg, dust, weights, policy) -> {value, category, factors, d
 **Also taken from the prototype:**
 - Kernels: the DE440 set and `MOON_ME_DE440_ME421` (§6.1, §7.1).
 - CN+S for sunlight, geometric for contact (§7.1).
-- Horizon reach and steps: 300 km, 40 m then 240 m, a 20 km terrain ceiling (§7.2).
-- The slope method: 240 m, 5 × 5 tangent-plane fit (§7.2).
+- Horizon reach and steps: per point `min(200 km, √(2R|h|) + 10 km)`, 40 m then 240 m, no terrain ceiling (§7.2).
+- The slope source: NASA's published 20 m slope map, native pixel, no DEM-fit fallback (§7.2).
 - Unknown as a third state (§7.3).
 - The mock dust formula (§7.5).
 - The 60 s event refinement is **not** adopted: the engine keeps its 10-minute grid, and tests allow one step of difference (§7.3).

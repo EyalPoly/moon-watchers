@@ -23,10 +23,11 @@ def test_projection_matches_pyproj() -> None:
 def test_projection_roundtrip() -> None:
     rng = np.random.default_rng(2)
     lat = rng.uniform(-90, -82, 100)
-    lon = rng.uniform(-179, 179, 100)
+    lon = rng.uniform(0, 360, 100)
     lat2, lon2 = unproject(*project(lat, lon))
     assert np.abs(lat2 - lat).max() < 1e-8
     assert np.abs(lon2 - lon).max() < 1e-6
+    assert lon2.min() >= 0 and lon2.max() < 360
 
 
 def test_pole_projects_to_origin() -> None:

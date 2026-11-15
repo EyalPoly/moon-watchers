@@ -43,12 +43,12 @@ class Terrain:
     required: tuple[Layer, ...] = ()
 
 
-# Half-widths are ground distances covering the 10 km near zone and the 300 km reach;
+# Half-widths are ground distances covering the 10 km near zone and the 200 km maximum reach;
 # load_windows widens them for the map scale.
 DEM_20 = Layer("lola/LDEM_80S_20MPP_ADJ.TIF", 12_000.0)
 DEM_40 = Layer("lola/LDEM_80S_40MPP_ADJ.TIF", 12_000.0)
 DEM_80 = Layer("lola/LDEM_80S_80MPP_ADJ.TIF", 12_000.0)
-DEM_240 = Layer("lola/LDEM_60S_240MPP_ADJ.TIF", 302_000.0)
+DEM_240 = Layer("lola/LDEM_60S_240MPP_ADJ.TIF", 202_000.0)
 
 # Each set is named by its finest terrain, finest first. "20m" is the one the API serves and
 # stays buildable without the 20 m file; "40m" and "80m" exist to compare resolutions, so
@@ -177,7 +177,8 @@ def build_bundle(
                 "heights_m": list(HEIGHTS_M),
                 "far_only_start_m": FAR_ONLY_START_M,
                 "far_only_height_m": FAR_ONLY_HEIGHT_M,
-                "ray_distances_sha256": hashlib.sha256(ray_distances().tobytes()).hexdigest(),
+                "max_ray_distances_sha256": hashlib.sha256(ray_distances().tobytes()).hexdigest(),
+                "reach_rule": "min(200 km, sqrt(2 R |ground|) + 10 km)",
                 "sites": {s.id: [s.lat_deg, s.lon_deg] for s in catalog.values()},
             },
             "sites": {site_id: {"warnings": w} for site_id, w in site_warnings.items()},
