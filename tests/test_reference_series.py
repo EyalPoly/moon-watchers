@@ -9,7 +9,7 @@ import pytest
 from build.make_ephemeris import KERNELS, direct_sky
 from engine.geometry import HOUSTON, az_el, observer_km, station_sky
 
-PROTOTYPE = Path("MenasimMoonV2")
+PROTOTYPE = Path("MenasimMoonV3")
 SPICE_DIR = Path("data/sources/spice")
 LAT, LON = -89.0, 0.0
 PANEL_M, ANTENNA_M = 2.0, 3.0

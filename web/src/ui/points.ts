@@ -40,14 +40,15 @@ export function formatLat(lat: number): string {
   return `${Math.abs(lat).toFixed(2)}° ${lat < 0 ? 'S' : 'N'}`
 }
 
-/** "044.20° E" */
+/** "044.20° E": east-positive, 0 to less than 360. */
 export function formatLon(lon: number): string {
-  return `${Math.abs(lon).toFixed(2).padStart(6, '0')}° ${lon < 0 ? 'W' : 'E'}`
+  return `${(((lon % 360) + 360) % 360).toFixed(2).padStart(6, '0')}° E`
 }
 
 /**
  * Reads "88.75° S", "-88.75", "88.75S" or "044.20° E". The hemisphere letter sets the sign;
- * without one, the number's own sign is used. Returns null for anything else.
+ * without one, the number's own sign is used. Lunar longitude is east-positive, 0 to 360 (360
+ * reads as 0): a west letter or a negative value is rejected, not converted. Returns null for anything else.
  */
 export function parseCoord(text: string, axis: 'lat' | 'lon'): number | null {
   const m = /^\s*([+-]?\d+(?:\.\d+)?)\s*°?\s*([NSEWnsew])?\s*$/.exec(text)
@@ -55,9 +56,9 @@ export function parseCoord(text: string, axis: 'lat' | 'lon'): number | null {
   let v = Number(m[1])
   const h = m[2]?.toUpperCase()
   if (h) {
-    if ((axis === 'lat' && !'NS'.includes(h)) || (axis === 'lon' && !'EW'.includes(h))) return null
-    v = Math.abs(v) * (h === 'S' || h === 'W' ? -1 : 1)
+    if ((axis === 'lat' && !'NS'.includes(h)) || (axis === 'lon' && h !== 'E')) return null
+    v = Math.abs(v) * (h === 'S' ? -1 : 1)
   }
-  const limit = axis === 'lat' ? 90 : 180
-  return Number.isFinite(v) && Math.abs(v) <= limit ? v : null
+  if (axis === 'lon') return Number.isFinite(v) && v >= 0 && v <= 360 ? v % 360 : null
+  return Number.isFinite(v) && Math.abs(v) <= 90 ? v : null
 }

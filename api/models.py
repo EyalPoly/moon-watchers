@@ -170,10 +170,10 @@ class Site(BaseModel):
     category: str
     region: str
     lat_deg: float = Field(ge=-90, le=-84)
-    lon_deg: float = Field(ge=-180, lt=180)
+    lon_deg: float = Field(ge=0, lt=360)
     elevation_m: float
     slope_deg: float
-    slope_baseline_m: float
+    slope_resolution_m: float
     source_url: str
     is_placeholder: bool
     in_psr: bool | None = None
@@ -183,7 +183,7 @@ class CustomPointRequest(BaseModel):
     """A point the user typed or picked, inside the region's custom-point area (spec §6.6)."""
 
     lat_deg: float = Field(ge=-90, le=90)
-    lon_deg: float = Field(ge=-180, le=180)
+    lon_deg: float = Field(ge=0, le=360)
 
 
 class SitesResponse(BaseModel):

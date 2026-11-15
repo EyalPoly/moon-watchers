@@ -644,10 +644,10 @@ export interface components {
             name: string;
             /** Region */
             region: string;
-            /** Slope Baseline M */
-            slope_baseline_m: number;
             /** Slope Deg */
             slope_deg: number;
+            /** Slope Resolution M */
+            slope_resolution_m: number;
             /**
              * Source
              * @enum {string}

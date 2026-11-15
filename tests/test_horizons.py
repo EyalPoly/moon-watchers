@@ -4,7 +4,14 @@ import numpy as np
 import pytest
 from numpy.typing import NDArray
 
-from engine.horizons import HEIGHTS_M, compute_site_masks, mask_at_height, march, ray_distances
+from engine.horizons import (
+    HEIGHTS_M,
+    compute_site_masks,
+    march,
+    mask_at_height,
+    ray_distances,
+    reach_for_ground,
+)
 from engine.terrain import MOON_RADIUS_M, Dem, project, sample_stack
 
 R = MOON_RADIUS_M
@@ -97,7 +104,7 @@ TANGENT_FLOOR_2M = -np.degrees(np.arccos(R / (R + 2.0)))
 
 def test_ray_distances_schedule() -> None:
     d = ray_distances()
-    assert d[0] == 20.0 and d[-1] == 300_000.0
+    assert d[0] == 20.0 and d[-1] == 200_000.0
     assert np.all(np.diff(d) > 0)
     assert np.isclose(np.diff(d[:250]), 40.0).all()
 
@@ -167,19 +174,22 @@ def test_ray_leaving_coverage_is_unknown() -> None:
     assert "DEM_GAPS" in result.warnings
 
 
-def test_truncation_flagged() -> None:
-    terrain = terrain_with(flat(0.0))
-    high_observer = march(*SITE, [5000.0], terrain, ERRORS, DISTANCES)
-    assert np.isnan(high_observer.elevation_deg).all()
-    assert "HORIZON_TRUNCATED" in high_observer.warnings
-    low_observer = march(*SITE, [2.0], terrain, ERRORS, DISTANCES)
-    assert "HORIZON_TRUNCATED" not in low_observer.warnings
+def test_reach_follows_the_ground_height() -> None:
+    assert reach_for_ground(0.0) == 10_000.0
+    assert reach_for_ground(-1000.0) == reach_for_ground(1000.0)
+    assert reach_for_ground(1000.0) == pytest.approx(np.sqrt(2 * R * 1000.0) + 10_000.0)
+    assert reach_for_ground(15_000.0) == 200_000.0
 
 
-def test_terrain_above_ceiling_raises() -> None:
-    terrain = terrain_with(dome_field(point_east(10_000.0), height_m=25_000.0))
-    with pytest.raises(ValueError, match="ceiling"):
-        march(*SITE, [2.0], terrain, ERRORS, DISTANCES)
+def test_short_reach_stops_inside_the_near_window() -> None:
+    d = ray_distances(reach_m=5_000.0)
+    assert d[-1] == 5_000.0 and np.all(np.diff(d) > 0)
+
+
+def test_far_terrain_beyond_the_reach_raises_no_warning() -> None:
+    result = march(*SITE, [5000.0], terrain_with(flat(0.0)), ERRORS, DISTANCES)
+    assert np.isfinite(result.elevation_deg).all()
+    assert result.warnings == []
 
 
 def test_low_nominal_high_ordered() -> None:
@@ -219,8 +229,9 @@ def test_far_only_ignores_nearby_ridge() -> None:
 
 
 def test_far_mountain_seen() -> None:
-    px, py = point_east(120_000.0)
-    terrain = terrain_with(flat(0.0), dome_field_wide((px, py)))
+    px, py = point_east(100_000.0)
+    summit = dome_field_wide((px, py))
+    terrain = terrain_with(flat(3000.0), lambda x, y: 3000.0 + summit(x, y))
     masks = compute_site_masks(*SITE, terrain, ERRORS)
     assert masks.masks_deg[0, 1, 180] > 0.5
     assert masks.masks_deg[0, 10, 180] > 0.5
@@ -230,7 +241,7 @@ def test_far_mountain_seen() -> None:
 
 
 def test_warnings_merged() -> None:
-    terrain = [make_dem(flat(0.0), 50_000, 500, "small")]
+    terrain = [make_dem(flat(3000.0), 50_000, 500, "small")]
     masks = compute_site_masks(*SITE, terrain, ERRORS)
     assert masks.warnings.count("DEM_GAPS") == 1
 

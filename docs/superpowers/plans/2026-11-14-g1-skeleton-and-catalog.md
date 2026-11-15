@@ -1,5 +1,7 @@
 # G1 Skeleton and Catalog (Slices S0 + S1) Implementation Plan
 
+> **Updated 15 Nov for the physics team's `MenasimMoonV3`:** the horizon reach is computed per point, `min(200 km, √(2R|h|) + 10 km)`, with no terrain ceiling and no `HORIZON_TRUNCATED` warning; lunar longitude is east-positive in [0, 360); slope comes from the published 20 m slope map (`slope_resolution_m: 20` replaces `slope_baseline_m`). Where this plan says 300 km, a 20 km ceiling, [−180, 180) or a 240 m slope baseline, the spec (§7.2, §12.2) and the code are the reference.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** A repo with CI, a FastAPI server serving `/health`, `/meta`, `/sites`, `/sites/{id}`, and a React app that shows the polar map with one NASA Moon Trek layer, site pins and a site picker, running on labeled sample answers with no server, at two hosted previews. Gate G1.

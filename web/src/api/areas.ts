@@ -35,7 +35,7 @@ export interface AreaRequest {
 const toXY = (p: LatLon) => proj4('EPSG:4326', SOUTH_POLE, [p.lon, p.lat]) as [number, number]
 const toLatLon = ([x, y]: [number, number]): LatLon => {
   const [lon, lat] = proj4(SOUTH_POLE, 'EPSG:4326', [x, y]) as [number, number]
-  return { lat: Math.round(lat * 1e5) / 1e5, lon: Math.round(lon * 1e5) / 1e5 }
+  return { lat: Math.round(lat * 1e5) / 1e5, lon: Math.round((((lon % 360) + 360) % 360) * 1e5) / 1e5 }
 }
 
 /** Even-odd rule: is (x, y) inside the polygon? */

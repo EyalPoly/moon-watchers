@@ -8,7 +8,7 @@
   "lon_deg": 0,
   "elevation_m": 1450,
   "slope_deg": 4.2,
-  "slope_baseline_m": 240,
+  "slope_resolution_m": 20,
   "source_url": "placeholder: replaced by the physics team's catalog",
   "is_placeholder": true
 }

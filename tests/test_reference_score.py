@@ -6,7 +6,7 @@ import pytest
 
 from engine.score import GradeInputs, ScorePolicy, dust_index, score_arrays
 
-sys.path.insert(0, str(Path(__file__).parents[1] / "MenasimMoonV2"))
+sys.path.insert(0, str(Path(__file__).parents[1] / "MenasimMoonV3"))
 try:
     from lunar_nav.models import Scoring
     from lunar_nav.scoring import MockDust, score_metrics
