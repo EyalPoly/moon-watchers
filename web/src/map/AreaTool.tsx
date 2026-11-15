@@ -270,7 +270,7 @@ export function AreaTool({ areaRadiusM, onOpen, onClose, namePrefix, spec, setti
             })), { outline, areas: chosen })}>Apply</button>
         ) : (
           <button type="button" className="primary area-find" onClick={() => void findAreas()} disabled={vertices.length < 3 || busy}>
-            {busy ? 'Finding…' : 'Choose On Map'}
+            {busy ? 'Finding…' : 'Apply'}
           </button>
         )}
       </div>
