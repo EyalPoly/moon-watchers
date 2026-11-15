@@ -3,6 +3,7 @@ import { isCustom, type ScoreSettings } from '../api/scoreSettings'
 import type { Meta } from '../api/types'
 import { SampleBanner } from './SampleBanner'
 import { ScoreSettingsPanel } from './ScoreSettingsPanel'
+import type { AppScreen } from '../state/screen'
 
 // Top strip (UI design, Moon_Watchers_UI.pdf): logo and team line on the left, screen
 // tabs on the right with a green underline on the active one.
@@ -10,7 +11,7 @@ const TABS = [
   { id: 'orbit', label: 'Orbit', ready: false },
   { id: 'south_pole', label: 'South pole', ready: true },
   { id: 'surface', label: 'Surface', ready: false },
-  { id: 'timelines', label: 'Timelines', ready: false },
+  { id: 'timelines', label: 'Timelines', ready: true },
 ] as const
 
 function Logo() {
@@ -29,9 +30,11 @@ export interface TopBarProps {
   settings: ScoreSettings
   onSettingsChange: (s: ScoreSettings) => void
   onSettingsCommit: (s: ScoreSettings) => void
+  screen: AppScreen
+  onScreen: (screen: AppScreen) => void
 }
 
-export function TopBar({ sample, scoreSpec, settings, onSettingsChange, onSettingsCommit }: TopBarProps) {
+export function TopBar({ sample, scoreSpec, settings, onSettingsChange, onSettingsCommit, screen, onScreen }: TopBarProps) {
   const [open, setOpen] = useState(false)
   return (
     <header className="topbar">
@@ -48,9 +51,10 @@ export function TopBar({ sample, scoreSpec, settings, onSettingsChange, onSettin
           <button
             key={tab.id}
             type="button"
-            className={tab.id === 'south_pole' ? 'tab tab-active' : 'tab'}
-            aria-current={tab.id === 'south_pole' ? 'page' : undefined}
+            className={tab.id === screen ? 'tab tab-active' : 'tab'}
+            aria-current={tab.id === screen ? 'page' : undefined}
             disabled={!tab.ready}
+            onClick={() => (tab.id === 'south_pole' || tab.id === 'timelines') && tab.id !== screen && onScreen(tab.id)}
             title={tab.ready ? undefined : `${tab.label}: coming soon`}
           >
             {tab.label}

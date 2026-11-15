@@ -24,6 +24,8 @@ import {
 import { applyPlan, type Plan } from './assistant/plan'
 import { AssistantPanel } from './ui/AssistantPanel'
 import { CompareView } from './ui/CompareView'
+import { TimelineScreen } from './ui/TimelineScreen'
+import { parseScreen, withScreen, type AppScreen } from './state/screen'
 import { ResizeHandle } from './ui/ResizeHandle'
 import { ServerUnavailable } from './ui/ServerUnavailable'
 import { LayersBox, type MapLayer } from './ui/LayersBox'
@@ -89,6 +91,7 @@ export default function App({ config }: { config: AppConfig }) {
   const stations = metaQuery.data?.stations ?? FALLBACK_STATIONS
   const presets = displayPresets(presetsFrom(stations))
   const screen = parseScreen2(search)
+  const appScreen = parseScreen(search)
   const settings = useMemo(() => parseScoreSettings(search), [search])
   // Custom points (new sites by lat/lon) come from POST /sites/custom, one per point.
   const customIds = [...new Set(screen.tickets.flatMap((t) => (t.site !== null && isPointId(t.site) ? [t.site] : [])))]
@@ -162,6 +165,11 @@ export default function App({ config }: { config: AppConfig }) {
   }, [])
 
   const [guideOpen, setGuideOpen] = useState(false)
+  /** Switching screens adds a history entry, so Back returns. */
+  const goTo = useCallback((next: AppScreen) => {
+    writeUrl(withScreen(window.location.search, next), 'push')
+    setSearch(window.location.search)
+  }, [])
 
   // One panel can be expanded to full size; this is a view choice, not part of the link.
   const [expanded, setExpanded] = useState<number | null>(null)
@@ -249,7 +257,28 @@ export default function App({ config }: { config: AppConfig }) {
         settings={settings}
         onSettingsChange={onSettingsChange}
         onSettingsCommit={onSettingsCommit}
+        screen={appScreen}
+        onScreen={goTo}
       />
+
+      {appScreen === 'timelines' ? (
+        <TimelineScreen
+          tickets={screen.tickets}
+          sitesById={sitesById}
+          config={config}
+          search={search}
+          settings={settings}
+          isSample={missionIsSample}
+          tau={tau}
+          onTauInput={onTauInput}
+          onTauCommit={onTauCommit}
+          onBack={() => goTo('south_pole')}
+          onOpenTicket={(i) => {
+            apply((s) => ({ ...updateTicket(s, i, { collapsed: undefined }), compare: false, open: i }))
+            goTo('south_pole')
+          }}
+        />
+      ) : (<>
 
       <main className="main" aria-label="South pole">
         <header className="col-head">
@@ -438,7 +467,7 @@ export default function App({ config }: { config: AppConfig }) {
                 <button
                   type="button"
                   className="compare-button"
-                  onClick={() => apply((s) => ({ ...s, compare: true }))}
+                  onClick={() => goTo('timelines')}
                   disabled={comparable < 2 || screen.compare}
                   title={comparable < 2 ? 'Show at least two sites that have a location' : 'Compare the shown sites side by side'}
                 >
@@ -452,6 +481,8 @@ export default function App({ config }: { config: AppConfig }) {
           </>
         )}
       </aside>
+
+      </>)}
 
       <AssistantPanel
         open={guideOpen}
