@@ -1,5 +1,4 @@
 import os
-from datetime import timedelta
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal
@@ -26,14 +25,13 @@ from api.models import (
     SummaryResponse,
 )
 from api.series_json import series_response, site_series
-from api.summary_json import build_summary, mission_series, span_text
+from api.summary_json import build_summary, data_codes, mission_series, span_text, summary_version
 from api.score_config import load_configs
 from api.scenario import Mast, MonthParam, ScenarioParams, parse_t0
 from engine import __version__
-from engine.geometry import EARTH_ORIENTATION_OBSERVED_UNTIL, OutOfRange
+from engine.geometry import OutOfRange
 from engine.horizons import mask_at_height
 from engine.metrics import MissionMetrics, MissionWindow, compute_metrics, mission_window
-from engine.series import STEP_S
 
 SHORT_CACHE = "public, max-age=60"
 IMMUTABLE_CACHE = "public, max-age=31536000, immutable"
@@ -197,12 +195,11 @@ def create_app(
                 f"the window starts at {first:%Y-%m-%dT%H:%MZ}; "
                 f"the ephemeris covers {span_text(eph.start, eph.vectors_km.shape[0], eph.step_s)}",
             ) from error
-        data_codes = list(bundle.warnings.get(scenario.site, []))
-        if window.start + timedelta(seconds=window.n * STEP_S) > EARTH_ORIENTATION_OBSERVED_UNTIL:
-            data_codes.append("EARTH_ORIENTATION_PREDICTED")
         if v:
             response.headers["Cache-Control"] = IMMUTABLE_CACHE
-        return build_summary(entry, scenario, window, metrics, data_codes, configs, f"{bundle.bundle_id}.{__version__}")
+        return build_summary(
+            entry, scenario, window, metrics, data_codes(bundle, scenario.site, window), configs, summary_version(bundle)
+        )
 
     return app
 

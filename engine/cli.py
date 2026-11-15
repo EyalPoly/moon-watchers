@@ -1,7 +1,7 @@
 import argparse
 import os
 import sys
-from datetime import timedelta
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import numpy as np
@@ -10,10 +10,24 @@ from numpy.typing import NDArray
 from api.bundle import BundleError, load_bundle, newest_bundle
 from api.catalog import load_catalog
 from api.errors import ApiError
-from api.models import SeriesResponse
-from api.scenario import DEFAULT_STATION, check_height, parse_station, station_text
+from api.models import Scenario, SeriesResponse
+from api.scenario import (
+    DEFAULT_COLORS,
+    DEFAULT_SLOPE,
+    DEFAULT_STATION,
+    DEFAULT_W,
+    check_height,
+    check_sun_req,
+    parse_station,
+    scenario_params,
+    station_text,
+)
+from api.score_config import load_configs
 from api.series_json import series_response, site_series
+from api.summary_json import build_summary, data_codes, mission_series, summary_version
 from engine.geometry import OutOfRange
+from engine.metrics import compute_metrics, day_bins
+from engine.series import STEP_S
 
 FAR_ROW = 10
 COLUMNS = "az_deg,elevation_deg,low_deg,high_deg,blocking_distance_km"
@@ -82,6 +96,90 @@ def _write_series(args: argparse.Namespace) -> int:
     return 0
 
 
+def _in_range(value: float, name: str, low: float, high: float) -> float:
+    if not low <= value <= high:
+        raise ApiError(422, "INVALID_PARAM", f"{name} must be between {low:g} and {high:g}")
+    return value
+
+
+def _summary_scenario(args: argparse.Namespace) -> Scenario:
+    _in_range(args.days, "days", 1, 365)
+    _in_range(args.psr, "psr", 0, 1)
+    _in_range(args.margin, "margin", 0, 48)
+    return scenario_params(
+        site=args.site,
+        t0=args.t0,
+        days=args.days,
+        panel=check_height(args.panel, "panel"),
+        antenna=check_height(args.antenna, "antenna"),
+        station=args.station,
+        w=args.w,
+        sun_req=check_sun_req(_in_range(args.sun_req, "sun_req", 0, 72)),
+        slope=args.slope,
+        psr=args.psr,
+        margin=args.margin,
+        colors=args.colors,
+    )
+
+
+def _stamp(value: datetime) -> str:
+    return value.strftime("%Y-%m-%dT%H:%MZ")
+
+
+def _write_summary(args: argparse.Namespace) -> int:
+    try:
+        scenario = _summary_scenario(args)
+    except ApiError as error:
+        raise SystemExit(f"invalid input: {error.detail}") from error
+    catalog = load_catalog(args.catalog)
+    if args.site not in catalog:
+        raise SystemExit(f"unknown site {args.site!r}")
+    bundle_dir: Path = args.bundle or _default_bundle()
+    try:
+        bundle = load_bundle(bundle_dir, [args.site])
+    except BundleError as error:
+        raise SystemExit(f"cannot read bundle for site {args.site!r}: {error}") from error
+    try:
+        arrays, window = mission_series(bundle, catalog[args.site], scenario)
+    except (OutOfRange, ValueError) as error:
+        raise SystemExit("no ephemeris for the mission window: outside the bundle's table") from error
+    metrics = compute_metrics(arrays, window.landing)
+    summary = build_summary(
+        catalog[args.site], scenario, window, metrics, data_codes(bundle, args.site, window),
+        load_configs(args.config), summary_version(bundle),
+    )
+    score = summary.score
+    lines = [
+        f"# site={args.site} t0={scenario.t0} days={scenario.days:g} panel_m={scenario.panel:g} "
+        f"antenna_m={scenario.antenna:g} station={station_text(scenario.station)} bundle={bundle.bundle_id}",
+        f"# window={summary.metrics.window[0]}/{summary.metrics.window[1]}",
+    ]
+    for name, value in summary.metrics.model_dump().items():
+        text = "/".join(map(str, value)) if isinstance(value, tuple) else _series_cell(value)
+        lines.append(f"# metric {name}={text}")
+    lines.append(
+        f"# score value={score.value:g} category={score.category} deciding={';'.join(score.deciding)} "
+        f"excluded={score.excluded_reason or ''}"
+    )
+    for f in score.factors:
+        lines.append(
+            f"# factor {f.name} weight={f.weight:g} weight_share={f.weight_share:g} "
+            f"raw={_series_cell(f.raw)} grade={f.grade:g} points_lost={f.points_lost:g}"
+        )
+    for w in summary.warnings:
+        lines.append(f"# warning {w.code} {w.severity}: {w.text}")
+    lines.append("day,start_utc,end_utc,hours,sun_pct,dte_pct,sun_disk_mean")
+    daily = summary.daily
+    for i, (a, b) in enumerate(day_bins(window.n)):
+        start = window.start + timedelta(seconds=a * STEP_S)
+        end = window.start + timedelta(seconds=b * STEP_S)
+        cells = [str(i + 1), _stamp(start), _stamp(end), f"{(b - a) * STEP_S / 3600:g}"]
+        cells += [_series_cell(series[i]) for series in (daily.sun_pct, daily.dte_pct, daily.sun_disk_mean)]
+        lines.append(",".join(cells))
+    args.out.write_text("\n".join(lines) + "\n")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="engine.cli")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -100,9 +198,28 @@ def main(argv: list[str] | None = None) -> int:
     series.add_argument("--bundle", type=Path)
     series.add_argument("--catalog", type=Path, default=Path("catalog/sites.yaml"))
     series.add_argument("--out", type=Path, required=True)
+    summary = sub.add_parser("summary")
+    summary.add_argument("--site", required=True)
+    summary.add_argument("--t0", required=True, help="YYYY-MM-DDTHH:MMZ")
+    summary.add_argument("--days", type=float, default=30)
+    summary.add_argument("--panel", type=float, default=2.0)
+    summary.add_argument("--antenna", type=float, default=3.0)
+    summary.add_argument("--station", default=DEFAULT_STATION)
+    summary.add_argument("--w", default=DEFAULT_W)
+    summary.add_argument("--sun-req", type=float, default=6)
+    summary.add_argument("--slope", default=DEFAULT_SLOPE)
+    summary.add_argument("--psr", type=int, default=1)
+    summary.add_argument("--margin", type=int, default=12)
+    summary.add_argument("--colors", default=DEFAULT_COLORS)
+    summary.add_argument("--bundle", type=Path)
+    summary.add_argument("--catalog", type=Path, default=Path("catalog/sites.yaml"))
+    summary.add_argument("--config", type=Path, default=Path("config"))
+    summary.add_argument("--out", type=Path, required=True)
     args = parser.parse_args(argv)
     if args.command == "series":
         return _write_series(args)
+    if args.command == "summary":
+        return _write_summary(args)
 
     bundle_dir: Path = args.bundle or _default_bundle()
     try:

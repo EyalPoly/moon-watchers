@@ -26,7 +26,8 @@ from api.scenario import parse_t0
 from api.score_config import Configs, is_custom
 from api.series_json import _floats
 from api.warnings import make_warning, sort_warnings
-from engine.geometry import Station
+from engine import __version__
+from engine.geometry import EARTH_ORIENTATION_OBSERVED_UNTIL, Station
 from engine.horizons import mask_at_height
 from engine.metrics import MissionMetrics, MissionWindow, Runs, mission_window
 from engine.score import GRADE_IDS, GRADE_NAMES, GradeInputs, ScorePolicy, SiteScore, dust_index, site_score
@@ -51,6 +52,17 @@ def mission_series(bundle: Bundle, site: Site, scenario: Scenario) -> tuple[Seri
         window.n,
     )
     return arrays, window
+
+
+def data_codes(bundle: Bundle, site_id: str, window: MissionWindow) -> list[str]:
+    codes = list(bundle.warnings.get(site_id, []))
+    if window.start + timedelta(seconds=window.n * STEP_S) > EARTH_ORIENTATION_OBSERVED_UNTIL:
+        codes.append("EARTH_ORIENTATION_PREDICTED")
+    return codes
+
+
+def summary_version(bundle: Bundle) -> str:
+    return f"{bundle.bundle_id}.{__version__}"
 
 
 def policy_from(scenario: Scenario) -> ScorePolicy:

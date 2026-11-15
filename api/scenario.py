@@ -109,7 +109,7 @@ def parse_t0(text: str) -> datetime:
     return moment
 
 
-def _sun_req(value: float) -> float:
+def check_sun_req(value: float) -> float:
     if not _on_step(value, 0.5):
         raise ApiError(422, "INVALID_PARAM", "sun_req must be 0-72 h in steps of 0.5 h")
     return value
@@ -123,7 +123,7 @@ def scenario_params(
     antenna: Antenna = 3,
     station: StationParam = DEFAULT_STATION,
     w: Annotated[str, Query()] = DEFAULT_W,
-    sun_req: Annotated[float, Query(ge=0, le=72), AfterValidator(_sun_req)] = 6,
+    sun_req: Annotated[float, Query(ge=0, le=72), AfterValidator(check_sun_req)] = 6,
     slope: Annotated[str, Query()] = DEFAULT_SLOPE,
     psr: Annotated[int, Query(ge=0, le=1)] = 1,
     margin: Annotated[int, Query(ge=0, le=48)] = 12,
