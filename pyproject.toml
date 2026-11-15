@@ -22,6 +22,9 @@ dev = [
     "types-pyyaml",
     "pyproj>=3.8.0",
     "spiceypy>=8.4.0",
+    "pillow>=13.0.0",
+    "pyshp>=3.1.8",
+    "shapely>=2.2.0",
 ]
 reference = [
     "scipy>=1.18.1",
@@ -40,7 +43,7 @@ strict = true
 files = ["api", "engine", "build", "deploy"]
 
 [[tool.mypy.overrides]]
-module = ["torch", "rasterio", "rasterio.*"]
+module = ["torch", "rasterio", "rasterio.*", "shapefile", "shapely", "shapely.*"]
 ignore_missing_imports = true
 
 [[tool.uv.index]]

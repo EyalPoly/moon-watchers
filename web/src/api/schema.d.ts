@@ -369,6 +369,22 @@ export interface components {
                 string
             ];
         };
+        /** Overlay */
+        Overlay: {
+            /** Attribution */
+            attribution: string;
+            /** Id */
+            id: string;
+            /**
+             * Kind
+             * @constant
+             */
+            kind: "geojson";
+            /** Title */
+            title: string;
+            /** Url */
+            url: string;
+        };
         /** PctThresholds */
         PctThresholds: {
             /** Amber From */
@@ -413,6 +429,8 @@ export interface components {
             id: string;
             /** Layers */
             layers: components["schemas"]["Layer"][];
+            /** Overlays */
+            overlays?: components["schemas"]["Overlay"][];
             /** Proj4 */
             proj4: string;
             tile_grid: components["schemas"]["TileGrid"];

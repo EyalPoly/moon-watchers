@@ -30,6 +30,26 @@ def test_meta_matches_sample(client: TestClient) -> None:
     assert "max-age=60" in response.headers["cache-control"]
 
 
+def test_meta_lists_layers_and_overlays(client: TestClient) -> None:
+    region = client.get("/api/v1/meta").json()["regions"][0]
+    assert [layer["id"] for layer in region["layers"]] == [
+        "LRO_LOLA_ClrShade_SPole75_30mp_v04",
+        "slope_80m",
+        "elevation",
+    ]
+    assert [overlay["id"] for overlay in region["overlays"]] == [
+        "psr_1km2",
+        "psr_large",
+        "mission_sites",
+        "artemis3_2024",
+        "artemis3_2022",
+        "endurance_traverse",
+    ]
+    base = "https://clps-514710-layers.web.app/"
+    urls = [layer["url_template"] for layer in region["layers"][1:]] + [o["url"] for o in region["overlays"]]
+    assert all(url.startswith(base) for url in urls)
+
+
 def test_unknown_route_is_problem_json(client: TestClient) -> None:
     response = client.get("/api/v1/nope")
     assert response.status_code == 404
