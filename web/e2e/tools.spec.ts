@@ -216,7 +216,7 @@ test('graded areas are cleared when the grading weights change', async ({ page, 
   const tool = await openToolAndDraw(page, '10', [19, 11])
   await tool.getByRole('button', { name: 'Apply', exact: true }).click()
   await expect(tool.getByRole('list', { name: 'Best areas' })).toBeVisible()
-  await tool.getByRole('button', { name: /Grading Weights/ }).click()
+  await page.getByRole('button', { name: /^Grading Weights/ }).click()
   const slider = page.getByRole('slider', { name: 'station contact' })
   await slider.fill('0.5')
   await slider.dispatchEvent('pointerup')

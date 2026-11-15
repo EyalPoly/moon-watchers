@@ -2,12 +2,10 @@ import Feature from 'ol/Feature'
 import { asArray } from 'ol/color'
 import { createApi } from '../api/client'
 import { resolveSource, type AppConfig } from '../api/config'
-import type { Meta } from '../api/types'
 import { cellGrader } from '../state/areaGrade'
 import type { Ticket } from '../state/tickets'
-import { isCustom, type ScoreSettings } from '../api/scoreSettings'
+import type { ScoreSettings } from '../api/scoreSettings'
 import { AreaGradeLegend } from '../ui/MapLegend'
-import { ScoreSettingsPanel } from '../ui/ScoreSettingsPanel'
 import { gradeColor, type AppliedRegion } from './RegionOverlay'
 import type MapBrowserEvent from 'ol/MapBrowserEvent'
 import { LineString, Point, Polygon } from 'ol/geom'
@@ -24,14 +22,12 @@ import { useMap } from './PolarMap'
 export interface AreaToolProps {
   /** Radius of the custom-point area in map meters: grid points stay inside it. */
   areaRadiusM: number
-  /** Opens one ticket per chosen area. */
-  spec: Meta['score']
   settings: ScoreSettings
   config: AppConfig
   search: string
   /** The card whose mission the areas are graded for. */
   ticket: Ticket
-  onSettingsApply: (settings: ScoreSettings) => void
+  /** Opens one ticket per chosen area. */
   onOpen: (points: { site: string; name: string }[], region: AppliedRegion) => void
   onClose: () => void
   /** Name prefix for the new tickets, e.g. the source ticket's name. */
@@ -48,7 +44,7 @@ const SPACINGS_KM = [2, 5, 10]
 /** After the last click, how long to wait before finding areas by itself. */
 export const AUTO_FIND_MS = 1200
 
-export function AreaTool({ areaRadiusM, onOpen, onClose, namePrefix, spec, settings, config, search, ticket, onSettingsApply, autoFind = false, onRanked }: AreaToolProps) {
+export function AreaTool({ areaRadiusM, onOpen, onClose, namePrefix, settings, config, search, ticket, autoFind = false, onRanked }: AreaToolProps) {
   const map = useMap()
   const [spacingKm, setSpacingKm] = useState(5)
   const [vertices, setVertices] = useState<[number, number][]>([])
@@ -79,7 +75,6 @@ export function AreaTool({ areaRadiusM, onOpen, onClose, namePrefix, spec, setti
     setStats(null)
   }, [gradedFor])
 
-  const [draftSettings, setDraftSettings] = useState<ScoreSettings | null>(null)
   const [outline, setOutline] = useState<LatLon[]>([])
 
   const layers = useMemo(
@@ -138,7 +133,7 @@ export function AreaTool({ areaRadiusM, onOpen, onClose, namePrefix, spec, setti
   useEffect(() => {
     if (!map) return
     const onClick = (e: MapBrowserEvent<PointerEvent>) => {
-      if (busy || draftSettings) return
+      if (busy) return
       const s = spacingKm * 1000
       const x = Math.round(e.coordinate[0] / s) * s
       const y = Math.round(e.coordinate[1] / s) * s
@@ -152,7 +147,7 @@ export function AreaTool({ areaRadiusM, onOpen, onClose, namePrefix, spec, setti
     }
     map.on('click', onClick)
     return () => map.un('click', onClick)
-  }, [map, spacingKm, areaRadiusM, busy, draftSettings])
+  }, [map, spacingKm, areaRadiusM, busy])
 
   // The outline: its points, and the polygon once there are three.
   useEffect(() => {
@@ -262,20 +257,6 @@ export function AreaTool({ areaRadiusM, onOpen, onClose, namePrefix, spec, setti
 
   const chosen = (areas ?? []).filter((a) => selected.has(a.id))
 
-  if (draftSettings) return (
-    <form className="area-tool region-settings" role="dialog" aria-label="Grading Weights" onSubmit={(e) => {
-      e.preventDefault()
-      if (e.currentTarget.querySelector('[aria-invalid="true"], [role="alert"]')) return
-      onSettingsApply(draftSettings)
-      setDraftSettings(null)
-    }}>
-      <div className="area-tool-head"><strong>Grading Weights</strong>
-        <button type="button" className="link-button" onClick={() => setDraftSettings(null)}>Cancel</button></div>
-      <ScoreSettingsPanel spec={spec} value={draftSettings} onChange={setDraftSettings} onCommit={setDraftSettings} />
-      <button type="submit" className="primary settings-apply">Apply</button>
-    </form>
-  )
-
   return (
     <div className="area-tool" role="dialog" aria-label="Manual Selection">
       <div className="area-tool-head">
@@ -328,9 +309,6 @@ export function AreaTool({ areaRadiusM, onOpen, onClose, namePrefix, spec, setti
           disabled={busy || vertices.length === 0}
         >
           Clear
-        </button>
-        <button type="button" className="secondary region-score" disabled={busy} onClick={() => setDraftSettings(settings)}>
-          {isCustom(settings) ? 'Grading Weights (custom)' : 'Grading Weights'}
         </button>
         {areas?.length ? (
           <button type="button" className="primary area-find" disabled={chosen.length === 0}

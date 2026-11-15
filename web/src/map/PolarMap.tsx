@@ -40,6 +40,14 @@ function clipToCircle(layer: Layer, radiusM: number) {
 
 type TileLoader = (tile: { setState(state: number): void }) => void
 
+/** Zoom steps past the finest tile level; the map enlarges the deepest tiles there. */
+const EXTRA_ZOOM_STEPS = 2
+
+function viewResolutions(tileResolutions: readonly number[]): number[] {
+  const finest = tileResolutions[tileResolutions.length - 1]
+  return [...tileResolutions, ...Array.from({ length: EXTRA_ZOOM_STEPS }, (_, i) => finest / 2 ** (i + 1))]
+}
+
 export interface PolarMapProps {
   region: Region
   showRelief?: boolean
@@ -182,7 +190,7 @@ export function PolarMap({
       view: new View({
         projection,
         center: [0, 0],
-        resolutions: region.tile_grid.resolutions_m,
+        resolutions: viewResolutions(region.tile_grid.resolutions_m),
         extent: viewExtent,
         resolution: region.tile_grid.resolutions_m[Math.min(4, region.tile_grid.resolutions_m.length - 1)],
       }),

@@ -4,7 +4,8 @@ import { resolveSource, type AppConfig } from './api/config'
 import type { Meta, Region, Site } from './api/types'
 import { isPointId, parsePointId } from './api/points'
 import { parseScoreSettings, serializeScoreSettings, type ScoreSettings } from './api/scoreSettings'
-import { useCustomSites, useMeta, useSites } from './state/queries'
+import { useCustomSites, useFetchSummary, useMeta, useSites } from './state/queries'
+import { toScenario } from './state/scenario'
 import { useTicketRanking } from './state/ranking'
 import { presetsFrom, stationLabel } from './api/stations'
 import {
@@ -19,6 +20,7 @@ import {
   removeTicket,
   serializeScreen2,
   showAll,
+  sortByGrade,
   updateTicket,
   type Screen2State,
   type Ticket,
@@ -60,7 +62,8 @@ const URL_WRITE_MS = 500
 const SIDE_W_KEY = 'moon-watchers.calculator-share'
 const DEFAULT_SHARE = 2 / 3
 const SIDE_MIN_W = 300
-const SITES_PER_PAGE = 3
+/** A calculator at least this wide shows four site cards per page instead of three. */
+const FOUR_CARDS_MIN_W = 1000
 const DEFAULT_GRAPH_HEIGHT = 280
 
 function readSideShare(): number {
@@ -226,11 +229,12 @@ export default function App({ config }: { config: AppConfig }) {
     apply((s) => ({ ...s, tickets: s.tickets.map((t) => ({ ...t, view })) }))
   }
   const focusTicket = (i: number) => apply((s) => ({ ...updateTicket(s, i, { collapsed: undefined }), open: i }))
-  const page = Math.floor(Math.max(0, screen.open) / SITES_PER_PAGE)
-  const pageCount = Math.ceil(screen.tickets.length / SITES_PER_PAGE)
-  const start = page * SITES_PER_PAGE
+  const sitesPerPage = Math.min(sideWidth, sideMax) >= FOUR_CARDS_MIN_W ? 4 : 3
+  const page = Math.floor(Math.max(0, screen.open) / sitesPerPage)
+  const pageCount = Math.ceil(screen.tickets.length / sitesPerPage)
+  const start = page * sitesPerPage
   const visibleGraphs = expanded !== null && shownIndexes.includes(expanded)
-    ? [expanded] : shownIndexes.filter((i) => pageCount === 1 || (i >= start && i < start + SITES_PER_PAGE))
+    ? [expanded] : shownIndexes.filter((i) => pageCount === 1 || (i >= start && i < start + sitesPerPage))
   const selecting = freehand === active && view === 'map' && !screen.compare
   const openRegion = () => {
     if (selecting) { setFreehand(null); return }
@@ -241,6 +245,34 @@ export default function App({ config }: { config: AppConfig }) {
         ({ ...t, view: 'map', shown: t.shown || i === active })) }))
     }
     setFreehand(active)
+  }
+
+  const fetchSummary = useFetchSummary(config, search)
+  const [sorting, setSorting] = useState(false)
+  const gradedCount = screen.tickets.filter((t) => t.site !== null).length
+  /** Orders the cards by their weighted score under the current Grading Weights, best first. */
+  const sortCardsByGrade = async () => {
+    const scenarioKey = (t: Ticket) => (t.site === null ? null : JSON.stringify(toScenario(t.site, t, t.station, settings)))
+    const grades = new Map<string, number>()
+    setSorting(true)
+    try {
+      await Promise.all(screen.tickets.map(async (t) => {
+        const key = scenarioKey(t)
+        if (t.site === null || key === null || grades.has(key)) return
+        try {
+          grades.set(key, (await fetchSummary(toScenario(t.site, t, t.station, settings))).score.value)
+        } catch { /* A card without a score goes last. */ }
+      }))
+    } finally {
+      setSorting(false)
+    }
+    setExpanded(null)
+    setPanelHeights({})
+    setFreehand(null)
+    apply((s) => sortByGrade(s, (t) => {
+      const key = scenarioKey(t)
+      return key === null ? undefined : grades.get(key)
+    }))
   }
 
   /** Manual Selection for the AI guide: on the South pole map, finding areas by itself. */
@@ -340,7 +372,8 @@ export default function App({ config }: { config: AppConfig }) {
           <p className="eyebrow mono">02&nbsp;&nbsp;/&nbsp;&nbsp;South Pole</p>
           <h1>South Pole Explorer</h1>
         </header>
-        {!screen.compare && <ExplorerControls view={view} selecting={selecting} onView={selectView} onRegion={openRegion} />}
+        {!screen.compare && <ExplorerControls view={view} selecting={selecting} onView={selectView} onRegion={openRegion}
+          scoreSpec={metaQuery.data?.score ?? FALLBACK_SCORE} settings={settings} onSettingsApply={applySettings} />}
         {screen.compare ? (
           <CompareView
             tickets={screen.tickets}
@@ -360,8 +393,7 @@ export default function App({ config }: { config: AppConfig }) {
           <>
             <SharedSiteMap tickets={screen.tickets} active={active} sites={allSites} region={region} layer={selectedLayer}
               polygonLayer={polygonLayer} appliedRegion={appliedRegion} config={config} search={search}
-              settings={settings} scoreSpec={metaQuery.data?.score ?? FALLBACK_SCORE} onSettingsApply={applySettings}
-              selecting={selecting} atLimit={screen.tickets.length >= MAX_URL_TICKETS && screen.tickets[active]?.site !== null} onFocus={focusTicket}
+              settings={settings} selecting={selecting} atLimit={screen.tickets.length >= MAX_URL_TICKETS && screen.tickets[active]?.site !== null} onFocus={focusTicket}
               onPlace={(site) => apply((s) => placePoint(s, active, site))}
               onRegionClose={() => { setFreehand(null); setGuideRegion(false) }}
               guideRegion={guideRegion} onRanked={onAreasRanked}
@@ -448,6 +480,11 @@ export default function App({ config }: { config: AppConfig }) {
                 </div>
               </details>
               {screen.tickets.some((t) => t.site === null) && <span className="col-meta mono">{pointCount(screen.tickets)}</span>}
+              <button type="button" className="secondary sort-grade" onClick={() => void sortCardsByGrade()}
+                disabled={sorting || gradedCount < 2}
+                title={gradedCount < 2 ? 'Add at least two sites that have a location' : 'Reorder the cards from the highest weighted score to the lowest'}>
+                {sorting ? 'Sorting…' : 'Sort by grade'}
+              </button>
               {ranking.updatedAt > 0 && (
                 <span className="ranking-status" aria-live="polite">
                   Ranking updated {formatClock(ranking.updatedAt)}
@@ -456,12 +493,12 @@ export default function App({ config }: { config: AppConfig }) {
               )}
             </div>
             {pageCount > 1 && <nav className="site-pages" aria-label="Site pages">
-              <button type="button" className="link-button" disabled={page === 0} onClick={() => { setExpanded(null); focusTicket(start - SITES_PER_PAGE) }}>Previous</button>
-              <span>Sites {start + 1}–{Math.min(start + SITES_PER_PAGE, screen.tickets.length)} of {screen.tickets.length}</span>
-              <button type="button" className="link-button" disabled={page + 1 === pageCount} onClick={() => { setExpanded(null); focusTicket(start + SITES_PER_PAGE) }}>Next</button>
+              <button type="button" className="link-button" disabled={page === 0} onClick={() => { setExpanded(null); focusTicket(start - sitesPerPage) }}>Previous</button>
+              <span>Sites {start + 1}–{Math.min(start + sitesPerPage, screen.tickets.length)} of {screen.tickets.length}</span>
+              <button type="button" className="link-button" disabled={page + 1 === pageCount} onClick={() => { setExpanded(null); focusTicket(start + sitesPerPage) }}>Next</button>
             </nav>}
-            <div className="tickets" data-columns={Math.min(SITES_PER_PAGE, screen.tickets.length - start)}>
-              {screen.tickets.map((t, i) => i >= start && i < start + SITES_PER_PAGE && (
+            <div className="tickets" data-columns={Math.min(sitesPerPage, screen.tickets.length - start)}>
+              {screen.tickets.map((t, i) => i >= start && i < start + sitesPerPage && (
                 <PointCard
                   key={i}
                   index={i}

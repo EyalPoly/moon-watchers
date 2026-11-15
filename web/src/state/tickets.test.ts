@@ -9,7 +9,7 @@ import {
   removeTicket,
   serializeScreen2,
   showAll,
-  sortByRank,
+  sortByGrade,
   updateTicket,
   type Screen2State,
 } from './tickets'
@@ -140,10 +140,10 @@ test('hiding tickets leaves compare once fewer than two remain', () => {
   expect(showAll(s, false).tickets.every((t) => !t.shown)).toBe(true)
 })
 
-test('sorting by rank puts the best first, keeps unranked last and follows the open ticket', () => {
+test('sorting by grade puts the highest first, keeps ungraded last and follows the open ticket', () => {
   const s: Screen2State = { tickets: [A, B, C, EMPTY_TICKET], open: 2, tau: 0, compare: false }
-  const ranks = [3, 1, 2, undefined]
-  const sorted = sortByRank(s, (i) => ranks[i])
+  const grades = new Map<string | null, number>([['sample_a', 40], ['sample_b', 90], ['sample_c', 65]])
+  const sorted = sortByGrade(s, (t) => grades.get(t.site))
   expect(sorted.tickets.map((t) => t.site)).toEqual(['sample_b', 'sample_c', 'sample_a', null])
   expect(sorted.tickets[sorted.open].site).toBe('sample_c')
 })
