@@ -35,3 +35,28 @@ def test_converge_windows_cover_the_widest_schedule() -> None:
     assert by_dem["lola/LDEM_60S_240MPP_ADJ.TIF"] >= 400_000.0
     assert by_dem["lola/LDEM_80S_20MPP_ADJ.TIF"] >= 20_000.0
     assert by_dem["lola/LDEM_80S_80MPP_ADJ.TIF"] >= 20_000.0
+
+
+def ridge_east(distance_m: float, height_m: float, sigma_m: float):  # type: ignore[no-untyped-def]
+    center = point_east(distance_m)
+
+    def field(x: NDArray[np.float64], y: NDArray[np.float64]) -> NDArray[np.float64]:
+        d2 = (x - center[0]) ** 2 + (y - center[1]) ** 2
+        return height_m * np.exp(-d2 / (2 * sigma_m**2))
+
+    return field
+
+
+def test_far_step_does_not_miss_a_narrow_distant_ridge() -> None:
+    # A ridge 12.28 km out falls between two 240 m samples and is clipped by about 0.15 degrees.
+    terrain = terrain_with(ridge_east(12_280.0, 200.0, 200.0))
+    default = march(*SITE, [2.0], terrain, ERRORS, ray_distances()).elevation_deg
+    fine = march(*SITE, [2.0], terrain, ERRORS, ray_distances(far_step_m=15.0)).elevation_deg
+    assert max_mask_change(default, fine) < 0.02
+
+
+def test_the_old_240_m_far_step_missed_that_ridge() -> None:
+    terrain = terrain_with(ridge_east(12_280.0, 200.0, 200.0))
+    coarse = march(*SITE, [2.0], terrain, ERRORS, ray_distances(far_step_m=240.0)).elevation_deg
+    fine = march(*SITE, [2.0], terrain, ERRORS, ray_distances(far_step_m=15.0)).elevation_deg
+    assert max_mask_change(coarse, fine) > 0.05

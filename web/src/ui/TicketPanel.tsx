@@ -1,8 +1,8 @@
-import type { ReactNode } from 'react'
+import { useMemo, type ReactNode } from 'react'
 import type { AppConfig } from '../api/config'
 import type { Site } from '../api/types'
 import { SkyView } from '../sky/SkyView'
-import { useHorizon, useMissionSeries } from '../state/queries'
+import { useHorizon, useMeta, useMissionSeries } from '../state/queries'
 import { useScenario } from '../state/scenario'
 import { indexAt } from '../state/series'
 import type { Ticket } from '../state/tickets'
@@ -34,6 +34,12 @@ export function TicketGraph({
   // Same query key as the panel's when the heights match, so it costs no extra request.
   const antennaHorizon = useHorizon(config, search, site.id, ticket.antenna)
   const series = useMissionSeries(config, search, scenario)
+  const meta = useMeta(config, search)
+  const declination = meta.data?.sun_declination_deg
+  const sunSeason = useMemo(
+    () => (declination ? { latDeg: site.lat_deg, minDeg: declination[0], maxDeg: declination[1] } : undefined),
+    [declination, site.lat_deg],
+  )
   const t0Ms = parseIsoMinute(ticket.t0) as number
   const endMs = t0Ms + ticket.days * DAY_MS
   const outsideMission = nowMs < t0Ms || nowMs > endMs
@@ -77,6 +83,7 @@ export function TicketGraph({
         endMs={endMs}
         nowMs={nowMs}
         stationLabel={stationLabel}
+        sunSeason={sunSeason}
       />
     </div>
   )

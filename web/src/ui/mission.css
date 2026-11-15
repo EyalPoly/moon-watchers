@@ -445,6 +445,12 @@ input[type="range"] {
   stroke: var(--sun);
 }
 
+.sky-sun-season {
+  fill: var(--sun);
+  fill-opacity: 0.12;
+  stroke: none;
+}
+
 .sky-path-earth {
   stroke: var(--earth);
 }
@@ -527,6 +533,11 @@ input[type="range"] {
 
 .legend-earth::before {
   background: var(--earth);
+}
+
+.legend-season::before {
+  background: var(--sun);
+  opacity: 0.35;
 }
 
 .legend-terrain::before {

@@ -88,6 +88,14 @@ def interpolate(eph: Ephemeris, t_s: Vec) -> SkyState:
     return SkyState(vectors[:, 0:3], vectors[:, 3:6], vectors[:, 6:9], rotation)
 
 
+def sun_declination_range_deg(eph: Ephemeris) -> tuple[float, float]:
+    """Lowest and highest Sun declination over the whole table, from the Moon's centre. Over the
+    sky of any site the Sun then stays between the two constant-declination curves."""
+    sun = eph.vectors_km[:, 0:3]
+    declination = np.degrees(np.arctan2(sun[:, 2], np.hypot(sun[:, 0], sun[:, 1])))
+    return float(declination.min()), float(declination.max())
+
+
 def observer_km(lat_deg: float, lon_deg: float, ground_m: float, height_m: float) -> Vec:
     up, _, _ = site_basis(lat_deg, lon_deg)
     return up * (MOON_RADIUS_M + ground_m + height_m) / 1000.0

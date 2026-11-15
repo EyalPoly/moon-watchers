@@ -17,6 +17,7 @@ from engine.geometry import (
     observer_km,
     site_basis,
     station_fixed_km,
+    sun_declination_range_deg,
     station_sky,
 )
 from tests.ephemeris_helpers import HOUSTON_LON_DEG, SIDEREAL_DAY_S, synthetic_ephemeris
@@ -146,3 +147,14 @@ def test_station_moon_el_overhead() -> None:
     # (less than a degree off, from the Moon's parallax seen from the Earth's surface).
     assert result.moon_el_deg[0] == pytest.approx(90 - HOUSTON.lat_deg, abs=1.0)
     assert 0 <= result.az_deg[0] < 360
+
+
+def test_sun_declination_range_follows_the_tilt() -> None:
+    eph = synthetic_ephemeris(START, 2)
+    assert sun_declination_range_deg(eph) == pytest.approx((0.0, 0.0), abs=1e-12)
+    tilt = np.radians(1.5)
+    t = np.linspace(0, 2 * np.pi, eph.vectors_km.shape[0])
+    vectors = eph.vectors_km.copy()
+    vectors[:, 0:3] = 1.5e8 * np.stack([np.cos(t), np.sin(t) * np.cos(tilt), np.sin(t) * np.sin(tilt)], axis=1)
+    low, high = sun_declination_range_deg(Ephemeris(eph.start, eph.step_s, vectors, eph.earth_rotation))
+    assert low == pytest.approx(-1.5, abs=0.05) and high == pytest.approx(1.5, abs=0.05)
