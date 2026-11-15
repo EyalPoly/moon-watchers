@@ -1,4 +1,4 @@
-const MAP_LAYERS = ['Relief', 'PSR', 'Earth DTE', 'Slope', 'Dust'] as const
+const MAP_LAYERS = ['Relief', 'PSR', 'Earth DTE', 'Slope', 'Lunar regolith'] as const
 const POLYGON_LAYERS = ['None', 'Planning boundary', 'Selected region', 'Ranked areas'] as const
 export type MapLayer = (typeof MAP_LAYERS)[number]
 export type PolygonLayer = (typeof POLYGON_LAYERS)[number]

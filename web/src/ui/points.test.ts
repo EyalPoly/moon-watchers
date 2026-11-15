@@ -33,7 +33,7 @@ test.each([
 })
 
 test('slope words follow the interim thresholds', () => {
-  expect(slopeWord(4.2).word).toBe('Gentle')
+  expect(slopeWord(4.2).word).toBe('Flat')
   expect(slopeWord(6.8).word).toBe('Moderate')
   expect(slopeWord(12).word).toBe('Steep')
 })

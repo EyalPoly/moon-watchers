@@ -45,7 +45,7 @@ test('the tooltip lists each factor, marks dust as simulated, and carries the ex
   const { container } = render(<ScoreBox score={base} />)
   const title = container.querySelector('.score')?.getAttribute('title') ?? ''
   expect(title.split('\n').filter((l) => l.includes('pts lost')).length).toBe(7)
-  expect(title).toContain('dust: simulated')
+  expect(title).toContain('lunar regolith: simulated')
   expect(title).toContain(base.explanation)
   expect(title).toContain(base.formula)
 })

@@ -9,7 +9,7 @@
 |---|---|
 | Sun % (`sun_pct`) | Share of the mission with any part of the Sun visible |
 | Earth % (`dte_pct`) | Share of the mission with Earth contact to the chosen station |
-| Sun + Earth together (`both_pct`) | Share with both at once |
+| Light and communication overlap (`both_pct`) | Share with both at once |
 | Sunlight (L) (`sun_disk_mean`) | Average visible fraction of the Sun's disk, averaged per day then over the days; a half-hidden Sun counts half |
 | Station contact (C) (`contact_mean`) | Average daily share of time with contact |
 | Earth above horizon (`earth_any_pct`) | Share with part of the Earth's disk above the terrain (information only) |

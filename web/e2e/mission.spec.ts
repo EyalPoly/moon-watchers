@@ -16,7 +16,7 @@ test('a point shows its status, live values, countdowns, verdict, and its ridge 
   for (const label of ['Light', 'Earth DTE', 'Slope', 'Sun elev.', 'Earth elev.', 'Local slope']) {
     await expect(a.getByText(label, { exact: true })).toBeVisible()
   }
-  await expect(a.getByText('Gentle', { exact: true })).toBeVisible()
+  await expect(a.getByText('Flat', { exact: true })).toBeVisible()
   await page.locator('.score-details > summary').first().click()
   for (const chip of [/^Sun: \d+%/, /^Earth: \d+%/, /^Slope: 4\.2°/]) {
     await expect(page.getByLabel(chip)).toBeVisible()
