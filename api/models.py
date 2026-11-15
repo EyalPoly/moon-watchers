@@ -28,6 +28,14 @@ class Layer(BaseModel):
     legend_url: str | None
 
 
+class Overlay(BaseModel):
+    id: str
+    title: str
+    kind: Literal["geojson"]
+    url: str
+    attribution: str
+
+
 class TileGrid(BaseModel):
     origin: tuple[float, float]
     resolutions_m: list[float]
@@ -46,6 +54,7 @@ class Region(BaseModel):
     extent_m: tuple[float, float, float, float]
     tile_grid: TileGrid
     layers: list[Layer]
+    overlays: list[Overlay] = Field(default_factory=list)
     custom_area: CustomArea
 
 

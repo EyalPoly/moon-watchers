@@ -1,7 +1,13 @@
-.PHONY: test typecheck check contract fetch masks ephemeris deploy
+.PHONY: test typecheck check contract fetch masks ephemeris layers layers-deploy deploy
 
 fetch:
 	uv run python -m build.fetch_sources $(if $(ONLY),--only $(ONLY))
+
+layers:
+	uv run python -m build.make_layers
+
+layers-deploy:
+	cd layers && firebase deploy --only hosting --project clps-514710
 
 masks:
 	uv run python -m build.make_masks $(if $(TERRAIN),--terrain $(TERRAIN))

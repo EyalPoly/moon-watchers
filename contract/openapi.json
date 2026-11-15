@@ -739,6 +739,40 @@
         "title": "Metrics",
         "type": "object"
       },
+      "Overlay": {
+        "properties": {
+          "attribution": {
+            "title": "Attribution",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "const": "geojson",
+            "title": "Kind",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "kind",
+          "url",
+          "attribution"
+        ],
+        "title": "Overlay",
+        "type": "object"
+      },
       "PctThresholds": {
         "properties": {
           "amber_from": {
@@ -855,6 +889,13 @@
               "$ref": "#/components/schemas/Layer"
             },
             "title": "Layers",
+            "type": "array"
+          },
+          "overlays": {
+            "items": {
+              "$ref": "#/components/schemas/Overlay"
+            },
+            "title": "Overlays",
             "type": "array"
           },
           "proj4": {
