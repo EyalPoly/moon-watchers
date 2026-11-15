@@ -21,7 +21,7 @@ def site_data(**overrides: Any) -> dict[str, Any]:
         "lon_deg": 10.0,
         "elevation_m": 1200.0,
         "slope_deg": 3.0,
-        "slope_baseline_m": 240.0,
+        "slope_resolution_m": 20.0,
         "source_url": "placeholder",
         "is_placeholder": True,
     }
@@ -43,9 +43,14 @@ def test_site_rejects_lat_outside_custom_area() -> None:
         Site.model_validate(site_data(lat_deg=-80.0))
 
 
-def test_site_rejects_lon_of_180() -> None:
+@pytest.mark.parametrize("lon", [-1.0, 360.0, 361.0])
+def test_site_rejects_lon_outside_0_to_360(lon: float) -> None:
     with pytest.raises(ValidationError):
-        Site.model_validate(site_data(lon_deg=180.0))
+        Site.model_validate(site_data(lon_deg=lon))
+
+
+def test_site_accepts_lon_of_180() -> None:
+    assert Site.model_validate(site_data(lon_deg=180.0)).lon_deg == 180.0
 
 
 @pytest.mark.parametrize("bad_id", ["../x", "", "a" * 65, "Has Caps", "x y"])

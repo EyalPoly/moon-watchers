@@ -277,13 +277,6 @@
       "standing": false
     },
     {
-      "code": "HORIZON_TRUNCATED",
-      "severity": "caution",
-      "affects": "skyline",
-      "text": "Terrain beyond 300 km could still block some directions.",
-      "standing": false
-    },
-    {
       "code": "UNCERTAINTY_UNAVAILABLE",
       "severity": "info",
       "affects": "skyline",
@@ -301,7 +294,7 @@
       "code": "EFFECTIVE_RESOLUTION",
       "severity": "caution",
       "affects": "slope",
-      "text": "The data's effective resolution here is coarser than the 240 m slope baseline.",
+      "text": "The data's effective resolution here is coarser than the 20 m slope map.",
       "standing": false
     },
     {

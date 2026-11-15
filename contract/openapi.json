@@ -92,8 +92,8 @@
             "type": "number"
           },
           "lon_deg": {
-            "maximum": 180.0,
-            "minimum": -180.0,
+            "maximum": 360.0,
+            "minimum": 0.0,
             "title": "Lon Deg",
             "type": "number"
           }
@@ -1636,8 +1636,8 @@
             "type": "number"
           },
           "lon_deg": {
-            "exclusiveMaximum": 180.0,
-            "minimum": -180.0,
+            "exclusiveMaximum": 360.0,
+            "minimum": 0.0,
             "title": "Lon Deg",
             "type": "number"
           },
@@ -1649,12 +1649,12 @@
             "title": "Region",
             "type": "string"
           },
-          "slope_baseline_m": {
-            "title": "Slope Baseline M",
-            "type": "number"
-          },
           "slope_deg": {
             "title": "Slope Deg",
+            "type": "number"
+          },
+          "slope_resolution_m": {
+            "title": "Slope Resolution M",
             "type": "number"
           },
           "source": {
@@ -1680,7 +1680,7 @@
           "lon_deg",
           "elevation_m",
           "slope_deg",
-          "slope_baseline_m",
+          "slope_resolution_m",
           "source_url",
           "is_placeholder"
         ],

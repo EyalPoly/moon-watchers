@@ -217,7 +217,7 @@ def test_version_names_bundle(client: TestClient, bundle_dir: Path) -> None:
 
 def test_warning_codes_catalogued() -> None:
     catalog = load_configs(Path("config")).warnings
-    emitted = ["DEM_GAPS", "HORIZON_TRUNCATED", "UNCERTAINTY_UNAVAILABLE", "EARTH_ORIENTATION_PREDICTED",
+    emitted = ["DEM_GAPS", "UNCERTAINTY_UNAVAILABLE", "EARTH_ORIENTATION_PREDICTED",
                "PSR_UNKNOWN", "EXCLUDED_PSR", "EXCLUDED_SLOPE"]
     emitted += [f"NULL_GRADE:{name}" for name in GRADE_NAMES.values()]
     for code in emitted:

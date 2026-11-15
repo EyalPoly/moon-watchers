@@ -22,7 +22,7 @@ DEM_240 = "lola/LDEM_60S_240MPP_ADJ.TIF"
 def site(site_id: str, lat: float, lon: float) -> Site:
     return Site(
         id=site_id, name=site_id, source="catalog", category="ridge", region="south_pole",
-        lat_deg=lat, lon_deg=lon, elevation_m=0.0, slope_deg=0.0, slope_baseline_m=240.0,
+        lat_deg=lat, lon_deg=lon, elevation_m=0.0, slope_deg=0.0, slope_resolution_m=20.0,
         source_url="test", is_placeholder=True,
     )
 
@@ -30,7 +30,7 @@ def site(site_id: str, lat: float, lon: float) -> Site:
 CATALOG = {
     "s1": site("s1", -89.0, 0.0),
     "s2": site("s2", -89.0, 90.0),
-    "s3": site("s3", -89.5, 200.0 - 360.0),
+    "s3": site("s3", -89.5, 200.0),
 }
 
 
@@ -147,13 +147,13 @@ def test_unknown_terrain_is_rejected(tmp_path: Path) -> None:
 
 
 
-def test_far_window_holds_a_300km_ray_heading_away_from_the_pole(tmp_path: Path) -> None:
+def test_far_window_holds_a_200km_ray_heading_away_from_the_pole(tmp_path: Path) -> None:
     sources = tmp_path / "sources"
     write_dem(sources, DEM_240, 600_000, 4_000)
     far_site = site("a", -85.5, 0.0)
     _, errors = load_windows(far_site, sources, [DEM_240_LAYER])
     window = errors[0]
-    reach_lat = -85.5 + np.degrees(300_000.0 / MOON_RADIUS_M)
+    reach_lat = -85.5 + np.degrees(200_000.0 / MOON_RADIUS_M)
     _, y_end = project(reach_lat, 0.0)
     assert window.y0_m >= float(y_end), "the window must reach the end of the northward ray"
 
@@ -161,4 +161,4 @@ def test_far_window_holds_a_300km_ray_heading_away_from_the_pole(tmp_path: Path)
 def test_map_half_width_follows_the_polar_scale() -> None:
     assert map_half_width_m(-90.0, 1.0) == pytest.approx(1.0, rel=1e-6)
     assert map_half_width_m(-60.0, 1.0) == pytest.approx(2 / (1 + np.cos(np.radians(30.0))), rel=1e-6)
-    assert map_half_width_m(-85.5, 300_000.0) > 302_200.0
+    assert map_half_width_m(-85.5, 200_000.0) > 201_800.0

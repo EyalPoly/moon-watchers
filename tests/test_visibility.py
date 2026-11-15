@@ -104,7 +104,7 @@ def test_sun_fraction_is_disk_with_earth_occultor() -> None:
 
 
 def test_matches_prototype_disk() -> None:
-    sys.path.insert(0, str(Path("MenasimMoonV2")))
+    sys.path.insert(0, str(Path("MenasimMoonV3")))
     try:
         geometry = pytest.importorskip("lunar_nav.geometry")
     finally:

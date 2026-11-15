@@ -185,7 +185,7 @@ def test_earth_range_and_earth_pcts():
 
 
 def test_matches_prototype_summarize():
-    path = Path(__file__).parent.parent / "MenasimMoonV2" / "lunar_nav" / "timing.py"
+    path = Path(__file__).parent.parent / "MenasimMoonV3" / "lunar_nav" / "timing.py"
     if not path.exists():
         pytest.skip("prototype not present")
     spec = importlib.util.spec_from_file_location("prototype_timing", path)
