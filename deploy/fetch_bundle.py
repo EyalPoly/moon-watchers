@@ -25,7 +25,7 @@ def download(url: str, dest: Path) -> None:
         shutil.copyfileobj(response, out, CHUNK)
 
 
-def _sha256(path: Path) -> str:
+def sha256_of(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as handle:
         while chunk := handle.read(CHUNK):
@@ -66,7 +66,7 @@ def fetch_bundle(
             raise BundleFetchError(
                 f"{lock['url']}: expected {lock['bytes']} bytes, got {archive.stat().st_size}"
             )
-        actual = _sha256(archive)
+        actual = sha256_of(archive)
         if actual != lock["sha256"]:
             raise BundleFetchError(f"{lock['url']}: expected sha256 {lock['sha256']}, got {actual}")
         staging = Path(scratch) / "unpacked"

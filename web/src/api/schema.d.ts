@@ -100,11 +100,7 @@ export interface paths {
         put?: never;
         /**
          * Create Custom Site
-         * @description Contract only (slice S7): the engine builds the point's terrain and returns it as
-         *     a site whose id encodes the point, so the call is idempotent (spec §8.2).
-         *
-         *     Open decision for when the engine lands: CORS allows GET only, so a web app on
-         *     another origin cannot call this yet (tests/test_api_basic.py guards that).
+         * @description Creates (or finds again) the site for a point; the id encodes the point, so the call is idempotent.
          */
         post: operations["create_custom_site_api_v1_sites_custom_post"];
         delete?: never;
@@ -369,6 +365,22 @@ export interface components {
                 string
             ];
         };
+        /** Overlay */
+        Overlay: {
+            /** Attribution */
+            attribution: string;
+            /** Id */
+            id: string;
+            /**
+             * Kind
+             * @constant
+             */
+            kind: "geojson";
+            /** Title */
+            title: string;
+            /** Url */
+            url: string;
+        };
         /** PctThresholds */
         PctThresholds: {
             /** Amber From */
@@ -413,6 +425,8 @@ export interface components {
             id: string;
             /** Layers */
             layers: components["schemas"]["Layer"][];
+            /** Overlays */
+            overlays?: components["schemas"]["Overlay"][];
             /** Proj4 */
             proj4: string;
             tile_grid: components["schemas"]["TileGrid"];

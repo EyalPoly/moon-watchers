@@ -41,6 +41,17 @@ Two things were fixed on the way:
 
 The time bars in the plan (3 s for a warm page, 1 s per request) are **not met at 1 vCPU**: a series month costs about 0.25 s of CPU, and a 365-day card needs 13 of them. The browser keeps each month cached, so only the first load pays. Decide whether that is acceptable, or whether the series computation should be made faster.
 
+## Terrain for custom points
+
+Custom points (a click or typed coordinate in 84–90°S) are computed by the API from 80 m and 240 m terrain, so the image needs those files. They are GitHub Release assets pinned by size and sha256 in `deploy/terrain.lock.json`; the `Dockerfile` runs `python -m deploy.fetch_terrain --out /app/terrain` and sets `TERRAIN_DIR`. A wrong checksum or size fails the build. An empty lock (`"files": []`) fetches nothing and the feature stays off: `POST /sites/custom` answers `FEATURE_DISABLED` and a deploy is unaffected.
+
+The files, about 1.2 GB: the 80 m and 240 m elevation rasters with their `_ERR` rasters, and the 80 m slope map. To publish them from the PC that holds `data/sources/`:
+
+1. `uv run python -m build.pack_terrain --repo EyalPoly/moon-watchers --tag terrain-80m-<date>` writes the lock and prints the exact `gh release create` command; run it.
+2. Commit the updated `deploy/terrain.lock.json`, open a pull request, then `make deploy`.
+
+Custom points use coarser terrain than the catalog (80 m, not 20 m), and say so with the `CUSTOM_COARSE_TERRAIN` warning.
+
 ## Frontend
 
 - Static previews on GitHub Pages, built by `.github/workflows/deploy.yml` on every push to `main`.
@@ -51,3 +62,14 @@ The time bars in the plan (3 s for a warm page, 1 s per request) are **not met a
 - Memory is measured in the image (see "Load and memory"); the deployed service itself has not been measured. `create_app()` imports no torch; torch is only imported inside `build/gpu_spike.py`.
 - Credit runs out 90 days after signup: confirm the end date in the billing console and decide the judging-period host before then.
 - A budget alert on the billing account has not been confirmed.
+
+## Map layers
+
+The 2D map's extra layers are static files on their own Firebase Hosting site, not served by the API. `GET /api/v1/meta` lists them: raster layers in `regions[].layers` (`kind: "local"`) and vector overlays in `regions[].overlays`.
+
+- **Site:** `clps-514710-layers` (https://clps-514710-layers.web.app), project `clps-514710`, free Spark plan. Config is `layers/firebase.json` (immutable cache, `Access-Control-Allow-Origin: *`, no SPA rewrite so a missing tile is a 404). The web app's own `firebase.json` is untouched.
+- **Sources:** pinned in `data/sources.lock.json` under `layers/` (slope GeoTIFF, both PSR sets, LROC mission sites, Artemis III 2024 and 2022 regions, Endurance traverse). Elevation tiles use the 80 m and 240 m terrain from `lola/`. `make fetch ONLY=layers/` for the first group; the two DEMs need `make fetch ONLY=lola/LDEM_80S_80MPP_ADJ.TIF` and `ONLY=lola/LDEM_60S_240MPP_ADJ.TIF` (`ONLY=lola/` would also pull the 20 m files, 2.7 GB).
+- **Build:** `make layers` writes `layers/dist/` (about 29 MB, 2,138 tiles plus 6 GeoJSON files; about 2 minutes) and fails if a listed file is missing or the size budget (40 MB total, 5 MB per overlay) is exceeded. Tiles are 256-colour palette PNGs: full RGBA tiles came to 114 MB. `layers/dist` is git-ignored and excluded from the Docker context.
+- **Deploy (by hand):** create the site once with `firebase hosting:sites:create clps-514710-layers --project clps-514710`, then `make layers-deploy`. If the site id is taken, change `LAYERS_BASE_URL` in `build/make_layers.py`, `layers/firebase.json` and the URLs in `contract/samples/meta.json` together.
+- **Coverage:** the slope file starts at 80°S, so the slope layer is transparent outside a ±304 km square around the pole; the map extent is ±457 km. Elevation covers the whole map.
+- **Open:** licence and attribution wording for each layer is still to verify (the strings in `build/make_layers.py` are a best reading). `in_psr` for the score is not filled by these files yet.

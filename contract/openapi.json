@@ -739,6 +739,40 @@
         "title": "Metrics",
         "type": "object"
       },
+      "Overlay": {
+        "properties": {
+          "attribution": {
+            "title": "Attribution",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "const": "geojson",
+            "title": "Kind",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "kind",
+          "url",
+          "attribution"
+        ],
+        "title": "Overlay",
+        "type": "object"
+      },
       "PctThresholds": {
         "properties": {
           "amber_from": {
@@ -855,6 +889,13 @@
               "$ref": "#/components/schemas/Layer"
             },
             "title": "Layers",
+            "type": "array"
+          },
+          "overlays": {
+            "items": {
+              "$ref": "#/components/schemas/Overlay"
+            },
+            "title": "Overlays",
             "type": "array"
           },
           "proj4": {
@@ -2489,7 +2530,7 @@
     },
     "/api/v1/sites/custom": {
       "post": {
-        "description": "Contract only (slice S7): the engine builds the point's terrain and returns it as\na site whose id encodes the point, so the call is idempotent (spec \u00a78.2).\n\nOpen decision for when the engine lands: CORS allows GET only, so a web app on\nanother origin cannot call this yet (tests/test_api_basic.py guards that).",
+        "description": "Creates (or finds again) the site for a point; the id encodes the point, so the call is idempotent.",
         "operationId": "create_custom_site_api_v1_sites_custom_post",
         "requestBody": {
           "content": {

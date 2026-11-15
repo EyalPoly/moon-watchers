@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from api.models import CustomArea, Health, Meta, Problem
+from api.models import CustomArea, Health, Meta, Overlay, Problem
 
 SAMPLES = Path("contract/samples")
 
@@ -23,4 +23,11 @@ def test_problem_rejects_unknown_code() -> None:
     with pytest.raises(ValidationError):
         Problem.model_validate(
             {"type": "about:blank", "title": "x", "status": 400, "code": "NOPE", "detail": None}
+        )
+
+
+def test_overlay_rejects_unknown_kind() -> None:
+    with pytest.raises(ValidationError):
+        Overlay.model_validate(
+            {"id": "a", "title": "A", "kind": "kml", "url": "https://x/a.kml", "attribution": "x"}
         )

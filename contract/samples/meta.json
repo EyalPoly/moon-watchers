@@ -37,6 +37,66 @@
           "url_template": "https://trek.nasa.gov/tiles/Moon/SP/LRO_LOLA_ClrShade_SPole75_30mp_v04/1.0.0//default/default028mm/{z}/{y}/{x}.png",
           "attribution": "NASA Moon Trek / LOLA",
           "legend_url": null
+        },
+        {
+          "id": "slope_80m",
+          "title": "LOLA slope, 80 m",
+          "kind": "local",
+          "url_template": "https://clps-514710-layers.web.app/tiles/south_pole/slope_80m/{z}/{x}/{y}.png",
+          "attribution": "NASA / GSFC / LOLA",
+          "legend_url": "https://clps-514710-layers.web.app/legends/slope_80m.png"
+        },
+        {
+          "id": "elevation",
+          "title": "LOLA elevation, hill-shaded",
+          "kind": "local",
+          "url_template": "https://clps-514710-layers.web.app/tiles/south_pole/elevation/{z}/{x}/{y}.png",
+          "attribution": "NASA / GSFC / LOLA",
+          "legend_url": "https://clps-514710-layers.web.app/legends/elevation.png"
+        }
+      ],
+      "overlays": [
+        {
+          "id": "psr_1km2",
+          "title": "Permanently shadowed regions, 1 km² and larger",
+          "kind": "geojson",
+          "url": "https://clps-514710-layers.web.app/overlays/psr_1km2.geojson",
+          "attribution": "NASA / GSFC / LOLA"
+        },
+        {
+          "id": "psr_large",
+          "title": "Permanently shadowed regions, 5 km² and larger (Mazarico 2011)",
+          "kind": "geojson",
+          "url": "https://clps-514710-layers.web.app/overlays/psr_large.geojson",
+          "attribution": "NASA / LRO / LROC (ASU)"
+        },
+        {
+          "id": "mission_sites",
+          "title": "Past mission sites",
+          "kind": "geojson",
+          "url": "https://clps-514710-layers.web.app/overlays/mission_sites.geojson",
+          "attribution": "NASA / LRO / LROC (ASU)"
+        },
+        {
+          "id": "artemis3_2024",
+          "title": "Artemis III candidate regions (2024)",
+          "kind": "geojson",
+          "url": "https://clps-514710-layers.web.app/overlays/artemis3_2024.geojson",
+          "attribution": "NASA, via Arizona State University / ACT"
+        },
+        {
+          "id": "artemis3_2022",
+          "title": "Artemis III candidate regions (2022)",
+          "kind": "geojson",
+          "url": "https://clps-514710-layers.web.app/overlays/artemis3_2022.geojson",
+          "attribution": "NASA, via Arizona State University / ACT"
+        },
+        {
+          "id": "endurance_traverse",
+          "title": "Endurance-A traverse",
+          "kind": "geojson",
+          "url": "https://clps-514710-layers.web.app/overlays/endurance_traverse.geojson",
+          "attribution": "NASA, via Arizona State University / ACT"
         }
       ],
       "custom_area": {
@@ -352,6 +412,13 @@
       "affects": "sun",
       "text": "The Sun's and Earth's disks use 128-strip sampling and a small-angle approximation.",
       "standing": true
+    },
+    {
+      "code": "CUSTOM_COARSE_TERRAIN",
+      "severity": "caution",
+      "affects": "skyline",
+      "text": "This point uses 80 m terrain; catalog sites use 20 m. Near-horizon angles can differ by up to about 0.7 degrees.",
+      "standing": false
     }
   ]
 }
