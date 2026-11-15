@@ -22,5 +22,9 @@ COPY deploy ./deploy
 RUN python deploy/fetch_bundle.py --out /app/bundle
 ENV BUNDLE_DIR=/app/bundle
 
+# Terrain for custom points: pinned release assets. An empty lock fetches nothing and leaves the feature off.
+RUN python -m deploy.fetch_terrain --out /app/terrain
+ENV TERRAIN_DIR=/app/terrain
+
 ENV PATH="/opt/venv/bin:$PATH"
 CMD ["sh", "-c", "exec uvicorn api.main:create_app --factory --host 0.0.0.0 --port ${PORT:-8080}"]
