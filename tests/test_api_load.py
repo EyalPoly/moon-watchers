@@ -1,6 +1,6 @@
 from urllib.parse import parse_qs, urlsplit
 
-from build.api_load import Result, card_requests, problems, run
+from build.api_load import Result, card_requests, http_fetch, problems, run
 
 
 def months_of(paths: list[str]) -> list[str]:
@@ -50,3 +50,22 @@ def test_run_uses_fetch_for_every_path() -> None:
     assert sorted(seen) == sorted(paths)
     assert [r.path for r in results] == paths
     assert all(r.status == 200 for r in results) and wall >= 0
+
+
+def test_http_fetch_reports_a_dropped_connection_as_status_zero() -> None:
+    import socket
+    import threading
+
+    server = socket.socket()
+    server.bind(("127.0.0.1", 0))
+    server.listen(1)
+
+    def accept_and_drop() -> None:
+        connection, _ = server.accept()
+        connection.recv(1024)
+        connection.close()
+
+    threading.Thread(target=accept_and_drop, daemon=True).start()
+    status, _ = http_fetch(f"http://127.0.0.1:{server.getsockname()[1]}")("/x")
+    server.close()
+    assert status == 0

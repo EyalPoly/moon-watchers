@@ -1,5 +1,6 @@
 import argparse
 import gzip
+import http.client
 import json
 import statistics
 import sys
@@ -102,7 +103,7 @@ def http_fetch(base: str) -> Fetch:
                 return response.status, body
         except urllib.error.HTTPError as error:
             return error.code, error.read()
-        except (urllib.error.URLError, TimeoutError):
+        except (urllib.error.URLError, http.client.HTTPException, OSError):
             return 0, b""
 
     return fetch
