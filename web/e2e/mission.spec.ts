@@ -91,14 +91,14 @@ test('new points open beside the first, compare side by side, and delete', async
   await expect(card(page, 'A').getByText('LIGHT', { exact: true })).toBeVisible()
 
   await page.getByRole('button', { name: /Compare timelines/ }).click()
-  await expect(page).toHaveURL(/view=compare/)
+  await expect(page).toHaveURL(/screen=timelines/)
   const table = page.getByRole('region', { name: 'Compare sites' }).getByRole('table')
   await expect(table).toContainText('Sample site A')
   await expect(table).toContainText('Sample site B')
   await expect(table.getByText('Optimal')).toHaveCount(1)
 
   await page.goBack()
-  await expect(page).not.toHaveURL(/view=compare/)
+  await expect(page).not.toHaveURL(/screen=timelines/)
   await page.getByRole('button', { name: 'Delete site B' }).click()
   await expect(cards(page)).toHaveCount(1)
 })
