@@ -125,13 +125,15 @@ test('Freehand Select outlines an area on the grid and opens the best spots as p
 
   await expect(tool.getByText('Select at least 3 different grid points')).toBeVisible()
   await expect(tool.getByRole('button', { name: 'Choose On Map' })).toBeDisabled()
+  // The coarse grid keeps the outline under the 16-cell grading cap.
+  await tool.getByLabel('Grid spacing').selectOption('10')
   // With no site the map is centered on the pole, well inside the custom-point area.
   const map = (await page.locator('.panel .polar-map').first().boundingBox())!
   // Draw below the region controls and inside the circle at the pole.
   const cx = map.x + map.width / 2
   const dialog = (await tool.boundingBox())!
   const cy = (dialog.y + dialog.height + map.y + map.height) / 2
-  for (const [dx, dy] of [[-50, -28], [50, -28], [50, 28], [-50, 28]]) await page.mouse.click(cx + dx, cy + dy)
+  for (const [dx, dy] of [[-30, -17], [30, -17], [30, 17], [-30, 17]]) await page.mouse.click(cx + dx, cy + dy)
   await expect(tool.getByText(/4 selected/)).toBeVisible()
 
   await tool.getByRole('button', { name: 'Choose On Map' }).click()
@@ -156,6 +158,28 @@ test('Freehand Select outlines an area on the grid and opens the best spots as p
   await expect(canvas).toHaveCount(0)
   await expect(page.getByRole('radio', { name: 'Relief' })).toBeChecked()
   await expect(page).toHaveURL(/tk=pt_s\d+_[ew]\d+/)
+})
+
+test('Choose On Map refuses an outline with more grid cells than can be graded', async ({ page, context }) => {
+  await stubTiles(context)
+  await page.goto('/?tk=~2027-03-01T00:00Z~29.53~2~n:Survey')
+  await page.getByRole('button', { name: 'Manual Selection' }).click()
+  const tool = page.getByRole('dialog', { name: 'Manual Selection' })
+  await expect(tool).toBeVisible()
+  await expect(tool.getByText('Select at least 3 different grid points')).toBeVisible()
+  await expect(tool.getByRole('button', { name: 'Choose On Map' })).toBeDisabled()
+  await tool.getByLabel('Grid spacing').selectOption('2')
+  // With no site the map is centered on the pole, well inside the custom-point area.
+  const map = (await page.locator('.panel .polar-map').first().boundingBox())!
+  // Draw below the region controls and inside the circle at the pole.
+  const cx = map.x + map.width / 2
+  const dialog = (await tool.boundingBox())!
+  const cy = (dialog.y + dialog.height + map.y + map.height) / 2
+  for (const [dx, dy] of [[-50, -28], [50, -28], [50, 28], [-50, 28]]) await page.mouse.click(cx + dx, cy + dy)
+  await expect(tool.getByText(/4 selected/)).toBeVisible()
+  await tool.getByRole('button', { name: 'Choose On Map' }).click()
+  await expect(tool.getByRole('alert')).toContainText('Draw a smaller outline')
+  await expect(tool.getByRole('list', { name: 'Best areas' })).toHaveCount(0)
 })
 
 test('calculator field help opens on click, closes with Escape, and leaves the draft intact', async ({ page, context }) => {

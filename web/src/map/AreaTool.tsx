@@ -1,6 +1,10 @@
 import Feature from 'ol/Feature'
 import { asArray } from 'ol/color'
+import { createApi } from '../api/client'
+import { resolveSource, type AppConfig } from '../api/config'
 import type { Meta } from '../api/types'
+import { cellGrader } from '../state/areaGrade'
+import type { Ticket } from '../state/tickets'
 import { isCustom, type ScoreSettings } from '../api/scoreSettings'
 import { AreaGradeLegend } from '../ui/MapLegend'
 import { ScoreSettingsPanel } from '../ui/ScoreSettingsPanel'
@@ -13,7 +17,7 @@ import { transform } from 'ol/proj'
 import VectorSource from 'ol/source/Vector'
 import { Circle as CircleStyle, Fill, Stroke, Style, Text } from 'ol/style'
 import { useEffect, useMemo, useState } from 'react'
-import { rankAreas, type RankedArea } from '../api/areas'
+import { rankAreas, TooManyCellsError, type RankedArea } from '../api/areas'
 import { formatLatLon, pointId, type LatLon } from '../api/points'
 import { useMap } from './PolarMap'
 
@@ -23,6 +27,10 @@ export interface AreaToolProps {
   /** Opens one ticket per chosen area. */
   spec: Meta['score']
   settings: ScoreSettings
+  config: AppConfig
+  search: string
+  /** The card whose mission the areas are graded for. */
+  ticket: Ticket
   onSettingsApply: (settings: ScoreSettings) => void
   onOpen: (points: { site: string; name: string }[], region: AppliedRegion) => void
   onClose: () => void
@@ -33,13 +41,16 @@ export interface AreaToolProps {
 const SPACINGS_KM = [2, 5, 10]
 
 /** Grid, outline and best areas on one ticket's map (spec §9.3 freehand select, as a grid polygon). */
-export function AreaTool({ areaRadiusM, onOpen, onClose, namePrefix, spec, settings, onSettingsApply }: AreaToolProps) {
+export function AreaTool({ areaRadiusM, onOpen, onClose, namePrefix, spec, settings, config, search, ticket, onSettingsApply }: AreaToolProps) {
   const map = useMap()
   const [spacingKm, setSpacingKm] = useState(5)
   const [vertices, setVertices] = useState<[number, number][]>([])
   const [areas, setAreas] = useState<RankedArea[] | null>(null)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [busy, setBusy] = useState(false)
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null)
+  const [problem, setProblem] = useState<string | null>(null)
+  const [stats, setStats] = useState<{ cells: number; failed: number; firstFailure: string | null } | null>(null)
   const [outside, setOutside] = useState(false)
 
   const [draftSettings, setDraftSettings] = useState<ScoreSettings | null>(null)
@@ -168,7 +179,7 @@ export function AreaTool({ areaRadiusM, onOpen, onClose, namePrefix, spec, setti
   }, [map, layers, areas, selected])
 
   const findAreas = async () => {
-    if (!map || vertices.length < 3) return
+    if (!map || vertices.length < 3 || busy) return
     const projection = map.getView().getProjection()
     const polygon = vertices.map((v) => {
       const [lon, lat] = transform(v, projection, 'EPSG:4326')
@@ -176,12 +187,25 @@ export function AreaTool({ areaRadiusM, onOpen, onClose, namePrefix, spec, setti
     })
     setOutline(polygon)
     setBusy(true)
+    setProblem(null)
+    setStats(null)
+    setProgress(null)
     try {
-      const ranked = await rankAreas({ polygon, spacingKm })
-      setAreas(ranked)
-      setSelected(new Set(ranked.slice(0, 1).map((a) => a.id)))
+      const grade = cellGrader(createApi(config, search), ticket, settings)
+      const result = await rankAreas({ polygon, spacingKm, grade, onProgress: (done, total) => setProgress({ done, total }) })
+      setAreas(result.areas)
+      setStats(result)
+      setSelected(new Set(result.areas.slice(0, 1).map((a) => a.id)))
+    } catch (error) {
+      setAreas(null)
+      setProblem(
+        error instanceof TooManyCellsError
+          ? `This outline has ${error.count} grid cells; the most we can grade at once is ${error.max}. Draw a smaller outline or pick a larger grid.`
+          : error instanceof Error ? error.message : String(error),
+      )
     } finally {
       setBusy(false)
+      setProgress(null)
     }
   }
 
@@ -221,6 +245,7 @@ export function AreaTool({ areaRadiusM, onOpen, onClose, namePrefix, spec, setti
         <strong>Select at least 3 different grid points</strong>
         <span>{vertices.length} selected{vertices.length < 3 ? ` · ${3 - vertices.length} more needed` : ' · outline ready'}</span>
       </p>
+      {problem && <p className="field-error" role="alert">{problem}</p>}
       {outside && (
         <p className="field-error" role="status">
           That point is outside the custom-point area (inside the dashed circle, 84°S to the pole).
@@ -270,7 +295,7 @@ export function AreaTool({ areaRadiusM, onOpen, onClose, namePrefix, spec, setti
             })), { outline, areas: chosen })}>Apply</button>
         ) : (
           <button type="button" className="primary area-find" onClick={() => void findAreas()} disabled={vertices.length < 3 || busy}>
-            {busy ? 'Finding…' : 'Choose On Map'}
+            {busy ? (progress ? `Grading ${progress.done} of ${progress.total}…` : 'Grading…') : 'Choose On Map'}
           </button>
         )}
       </div>
@@ -298,7 +323,14 @@ export function AreaTool({ areaRadiusM, onOpen, onClose, namePrefix, spec, setti
               </ol>
             </>
           )}
-          <p className="area-hint">Sample grades from a stand-in function, best first.</p>
+          {stats && stats.failed > 0 && (
+            <p className="area-hint" role="status">{stats.failed} of {stats.cells} cells could not be graded ({stats.firstFailure}).</p>
+          )}
+          <p className="area-hint">
+            {resolveSource(config, 'summary', search) === 'sample'
+              ? 'Sample grades (stand-in data), best first.'
+              : "Graded by the server for this card's mission, best first."}
+          </p>
         </>
       )}
     </div>
