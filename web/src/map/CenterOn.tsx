@@ -1,17 +1,19 @@
+import { boundingExtent } from 'ol/extent'
 import { transform } from 'ol/proj'
 import { useEffect } from 'react'
 import type { Site } from '../api/types'
 import { useMap } from './PolarMap'
 
-/** Keeps a ticket's map centered on its site, so the chosen point is always in view. */
-export function CenterOn({ site }: { site: Site | undefined }) {
+/** Fit the shown landing sites when their locations change. Keep manual pans and zooms otherwise. */
+export function CenterOn({ sites }: { sites: readonly Site[] }) {
   const map = useMap()
-  const lat = site?.lat_deg
-  const lon = site?.lon_deg
+  const coordinates = sites.map((s) => [s.lon_deg, s.lat_deg].join(',')).sort().join('|')
   useEffect(() => {
-    if (!map || lat === undefined || lon === undefined) return
+    if (!map || !coordinates) return
     const view = map.getView()
-    view.animate({ center: transform([lon, lat], 'EPSG:4326', view.getProjection()), duration: 300 })
-  }, [map, lat, lon])
+    const points = coordinates.split('|').map((pair) => transform(pair.split(',').map(Number), 'EPSG:4326', view.getProjection()))
+    if (points.length === 1) view.animate({ center: points[0], duration: 250 })
+    else view.fit(boundingExtent(points), { padding: [42, 42, 42, 42], maxZoom: Math.max(4, view.getZoom() ?? 4), duration: 250 })
+  }, [map, coordinates])
   return null
 }

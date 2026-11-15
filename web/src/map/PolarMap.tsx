@@ -20,6 +20,7 @@ type TileLoader = (tile: { setState(state: number): void }) => void
 
 export interface PolarMapProps {
   region: Region
+  showRelief?: boolean
   onBasemapError?: () => void
   tileLoader?: TileLoader
   onMapReady?: (map: OlMap) => void
@@ -37,6 +38,7 @@ export function useMap(): OlMap | null {
 
 export function PolarMap({
   region,
+  showRelief = true,
   onBasemapError,
   tileLoader,
   onMapReady,
@@ -44,6 +46,7 @@ export function PolarMap({
   children,
 }: PolarMapProps) {
   const container = useRef<HTMLDivElement>(null)
+  const reliefRef = useRef<TileLayer<TileImage> | null>(null)
   const [map, setMap] = useState<OlMap | null>(null)
   const [basemapFailed, setBasemapFailed] = useState(false)
   const onErrorRef = useRef(onBasemapError)
@@ -100,7 +103,8 @@ export function PolarMap({
         setBasemapFailed(true)
         onErrorRef.current?.()
       })
-      layers.push(new TileLayer({ source }))
+      reliefRef.current = new TileLayer({ source })
+      layers.push(reliefRef.current)
     }
 
     const circle = new VectorLayer({
@@ -131,11 +135,16 @@ export function PolarMap({
     setMap(created)
     onReadyRef.current?.(created)
     return () => {
+      reliefRef.current = null
       created.setTarget(undefined)
       created.dispose()
       setMap(null)
     }
   }, [region])
+
+  useEffect(() => {
+    reliefRef.current?.setVisible(showRelief)
+  }, [region, showRelief])
 
   return (
     <div
@@ -146,7 +155,7 @@ export function PolarMap({
       }}
     >
       <div ref={container} style={{ position: 'absolute', inset: 0 }} />
-      {basemapFailed && (
+      {showRelief && basemapFailed && (
         <div role="alert" className="basemap-unavailable" style={{ position: 'absolute', left: 12, top: 12, color: '#e5e7eb' }}>
           Basemap unavailable
         </div>

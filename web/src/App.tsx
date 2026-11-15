@@ -23,10 +23,14 @@ import {
 import { CompareView } from './ui/CompareView'
 import { ResizeHandle } from './ui/ResizeHandle'
 import { ServerUnavailable } from './ui/ServerUnavailable'
-import { LayersBox } from './ui/LayersBox'
+import { LayersBox, type MapLayer } from './ui/LayersBox'
 import { PointCard } from './ui/PointCard'
-import { TicketPanel } from './ui/TicketPanel'
-import { panelId } from './ui/ticketStyle'
+import { TicketGraph } from './ui/TicketPanel'
+import { ExplorerControls } from './ui/ExplorerControls'
+import { SharedSiteMap } from './ui/SharedSiteMap'
+import { displayPresets } from './ui/stationNetworks'
+import { pointLetter, siteDisplayName } from './ui/points'
+import { panelId, ticketVars } from './ui/ticketStyle'
 import { TopBar } from './ui/TopBar'
 
 // Bundled region and stations so the app still works when the server is down.
@@ -36,17 +40,17 @@ const NO_SITES: readonly Site[] = []
 /** While dragging, the URL is written at most twice a second (spec §9.2: Safari limits). */
 const URL_WRITE_MS = 500
 
-const SIDE_W_KEY = 'moon-watchers.side-width'
-const DEFAULT_SIDE_W = 500
+const SIDE_W_KEY = 'moon-watchers.calculator-share'
+const DEFAULT_SHARE = 2 / 3
 const SIDE_MIN_W = 300
-const SIDE_MAX_W = 760
+const SITES_PER_PAGE = 3
 
-function readSideWidth(): number {
+function readSideShare(): number {
   try {
-    const v = Number(localStorage.getItem(SIDE_W_KEY))
-    return Number.isFinite(v) && v >= SIDE_MIN_W && v <= SIDE_MAX_W ? v : DEFAULT_SIDE_W
+    const value = Number(localStorage.getItem(SIDE_W_KEY))
+    return value > 0 && value < 1 ? value : DEFAULT_SHARE
   } catch {
-    return DEFAULT_SIDE_W
+    return DEFAULT_SHARE
   }
 }
 
@@ -61,7 +65,7 @@ function pointCount(tickets: readonly Ticket[]): string {
   const drafts = tickets.filter((t) => t.site === null).length
   const saved = tickets.length - drafts
   const pad = (n: number) => String(n).padStart(2, '0')
-  return drafts > 0 ? `${saved} SAVED  /  ${drafts} DRAFT` : `${pad(saved)} ${saved === 1 ? 'POINT' : 'POINTS'}`
+  return drafts > 0 ? `${saved} SAVED  /  ${drafts} DRAFT` : `${pad(saved)} ${saved === 1 ? 'SITE' : 'SITES'}`
 }
 
 function formatClock(ms: number): string {
@@ -80,7 +84,7 @@ export default function App({ config }: { config: AppConfig }) {
   const sitesQuery = useSites(config, search)
   const sites = sitesQuery.data?.sites ?? NO_SITES
   const stations = metaQuery.data?.stations ?? FALLBACK_STATIONS
-  const presets = presetsFrom(stations)
+  const presets = displayPresets(presetsFrom(stations))
   const screen = parseScreen2(search)
   // Custom points (new sites by lat/lon) come from POST /sites/custom, one per point.
   const customIds = [...new Set(screen.tickets.flatMap((t) => (t.site !== null && isPointId(t.site) ? [t.site] : [])))]
@@ -125,6 +129,9 @@ export default function App({ config }: { config: AppConfig }) {
     [apply],
   )
 
+  const [resultView, setResultView] = useState<'live' | 'mission'>('live')
+  const [selectedLayer, setSelectedLayer] = useState<MapLayer>('Relief')
+
   // One panel can be expanded to full size; this is a view choice, not part of the link.
   const [expanded, setExpanded] = useState<number | null>(null)
   // The point whose map has Freehand Select on, if any.
@@ -141,30 +148,42 @@ export default function App({ config }: { config: AppConfig }) {
       return next
     })
   }, [])
-  const [sideWidth, setSideWidth] = useState(readSideWidth)
-  const resizeSide = useCallback((w: number | undefined) => {
-    const next = w ?? DEFAULT_SIDE_W
-    setSideWidth(next)
-    try {
-      localStorage.setItem(SIDE_W_KEY, String(next))
-    } catch {
-      // Storage may be blocked; the width then lasts for this visit only.
-    }
+  const [viewport, setViewport] = useState(window.innerWidth)
+  useEffect(() => {
+    const onResize = () => setViewport(window.innerWidth)
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
   }, [])
-  const sideMax = Math.max(SIDE_MIN_W, Math.min(SIDE_MAX_W, window.innerWidth - 320))
-  const shownIndexes = screen.tickets.flatMap((t, i) => (t.shown ? [i] : []))
-  const visibleIndexes = expanded !== null && shownIndexes.includes(expanded) ? [expanded] : shownIndexes
-
-  /** Opens a ticket in the side panel and brings its panel into view. */
-  const focusTicket = useCallback(
-    (i: number) => {
-      apply((s) => ({ ...s, open: i }))
-      requestAnimationFrame(() =>
-        document.getElementById(panelId(i))?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }),
-      )
-    },
-    [apply],
-  )
+  const [sideShare, setSideShare] = useState(readSideShare)
+  const sideMax = Math.max(SIDE_MIN_W, viewport - 265)
+  const sideWidth = Math.min(sideMax, Math.max(SIDE_MIN_W, Math.round((viewport - 8) * sideShare)))
+  const resizeSide = (w?: number) => {
+    const next = w === undefined ? DEFAULT_SHARE : w / Math.max(1, viewport - 8)
+    setSideShare(next)
+    try { localStorage.setItem(SIDE_W_KEY, String(next)) } catch { /* Optional preference. */ }
+  }
+  const shownIndexes = screen.tickets.flatMap((t, i) => t.shown ? [i] : [])
+  const active = shownIndexes.includes(screen.open) ? screen.open : shownIndexes[0] ?? 0
+  const view = screen.tickets[active].view
+  const selectView = (view: 'map' | 'graph') => {
+    setExpanded(null)
+    setFreehand(null)
+    apply((s) => ({ ...s, tickets: s.tickets.map((t) => ({ ...t, view })) }))
+  }
+  const focusTicket = (i: number) => apply((s) => ({ ...updateTicket(s, i, { collapsed: undefined }), open: i }))
+  const page = Math.floor(Math.max(0, screen.open) / SITES_PER_PAGE)
+  const pageCount = Math.ceil(screen.tickets.length / SITES_PER_PAGE)
+  const start = page * SITES_PER_PAGE
+  const visibleGraphs = expanded !== null && shownIndexes.includes(expanded)
+    ? [expanded] : shownIndexes.filter((i) => pageCount === 1 || (i >= start && i < start + SITES_PER_PAGE))
+  const selecting = freehand === active && view === 'map' && !screen.compare
+  const openRegion = () => {
+    if (selecting) { setFreehand(null); return }
+    setExpanded(null)
+    apply((s) => ({ ...s, compare: false, open: active, tickets: s.tickets.map((t, i) =>
+      ({ ...t, view: 'map', shown: t.shown || i === active })) }))
+    setFreehand(active)
+  }
 
   // The map never waits on the server: until meta arrives (or if it never does) the
   // bundled region is used.
@@ -179,7 +198,6 @@ export default function App({ config }: { config: AppConfig }) {
   const tau = liveTau ?? screen.tau
   const sliderMax = maxTau(screen.tickets)
   const comparable = comparableCount(screen.tickets)
-  const stacked = visibleIndexes.length > 1
 
   return (
     <div className="app" style={{ '--side-w': `${Math.min(sideWidth, sideMax)}px` } as CSSProperties}>
@@ -190,6 +208,7 @@ export default function App({ config }: { config: AppConfig }) {
           <p className="eyebrow mono">02&nbsp;&nbsp;/&nbsp;&nbsp;SOUTH POLE</p>
           <h1>South pole explorer</h1>
         </header>
+        {!screen.compare && <ExplorerControls view={view} selecting={selecting} onView={selectView} onRegion={openRegion} />}
         {screen.compare ? (
           <CompareView
             tickets={screen.tickets}
@@ -198,54 +217,49 @@ export default function App({ config }: { config: AppConfig }) {
             search={search}
             isSample={missionIsSample}
             onClose={() => apply((s) => ({ ...s, compare: false }))}
-            onOpenTicket={(i) => apply((s) => ({ ...s, compare: false, open: i }))}
+            onOpenTicket={(i) => apply((s) => ({ ...updateTicket(s, i, { collapsed: undefined }), compare: false, open: i }))}
           />
-        ) : visibleIndexes.length === 0 ? (
-          <div className="panels-empty">
-            <p>No points are shown here.</p>
-            <button type="button" className="secondary" onClick={() => apply((s) => showAll(s, true))}>
-              Show all points
-            </button>
+        ) : shownIndexes.length === 0 ? (
+          <div className="panels-empty"><p>No sites are shown in the explorer.</p>
+            <button type="button" className="secondary" onClick={() => apply((s) => showAll(s, true))}>Show all sites</button>
           </div>
+        ) : view === 'map' ? (
+          <>
+            <SharedSiteMap tickets={screen.tickets} active={active} sites={allSites} region={region} layer={selectedLayer}
+              selecting={selecting} onFocus={focusTicket}
+              onPlace={(site) => apply((s) => ({ ...updateTicket(s, active, { site, editing: true, collapsed: undefined }), open: active }))}
+              onRegionClose={() => setFreehand(null)}
+              onOpenAreas={(points) => { setFreehand(null); apply((s) => addTicketsFor(s, active, points)) }} />
+            <LayersBox selected={selectedLayer} onSelect={setSelectedLayer} />
+          </>
         ) : (
-          <div className={visibleIndexes.length > 2 ? 'panels panels-many' : 'panels'}>
-            {visibleIndexes.map((i) => {
+          <div className="ridge-panels" data-count={visibleGraphs.length}>
+            {visibleGraphs.map((i) => {
               const t = screen.tickets[i]
+              const site = siteOf(t)
               return (
-                <TicketPanel
-                  key={i}
-                  index={i}
-                  ticket={t}
-                  site={siteOf(t)}
-                  sites={allSites}
-                  catalog={sites}
-                  region={region}
-                  config={config}
-                  search={search}
-                  tau={tau}
-                  stationLabel={stationLabel(t.station, presets)}
-                  best={ranking.byIndex.get(i)?.best ?? false}
-                  stacked={stacked}
-                  expanded={expanded === i}
-                  canExpand={shownIndexes.length > 1}
-                  onSelectSite={(id) => apply((s) => ({ ...updateTicket(s, i, { site: id }), open: i }))}
-                  onView={(view) => changeTicket(i, { view })}
-                  onFocus={() => apply((s) => ({ ...s, open: i }))}
-                  onExpand={() => setExpanded((e) => (e === i ? null : i))}
-                  freehand={freehand === i && t.view === 'map'}
-                  onFreehandClose={() => setFreehand(null)}
-                  height={panelHeights[i]}
-                  onResize={(h) => resizePanel(i, h)}
-                  onOpenAreas={(points) => {
-                    setExpanded(null)
-                    apply((s) => addTicketsFor(s, i, points))
-                  }}
-                />
+                <section key={i} id={panelId(i)} className="panel ridge-panel" style={{
+                  ...ticketVars(i), ...(visibleGraphs.length > 1 && panelHeights[i] ? { flexGrow: panelHeights[i] / 200 } : {})
+                }} aria-label={`Site ${pointLetter(i)} graph`}>
+                  <header className="panel-head">
+                    <button type="button" className="panel-title" onClick={() => focusTicket(i)}>
+                      <span className="badge">{pointLetter(i)}</span><span className="point-name">{t.name || siteDisplayName(site) || 'New site'}</span>
+                    </button>
+                    {shownIndexes.length > 1 && <button type="button" className="view-tab icon-tab" aria-pressed={expanded === i}
+                      aria-label={expanded === i ? 'Show all graphs' : `Expand graph ${pointLetter(i)}`}
+                      onClick={() => setExpanded(expanded === i ? null : i)}>{expanded === i ? '⤡' : '⤢'}</button>}
+                  </header>
+                  {site ? <TicketGraph config={config} search={search} site={site} ticket={t} tau={tau} stationLabel={stationLabel(t.station, presets)} />
+                    : <p className="panel-empty">Choose a location for site {pointLetter(i)} to see its local horizon.</p>}
+                  {visibleGraphs.length > 1 && <ResizeHandle orientation="horizontal" label={`Resize graph ${pointLetter(i)}`}
+                    value={panelHeights[i] ?? 200} min={140} max={600} onResize={(h) => resizePanel(i, h)}
+                    onReset={() => resizePanel(i, undefined)} className="panel-resize" />}
+                </section>
               )
             })}
+            {visibleGraphs.length === 0 && <p className="panel-empty">Show a site on this page to see its graph.</p>}
           </div>
         )}
-        {!screen.compare && <LayersBox />}
       </main>
 
       <ResizeHandle
@@ -292,7 +306,7 @@ export default function App({ config }: { config: AppConfig }) {
                     setPanelHeights({})
                     apply((s) => sortByRank(s, (i) => ranking.byIndex.get(i)?.rank))
                   }}
-                  title="Reorder the points from best to worst"
+                  title="Reorder the sites from best to worst"
                 >
                   Sort by rank
                 </button>
@@ -304,8 +318,19 @@ export default function App({ config }: { config: AppConfig }) {
                 </span>
               )}
             </div>
-            <div className="tickets">
-              {screen.tickets.map((t, i) => (
+            {screen.tickets.some((t) => t.site !== null && !t.editing) && (
+              <div className="result-tabs" role="group" aria-label="Site results view">
+                <button type="button" aria-pressed={resultView === 'live'} onClick={() => setResultView('live')}>Live conditions</button>
+                <button type="button" aria-pressed={resultView === 'mission'} onClick={() => setResultView('mission')}>Whole mission</button>
+              </div>
+            )}
+            {pageCount > 1 && <nav className="site-pages" aria-label="Site pages">
+              <button type="button" className="link-button" disabled={page === 0} onClick={() => { setExpanded(null); focusTicket(start - SITES_PER_PAGE) }}>Previous</button>
+              <span>Sites {start + 1}–{Math.min(start + SITES_PER_PAGE, screen.tickets.length)} of {screen.tickets.length}</span>
+              <button type="button" className="link-button" disabled={page + 1 === pageCount} onClick={() => { setExpanded(null); focusTicket(start + SITES_PER_PAGE) }}>Next</button>
+            </nav>}
+            <div className="tickets" data-columns={Math.min(SITES_PER_PAGE, screen.tickets.length - start)}>
+              {screen.tickets.map((t, i) => i >= start && i < start + SITES_PER_PAGE && (
                 <PointCard
                   key={i}
                   index={i}
@@ -315,27 +340,17 @@ export default function App({ config }: { config: AppConfig }) {
                   stations={stations}
                   rank={ranking.byIndex.get(i)}
                   rankedCount={ranking.byIndex.size}
-                  open={i === screen.open}
+                  open={!t.collapsed}
+                  active={i === active}
+                  onFocus={() => focusTicket(i)}
                   isSample={sitesAreSample || missionIsSample}
                   canDelete={screen.tickets.length > 1 || t.site !== null}
                   config={config}
                   search={search}
                   tau={tau}
                   sliderMaxTau={sliderMax}
-                  onToggle={() => (i === screen.open ? apply((s) => ({ ...s, open: -1 })) : focusTicket(i))}
-                  freehand={freehand === i}
-                  onFreehand={() => {
-                    if (freehand === i) {
-                      setFreehand(null)
-                      return
-                    }
-                    setExpanded(null)
-                    apply((s) => ({ ...updateTicket(s, i, { view: 'map', shown: true }), open: i, compare: false }))
-                    setFreehand(i)
-                    requestAnimationFrame(() =>
-                      document.getElementById(panelId(i))?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }),
-                    )
-                  }}
+                  resultView={resultView}
+                  onToggle={() => changeTicket(i, { collapsed: t.collapsed ? undefined : true })}
                   onDelete={() => {
                     setExpanded(null)
                     setPanelHeights({})
@@ -355,13 +370,10 @@ export default function App({ config }: { config: AppConfig }) {
                 onClick={() => {
                   setExpanded(null)
                   apply(addTicket)
-                  requestAnimationFrame(() =>
-                    document.querySelector('.tickets .point:last-child')?.scrollIntoView({ block: 'nearest' }),
-                  )
                 }}
-                title="Add a new point to plan"
+                title="Add a new site to plan"
               >
-                + Add point
+                + Add site
               </button>
               {screen.tickets.length > 1 && (
                 <button
@@ -369,7 +381,7 @@ export default function App({ config }: { config: AppConfig }) {
                   className="compare-button"
                   onClick={() => apply((s) => ({ ...s, compare: true }))}
                   disabled={comparable < 2 || screen.compare}
-                  title={comparable < 2 ? 'Show at least two points that have a location' : 'Compare the shown points side by side'}
+                  title={comparable < 2 ? 'Show at least two sites that have a location' : 'Compare the shown sites side by side'}
                 >
                   <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.4">
                     <path d="M1.5 14.5h13M3 11.5h5M3 8h8M3 4.5h10" />

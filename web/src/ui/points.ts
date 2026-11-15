@@ -22,6 +22,11 @@ export function siteTag(site: Site | undefined, catalog: readonly Site[]): strin
   return i < 0 ? 'SITE' : `SITE ${String(i + 1).padStart(2, '0')}`
 }
 
+/** Retain catalog and user names while labeling generated coordinates as a site. */
+export function siteDisplayName(site: Site | undefined): string | undefined {
+  return site?.source === 'custom' ? site.name.replace(/^Point (?=\d)/, 'Site ') : site?.name
+}
+
 export type Tone = 'good' | 'mid' | 'bad' | 'none'
 
 export function slopeWord(deg: number): { word: string; tone: Tone } {
