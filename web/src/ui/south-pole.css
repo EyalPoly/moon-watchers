@@ -1277,7 +1277,6 @@ body {
 .map-key-row { display: grid; gap: 4px; padding: 4px 0; border-top: 1px solid var(--border); }
 .layers-box .map-key { display: flex; grid-column: 1 / -1; width: 100%; flex-wrap: wrap; justify-content: space-between; gap: 3px 10px; }
 .layers-box .map-key li { gap: 5px; }
-.key-boundary { width: 14px; border-top: 2px dashed #a3e635; }
 .key-region, .key-cell { width: 10px; height: 8px; background: #72ceae88; border: 1px solid #dcf0df; }
 .key-cell { background: #e8bb59; }
 .map-thematic .relief-tiles { filter: grayscale(1) brightness(.67); }

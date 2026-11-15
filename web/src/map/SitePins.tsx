@@ -2,10 +2,6 @@ import Overlay from 'ol/Overlay'
 import { transform } from 'ol/proj'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import type { AppConfig } from '../api/config'
-import { useSummary } from '../state/queries'
-import { useScenario } from '../state/scenario'
-import type { Ticket } from '../state/tickets'
 import { mapReading } from '../ui/MapLegend'
 import type { MapLayer } from '../ui/LayersBox'
 import type { Site } from '../api/types'
@@ -14,9 +10,6 @@ import { useMap } from './PolarMap'
 
 export interface SitePinsProps {
   layer?: MapLayer
-  ticket?: Ticket
-  config?: AppConfig
-  search?: string
   sites: readonly Site[]
   selectedId: string | null
   labels: ReadonlyMap<string, string[]>
@@ -25,7 +18,7 @@ export interface SitePinsProps {
   onSelect: (id: string) => void
 }
 
-export function SitePins({ layer = 'Relief', config, search = '', ticket, sites, selectedId, labels, activeLabel, onFocus, onSelect }: SitePinsProps) {
+export function SitePins({ layer = 'Relief', sites, selectedId, labels, activeLabel, onFocus, onSelect }: SitePinsProps) {
   const map = useMap()
   const [targets, setTargets] = useState<{ id: string; element: HTMLElement }[]>([])
   // Overlays are rebuilt only when the set of sites or their positions change, not each
@@ -78,7 +71,7 @@ export function SitePins({ layer = 'Relief', config, search = '', ticket, sites,
                 .join(' ')}
               onClick={() => onSelect(site.id)}
             />
-            {layer !== 'Relief' && config && ticket && <SiteReading layer={layer} config={config} search={search} ticket={ticket} site={site} />}
+            <SiteReading layer={layer} site={site} />
             {labels.has(site.id) && (
               <span className="pin-tags">
                 {labels.get(site.id)?.map((label) => (
@@ -96,14 +89,9 @@ export function SitePins({ layer = 'Relief', config, search = '', ticket, sites,
   )
 }
 
-function SiteReading({ layer, config, search, ticket, site }: {
-  layer: MapLayer; config: AppConfig; search: string; ticket: Ticket; site: Site
-}) {
-  const needsSummary = layer === 'Earth DTE' || layer === 'Lunar regolith'
-  const scenario = useScenario(needsSummary ? site.id : null, ticket, ticket.station)
-  const query = useSummary(config, search, scenario)
-  const reading = mapReading(layer, site, query.isPlaceholderData ? undefined : query.data)
-  const text = needsSummary && query.isPending && !query.isError ? '…' : reading.text
+function SiteReading({ layer, site }: { layer: MapLayer; site: Site }) {
+  const reading = mapReading(layer, site)
+  if (!reading) return null
   return <span className="site-map-reading" style={{ borderColor: reading.color }}
-    aria-label={`${site.name}, ${layer}: ${text}`}><i style={{ backgroundColor: reading.color }} />{text}</span>
+    aria-label={`${site.name}, ${layer}: ${reading.text}`}><i style={{ backgroundColor: reading.color }} />{reading.text}</span>
 }

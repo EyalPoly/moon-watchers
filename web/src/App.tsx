@@ -30,7 +30,6 @@ import { TimelineScreen } from './ui/TimelineScreen'
 import { parseScreen, withScreen, type AppScreen } from './state/screen'
 import { ResizeHandle } from './ui/ResizeHandle'
 import { ServerUnavailable } from './ui/ServerUnavailable'
-import type { DataLayerId } from './map/QuickmapLayers'
 import { LayersBox, type MapLayer, type PolygonLayer } from './ui/LayersBox'
 import type { AppliedRegion } from './map/RegionOverlay'
 import { GraphControls } from './ui/GraphControls'
@@ -158,8 +157,7 @@ export default function App({ config }: { config: AppConfig }) {
 
   const [selectedLayer, setSelectedLayer] = useState<MapLayer>('Relief')
   const [guideOpen, setGuideOpen] = useState(false)
-  const [dataLayers, setDataLayers] = useState<DataLayerId[]>([])
-  const [polygonLayer, setPolygonLayer] = useState<PolygonLayer>('Planning boundary')
+  const [polygonLayer, setPolygonLayer] = useState<PolygonLayer>('None')
   const [appliedRegion, setAppliedRegion] = useState<AppliedRegion | null>(null)
   const applySettings = (next: ScoreSettings) => {
     if (serializeScoreSettings(next) === serializeScoreSettings(settings)) return
@@ -361,7 +359,7 @@ export default function App({ config }: { config: AppConfig }) {
         ) : view === 'map' ? (
           <>
             <SharedSiteMap tickets={screen.tickets} active={active} sites={allSites} region={region} layer={selectedLayer}
-              polygonLayer={polygonLayer} dataLayers={dataLayers} appliedRegion={appliedRegion} config={config} search={search}
+              polygonLayer={polygonLayer} appliedRegion={appliedRegion} config={config} search={search}
               settings={settings} scoreSpec={metaQuery.data?.score ?? FALLBACK_SCORE} onSettingsApply={applySettings}
               selecting={selecting} atLimit={screen.tickets.length >= MAX_URL_TICKETS && screen.tickets[active]?.site !== null} onFocus={focusTicket}
               onPlace={(site) => apply((s) => placePoint(s, active, site))}
@@ -373,7 +371,7 @@ export default function App({ config }: { config: AppConfig }) {
                 setFreehand(null)
                 apply((s) => addTicketsFor(s, active, points))
               }} />
-            <LayersBox selected={selectedLayer} onSelect={setSelectedLayer} overlay={polygonLayer} onOverlay={setPolygonLayer} dataLayers={dataLayers} onDataLayers={setDataLayers} />
+            <LayersBox selected={selectedLayer} onSelect={setSelectedLayer} overlay={polygonLayer} onOverlay={setPolygonLayer} />
           </>
         ) : (
           <div className="ridge-panels" data-count={visibleGraphs.length}>
