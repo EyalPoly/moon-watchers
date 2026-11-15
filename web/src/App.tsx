@@ -21,6 +21,8 @@ import {
   type Screen2State,
   type Ticket,
 } from './state/tickets'
+import { applyPlan, type Plan } from './assistant/plan'
+import { AssistantPanel } from './ui/AssistantPanel'
 import { CompareView } from './ui/CompareView'
 import { ResizeHandle } from './ui/ResizeHandle'
 import { ServerUnavailable } from './ui/ServerUnavailable'
@@ -159,6 +161,8 @@ export default function App({ config }: { config: AppConfig }) {
     setSearch(window.location.search)
   }, [])
 
+  const [guideOpen, setGuideOpen] = useState(false)
+
   // One panel can be expanded to full size; this is a view choice, not part of the link.
   const [expanded, setExpanded] = useState<number | null>(null)
   // The point whose map has Freehand Select on, if any.
@@ -211,6 +215,17 @@ export default function App({ config }: { config: AppConfig }) {
       ({ ...t, view: 'map', shown: t.shown || i === active })) }))
     setFreehand(active)
   }
+
+  /** The AI guide's sites: added as one step, so Back undoes them together. */
+  const openFromGuide = useCallback((plan: Extract<Plan, { kind: 'open' }>) => {
+    setExpanded(null)
+    setFreehand(null)
+    setPanelHeights({})
+    const result = applyPlan(parseScreen2(window.location.search), plan)
+    writeUrl(serializeScreen2(result.state, window.location.search), 'push')
+    setSearch(window.location.search)
+    return Array.from({ length: result.count }, (_, k) => pointLetter(result.first + k))
+  }, [])
 
   // The map never waits on the server: until meta arrives (or if it never does) the
   // bundled region is used.
@@ -410,6 +425,15 @@ export default function App({ config }: { config: AppConfig }) {
               >
                 + Add site
               </button>
+              <button
+                type="button"
+                className="secondary guide-launcher"
+                aria-expanded={guideOpen}
+                onClick={() => setGuideOpen((v) => !v)}
+                title="Describe a site or a mission in your own words"
+              >
+                <span aria-hidden="true">✦</span> Ask the AI guide
+              </button>
               {screen.tickets.length > 1 && (
                 <button
                   type="button"
@@ -428,6 +452,14 @@ export default function App({ config }: { config: AppConfig }) {
           </>
         )}
       </aside>
+
+      <AssistantPanel
+        open={guideOpen}
+        onClose={() => setGuideOpen(false)}
+        ctx={{ catalog: sites, stations: presets }}
+        customIsSample={resolveSource(config, 'custom', search) === 'sample'}
+        onOpen={openFromGuide}
+      />
     </div>
   )
 }
