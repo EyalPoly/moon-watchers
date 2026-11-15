@@ -13,7 +13,7 @@ from numpy.typing import NDArray
 
 from api.bundle import Bundle, load_bundle
 from api.catalog import load_catalog
-from api.custom_points import COARSE_TERRAIN, CustomPoints
+from api.custom_points import COARSE_TERRAIN, ClientMiddleware, CustomPoints
 from api.errors import ApiError, install_error_handlers
 from api.models import (
     CustomPointRequest,
@@ -109,6 +109,7 @@ def create_app(
     install_error_handlers(app)
     app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["GET", "POST"])
     app.add_middleware(GZipMiddleware, minimum_size=1000)
+    app.add_middleware(ClientMiddleware)
 
     @app.get("/api/v1/health")
     def health(response: Response) -> Health:

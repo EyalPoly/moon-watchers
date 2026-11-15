@@ -1,9 +1,12 @@
 import threading
 import time
+from contextvars import ContextVar
 from collections import OrderedDict, deque
 from collections.abc import Callable
 from contextlib import AbstractContextManager
 from pathlib import Path
+
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 from api.errors import ApiError
 from api.models import Site
@@ -11,7 +14,9 @@ from api.point_ids import format_point_id, in_custom_area, parse_point_id
 from engine.custom_point import SLOPE_RESOLUTION_M, CustomPoint, TerrainMissing, compute_custom_point
 
 CAPACITY = 256
-NEW_PER_MINUTE = 20
+NEW_PER_MINUTE = 20  # per client
+GLOBAL_PER_MINUTE = 200  # per instance, so no crowd of clients can pin the CPU
+CLIENT: ContextVar[str] = ContextVar("custom_point_client", default="")
 SOURCE_URL = "https://pgda.gsfc.nasa.gov/products/90"
 COARSE_TERRAIN = "CUSTOM_COARSE_TERRAIN"
 
@@ -38,6 +43,35 @@ def _site(site_id: str, point: CustomPoint) -> Site:
     )
 
 
+def client_of(scope: Scope) -> str:
+    """The caller's address. Behind Cloud Run the last X-Forwarded-For entry is the one its front
+    end added; earlier entries come from the caller and can be anything."""
+    for name, value in scope.get("headers", []):
+        if name == b"x-forwarded-for":
+            last = str(value.decode("latin-1")).split(",")[-1].strip()
+            if last:
+                return last[:64]
+    peer = scope.get("client")
+    return str(peer[0])[:64] if peer else ""
+
+
+class ClientMiddleware:
+    """Makes the caller's address available to `CustomPoints` through `CLIENT`."""
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        token = CLIENT.set(client_of(scope))
+        try:
+            await self.app(scope, receive, send)
+        finally:
+            CLIENT.reset(token)
+
+
 class CustomPoints:
     """Points the user placed, computed on first use and kept in a bounded LRU.
 
@@ -52,6 +86,7 @@ class CustomPoints:
         area: tuple[float, float],
         capacity: int | None = None,
         new_per_minute: int | None = None,
+        global_per_minute: int | None = None,
         clock: Callable[[], float] = time.monotonic,
     ) -> None:
         self._terrain_dir = terrain_dir
@@ -59,9 +94,11 @@ class CustomPoints:
         self._area = area
         self._capacity = CAPACITY if capacity is None else capacity
         self._new_per_minute = NEW_PER_MINUTE if new_per_minute is None else new_per_minute
+        self._global_per_minute = GLOBAL_PER_MINUTE if global_per_minute is None else global_per_minute
         self._clock = clock
         self._cache: OrderedDict[str, tuple[Site, CustomPoint]] = OrderedDict()
         self._recent: deque[float] = deque()
+        self._by_client: dict[str, deque[float]] = {}
         self._id_locks: dict[str, threading.Lock] = {}
         self._lock = threading.Lock()
 
@@ -108,12 +145,25 @@ class CustomPoints:
         return entry
 
     def _count_new_point(self) -> None:
+        """Counts a new computation against the caller and the instance; the caller holds `_lock`."""
         now = self._clock()
-        while self._recent and now - self._recent[0] >= 60.0:
-            self._recent.popleft()
-        if len(self._recent) >= self._new_per_minute:
+        self._forget_before(self._recent, now)
+        for client, times in list(self._by_client.items()):
+            self._forget_before(times, now)
+            if not times:
+                del self._by_client[client]
+        mine = self._by_client.setdefault(CLIENT.get(), deque())
+        if len(mine) >= self._new_per_minute or len(self._recent) >= self._global_per_minute:
+            if not mine:
+                del self._by_client[CLIENT.get()]
             raise ApiError(429, "RATE_LIMITED", "too many new custom points; try again in a minute")
+        mine.append(now)
         self._recent.append(now)
+
+    @staticmethod
+    def _forget_before(times: deque[float], now: float) -> None:
+        while times and now - times[0] >= 60.0:
+            times.popleft()
 
     def _compute(self, canonical: str, lat: float, lon: float) -> tuple[Site, CustomPoint]:
         try:
