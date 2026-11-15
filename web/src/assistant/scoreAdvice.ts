@@ -11,7 +11,7 @@ export const WEIGHT_LABELS: Record<(typeof WEIGHT_IDS)[number], string> = {
   OT: 'longest outage',
   LS: 'sunlight at landing',
   S: 'slope',
-  D: 'dust (simulated)',
+  D: 'lunar regolith (simulated)',
 }
 
 export type ScoreAdvice =

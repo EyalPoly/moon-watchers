@@ -30,7 +30,7 @@ export function siteDisplayName(site: Site | undefined): string | undefined {
 export type Tone = 'good' | 'mid' | 'bad' | 'none'
 
 export function slopeWord(deg: number): { word: string; tone: Tone } {
-  if (deg <= 5) return { word: 'Gentle', tone: 'good' }
+  if (deg <= 5) return { word: 'Flat', tone: 'good' }
   if (deg <= 10) return { word: 'Moderate', tone: 'mid' }
   return { word: 'Steep', tone: 'bad' }
 }

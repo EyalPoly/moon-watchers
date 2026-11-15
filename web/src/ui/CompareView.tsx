@@ -40,7 +40,7 @@ const ROWS: Row[] = [
   { label: 'Score', value: (s) => s.score.value, format: (v) => v.toFixed(1), better: 'higher', hint: ILLUSTRATIVE_NOTE },
   { label: 'Sun visible', value: (s) => s.metrics.sun_pct, format: (v) => `${v.toFixed(0)}%`, better: 'higher', hint: 'Share of the mission with the Sun above the terrain' },
   { label: 'Earth contact', value: (s) => s.metrics.dte_pct, format: (v) => `${v.toFixed(0)}%`, better: 'higher', hint: 'Share of the mission with the whole Earth above the terrain' },
-  { label: 'Sun + Earth together', value: (s) => s.metrics.both_pct, format: (v) => `${v.toFixed(0)}%`, better: 'higher', hint: 'Share of the mission with both at once' },
+  { label: 'Light and communication overlap', value: (s) => s.metrics.both_pct, format: (v) => `${v.toFixed(0)}%`, better: 'higher', hint: 'Share of the mission with both at once' },
   { label: 'Longest darkness', value: (s) => s.metrics.longest_dark_h, format: (v) => `${v.toFixed(0)} h`, better: 'lower', hint: 'Longest stretch without sunlight' },
   { label: 'Longest comm gap', value: (s) => s.metrics.longest_no_contact_h, format: (v) => `${v.toFixed(0)} h`, better: 'lower', hint: 'Longest stretch without Earth contact' },
   { label: 'First dark after landing', value: (s) => s.metrics.first_dark_after_landing_h, format: (v) => (v === 0 ? 'lands in dark' : `${v.toFixed(0)} h`), better: 'higher', hint: 'Hours of sunlight before the first darkness' },

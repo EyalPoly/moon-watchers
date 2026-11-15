@@ -36,7 +36,7 @@ type RowKey = 'sun' | 'dte' | 'both' | 'unknown'
 const ROWS: { key: RowKey; label: string; share: (m: Summary['metrics']) => string }[] = [
   { key: 'sun', label: 'Sun visible', share: (m) => pct(m.sun_pct) },
   { key: 'dte', label: 'Earth contact', share: (m) => pct(m.dte_pct) },
-  { key: 'both', label: 'Sun + Earth', share: (m) => pct(m.both_pct) },
+  { key: 'both', label: 'Light and communication overlap', share: (m) => pct(m.both_pct) },
   { key: 'unknown', label: 'Unknown terrain', share: (m) => (m.unknown_h > 0 ? `${Number(m.unknown_h.toFixed(1))} h` : 'none') },
 ]
 
@@ -164,7 +164,7 @@ export function TimelineScreen(props: TimelineScreenProps) {
             <ul className="tl-legend" aria-label="Key">
               <li><span className="tl-swatch tl-sun" /> Sun visible</li>
               <li><span className="tl-swatch tl-dte" /> Earth contact</li>
-              <li><span className="tl-swatch tl-both" /> Sun + Earth together</li>
+              <li><span className="tl-swatch tl-both" /> Light and communication overlap</li>
               <li><span className="tl-swatch tl-unknown" /> Unknown terrain</li>
               <li><span className="tl-swatch tl-swatch-now" /> Viewed time</li>
               <li><span className="tl-swatch tl-swatch-after" /> After this site’s mission</li>

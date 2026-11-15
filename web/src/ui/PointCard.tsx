@@ -145,7 +145,7 @@ function statusOf(live: LiveStatus | null, site: Site | undefined) {
       : live.earth.visible === null
         ? { word: 'Unknown', tone: 'none' as Tone }
         : live.earth.visible
-        ? { word: 'Clear', tone: 'good' as Tone }
+        ? { word: 'Station Contact', tone: 'good' as Tone }
         : !live.earth.stationUp
           ? { word: 'No station', tone: 'mid' as Tone }
           : { word: 'Blocked', tone: 'bad' as Tone },

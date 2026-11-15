@@ -10,7 +10,7 @@
 | Earth stations | NAIF station kernels (DSN, ESTRACK); Houston is a demonstration point | Contact |
 | Catalog | 30 sites chosen by the physics team (`catalog/sites.yaml`): massifs (Mons Mouton, Mons Malapert, Mons Kocher), craters and their rims or floors (Amundsen, Cabeus, Nobile, Malapert, Shoemaker, Haworth, Henson, Faustini, Wiechert, Sverdrup, de Gerlache, Slater, Kocher, Burbidge, Shackleton, Whitaker, Cartwright, Haynes, Brill, Stose, Kuhn, Spudis, Ibn Bajja), the Artemis III candidate sites "Connecting Ridge" and "Peak Near Shackleton", and the IM-2 Athena landing (Mons Mouton) and LCROSS Centaur impact (Cabeus) | Catalog sites |
 | Basemap | NASA Moon Trek tiles and LOLA hill-shade | The map |
-| Dust | Simulated index (fixed formula) | D grade only, labeled simulated |
+| Lunar regolith (dust) | Simulated index (fixed formula) | D grade only, labeled simulated |
 
 ## Limits to state honestly
 - Landing dates 2026-01-01 to 2030-12-31; missions 1–365 days; heights 1–10 m.
