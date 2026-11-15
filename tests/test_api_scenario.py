@@ -8,6 +8,7 @@ import yaml
 from fastapi.testclient import TestClient
 
 from api.main import create_app
+from tests.catalog_fixture import FIXTURE_CATALOG
 from api.models import StationPoint
 from api.scenario import parse_station, station_text
 
@@ -20,7 +21,7 @@ SCENARIO = (
 
 @pytest.fixture
 def client() -> TestClient:
-    return TestClient(create_app())
+    return TestClient(create_app(catalog_path=FIXTURE_CATALOG))
 
 
 def assert_problem(response, status: int, code: str) -> None:  # type: ignore[no-untyped-def]

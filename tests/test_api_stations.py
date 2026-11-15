@@ -4,13 +4,14 @@ import pytest
 from fastapi.testclient import TestClient
 
 from api.main import create_app
+from tests.catalog_fixture import FIXTURE_CATALOG
 
 SUMMARY = "/api/v1/scenario/summary?site=sample_a&t0=2027-03-01T00:00Z"
 
 
 @pytest.fixture
 def client() -> TestClient:
-    return TestClient(create_app())
+    return TestClient(create_app(catalog_path=FIXTURE_CATALOG))
 
 
 def test_meta_lists_station_presets(client: TestClient) -> None:

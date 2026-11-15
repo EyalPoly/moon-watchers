@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 
 from api.bundle import BundleError
 from api.main import create_app
+from tests.catalog_fixture import FIXTURE_CATALOG
 from build.make_masks import build_bundle
 from tests.ephemeris_helpers import default_ephemeris
 from engine.terrain import project
@@ -151,7 +152,7 @@ def test_unknown_and_hostile_site_ids(client: TestClient, hostile: str) -> None:
 
 
 def test_no_bundle_is_503() -> None:
-    response = TestClient(create_app()).get("/api/v1/sites/sample_a/horizon")
+    response = TestClient(create_app(catalog_path=FIXTURE_CATALOG)).get("/api/v1/sites/sample_a/horizon")
     assert response.status_code == 503
     assert response.headers["content-type"].startswith("application/problem+json")
     assert response.json()["code"] == "FEATURE_DISABLED"
