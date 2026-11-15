@@ -1304,6 +1304,20 @@ body {
 .psr-key { gap: 6px; font-size: 10px; }
 .psr-key span { display: inline-flex; align-items: center; gap: 2px; }
 
+.data-legend {
+  position: absolute; z-index: 2; top: 8px; right: 8px; box-sizing: border-box; display: grid; gap: 6px;
+  width: 190px; padding: 5px 8px; background: #101a17ed; color: #e2ebe4; border: 1px solid #5c6d6470; border-radius: 5px;
+}
+.data-legend section { display: grid; gap: 2px; }
+.data-legend strong, .data-legend summary { font-size: 10px; font-weight: 650; cursor: pointer; }
+.data-legend small { font: 10px/1.2 system-ui; }
+.data-legend details[open] { max-height: 230px; overflow-y: auto; }
+.data-legend img { display: block; width: 100%; height: auto; margin-top: 3px; }
+.data-legend-ramp { display: block; height: 8px; }
+.data-legend-ends { display: flex; justify-content: space-between; gap: 5px; }
+.data-legend-row { display: inline-flex; align-items: center; gap: 4px; font-size: 10px; }
+.data-legend-row i { width: 12px; height: 8px; }
+
 .region-instruction { padding: 6px 8px; margin: 0; display: grid; gap: 3px; border-left: 2px solid var(--primary); background: var(--primary-tint); }
 .region-instruction strong { font-size: 12px; }
 .region-instruction span { color: var(--primary); font-size: 11px; }
