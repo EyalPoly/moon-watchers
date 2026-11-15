@@ -207,8 +207,8 @@
       {
         "id": "D",
         "name": "dust",
-        "label": "dust (simulated)",
-        "raw_label": "simulated dust index",
+        "label": "lunar regolith (simulated)",
+        "raw_label": "simulated lunar regolith index",
         "raw_unit": ""
       }
     ],
@@ -420,5 +420,9 @@
       "text": "This point uses 80 m terrain; catalog sites use 20 m. Near-horizon angles can differ by up to about 0.7 degrees.",
       "standing": false
     }
+  ],
+  "sun_declination_deg": [
+    -1.557,
+    1.548
   ]
 }

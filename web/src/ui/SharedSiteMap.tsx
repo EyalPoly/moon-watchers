@@ -1,3 +1,4 @@
+import type { RankedArea } from '../api/areas'
 import type { AppConfig } from '../api/config'
 import type { ScoreSettings } from '../api/scoreSettings'
 import { RegionOverlay, type AppliedRegion } from '../map/RegionOverlay'
@@ -32,10 +33,13 @@ interface Props {
   onPlace: (id: string) => void
   onRegionClose: () => void
   onOpenAreas: (points: { site: string; name: string }[], region: AppliedRegion) => void
+  /** The AI guide opened the region tool: it finds areas by itself and reports them. */
+  guideRegion?: boolean
+  onRanked?: (areas: RankedArea[], spacingKm: number) => void
 }
 
 export function SharedSiteMap({ tickets, active, sites, region, layer, polygonLayer, appliedRegion, config, search,
-  scoreSpec, settings, onSettingsApply, selecting, atLimit, onFocus, onPlace, onRegionClose, onOpenAreas }: Props) {
+  scoreSpec, settings, onSettingsApply, selecting, atLimit, onFocus, onPlace, onRegionClose, onOpenAreas, guideRegion = false, onRanked }: Props) {
   const ticket = tickets[active]
   const labels = new Map<string, string[]>()
   const indexes = new Map<string, number>()
@@ -73,7 +77,8 @@ export function SharedSiteMap({ tickets, active, sites, region, layer, polygonLa
             onFocus={(l) => { if (!selecting) onFocus(indexes.get(l)!) }} />
           <CenterOn sites={targets} />
           {!selecting && <PlacePoint areaRadiusM={radius} onPlace={onPlace} />}
-          {selecting && <AreaTool areaRadiusM={radius} namePrefix={title} spec={scoreSpec} settings={settings} onSettingsApply={onSettingsApply} onClose={onRegionClose} onOpen={onOpenAreas} />}
+          {selecting && <AreaTool areaRadiusM={radius} namePrefix={title} config={config} search={search} ticket={ticket} spec={scoreSpec} settings={settings} onSettingsApply={onSettingsApply} onClose={onRegionClose} onOpen={onOpenAreas}
+            autoFind={guideRegion} onRanked={guideRegion ? onRanked : undefined} />}
         </PolarMap>
       </div>
       <div className="panel-foot"><span>{layer === 'Relief' ? 'LOLA south polar terrain' : `${layer} · site markers`}</span>

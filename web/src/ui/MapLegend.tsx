@@ -6,7 +6,7 @@ const UNKNOWN = '#89959c'
 const SCALES = {
   'Earth DTE': { hue: 198, max: 100, unit: '%', label: 'Earth Contact · Active Mission', low: '0%', high: '100%' },
   Slope: { hue: 32, max: 30, unit: '°', label: 'Local Slope', low: '0° · level', high: '30°+ · steep' },
-  Dust: { hue: 282, max: 1, unit: '', label: 'Simulated Dust Index', low: '0 · low', high: '1 · high' },
+  'Lunar regolith': { hue: 282, max: 1, unit: '', label: 'Simulated Lunar Regolith Index', low: '0 · low', high: '1 · high' },
 } as const
 
 type Scale = typeof SCALES[keyof typeof SCALES]
@@ -22,7 +22,7 @@ export function mapReading(layer: MapLayer, site: Site, summary?: Summary) {
     : summary?.score.factors.find((factor) => factor.name === 'D')?.raw
   if (value == null) return unknown
   const scale = SCALES[layer]
-  return { color: shade(scale, value), text: `${Number(value.toFixed(layer === 'Dust' ? 2 : 1))}${scale.unit}` }
+  return { color: shade(scale, value), text: `${Number(value.toFixed(layer === 'Lunar regolith' ? 2 : 1))}${scale.unit}` }
 }
 
 // Relative height colours in the LOLA colour hillshade. Light and dark within a hue

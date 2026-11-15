@@ -124,17 +124,19 @@ test('Freehand Select outlines an area on the grid and opens the best spots as p
   await expect(page.getByRole('button', { name: 'Manual Selection', pressed: true })).toBeVisible()
 
   await expect(tool.getByText('Select at least 3 different grid points')).toBeVisible()
-  await expect(tool.getByRole('button', { name: 'Choose On Map' })).toBeDisabled()
+  await expect(tool.getByRole('button', { name: 'Apply', exact: true })).toBeDisabled()
+  // The coarse grid keeps the outline under the 16-cell grading cap.
+  await tool.getByLabel('Grid spacing').selectOption('10')
   // With no site the map is centered on the pole, well inside the custom-point area.
   const map = (await page.locator('.panel .polar-map').first().boundingBox())!
   // Draw below the region controls and inside the circle at the pole.
   const cx = map.x + map.width / 2
   const dialog = (await tool.boundingBox())!
   const cy = (dialog.y + dialog.height + map.y + map.height) / 2
-  for (const [dx, dy] of [[-50, -28], [50, -28], [50, 28], [-50, 28]]) await page.mouse.click(cx + dx, cy + dy)
+  for (const [dx, dy] of [[-30, -17], [30, -17], [30, 17], [-30, 17]]) await page.mouse.click(cx + dx, cy + dy)
   await expect(tool.getByText(/4 selected/)).toBeVisible()
 
-  await tool.getByRole('button', { name: 'Choose On Map' }).click()
+  await tool.getByRole('button', { name: 'Apply', exact: true }).click()
   const list = tool.getByRole('list', { name: 'Best areas' })
   await expect(list.getByRole('listitem').first()).toContainText('#1')
   await list.getByRole('checkbox').nth(1).check()
@@ -158,6 +160,28 @@ test('Freehand Select outlines an area on the grid and opens the best spots as p
   await expect(page).toHaveURL(/tk=pt_s\d+_[ew]\d+/)
 })
 
+test('Apply refuses an outline with more grid cells than can be graded', async ({ page, context }) => {
+  await stubTiles(context)
+  await page.goto('/?tk=~2027-03-01T00:00Z~29.53~2~n:Survey')
+  await page.getByRole('button', { name: 'Manual Selection' }).click()
+  const tool = page.getByRole('dialog', { name: 'Manual Selection' })
+  await expect(tool).toBeVisible()
+  await expect(tool.getByText('Select at least 3 different grid points')).toBeVisible()
+  await expect(tool.getByRole('button', { name: 'Apply', exact: true })).toBeDisabled()
+  await tool.getByLabel('Grid spacing').selectOption('2')
+  // With no site the map is centered on the pole, well inside the custom-point area.
+  const map = (await page.locator('.panel .polar-map').first().boundingBox())!
+  // Draw below the region controls and inside the circle at the pole.
+  const cx = map.x + map.width / 2
+  const dialog = (await tool.boundingBox())!
+  const cy = (dialog.y + dialog.height + map.y + map.height) / 2
+  for (const [dx, dy] of [[-50, -28], [50, -28], [50, 28], [-50, 28]]) await page.mouse.click(cx + dx, cy + dy)
+  await expect(tool.getByText(/4 selected/)).toBeVisible()
+  await tool.getByRole('button', { name: 'Apply', exact: true }).click()
+  await expect(tool.getByRole('alert')).toContainText('Draw a smaller outline')
+  await expect(tool.getByRole('list', { name: 'Best areas' })).toHaveCount(0)
+})
+
 test('calculator field help opens on click, closes with Escape, and leaves the draft intact', async ({ page, context }) => {
   await stubTiles(context)
   await page.goto('/')
@@ -174,4 +198,43 @@ test('calculator field help opens on click, closes with Escape, and leaves the d
   await page.getByRole('textbox', { name: 'Longitude', exact: true }).click()
   await expect(page.getByRole('tooltip')).toHaveCount(0)
   await expect(page.getByLabel('Site name', { exact: true })).toHaveValue('Survey')
+})
+
+async function openToolAndDraw(page: import('@playwright/test').Page, grid: string, half: [number, number]) {
+  await page.goto('/?tk=~2027-03-01T00:00Z~29.53~2~n:Survey')
+  await page.getByRole('button', { name: 'Manual Selection' }).click()
+  const tool = page.getByRole('dialog', { name: 'Manual Selection' })
+  await expect(tool).toBeVisible()
+  await tool.getByLabel('Grid spacing').selectOption(grid)
+  const map = (await page.locator('.panel .polar-map').first().boundingBox())!
+  const cx = map.x + map.width / 2
+  const dialog = (await tool.boundingBox())!
+  const cy = (dialog.y + dialog.height + map.y + map.height) / 2
+  const [hx, hy] = half
+  for (const [dx, dy] of [[-hx, -hy], [hx, -hy], [hx, hy], [-hx, hy]]) await page.mouse.click(cx + dx, cy + dy)
+  await expect(tool.getByText(/4 selected/)).toBeVisible()
+  return tool
+}
+
+test('the over-cap message goes away when the grid is changed', async ({ page, context }) => {
+  await stubTiles(context)
+  const tool = await openToolAndDraw(page, '2', [50, 28])
+  await tool.getByRole('button', { name: 'Apply', exact: true }).click()
+  await expect(tool.getByRole('alert')).toContainText('Draw a smaller outline')
+  await tool.getByLabel('Grid spacing').selectOption('10')
+  await expect(tool.getByRole('alert')).toHaveCount(0)
+})
+
+test('graded areas are cleared when the grading weights change', async ({ page, context }) => {
+  await stubTiles(context)
+  const tool = await openToolAndDraw(page, '10', [30, 17])
+  await tool.getByRole('button', { name: 'Apply', exact: true }).click()
+  await expect(tool.getByRole('list', { name: 'Best areas' })).toBeVisible()
+  await tool.getByRole('button', { name: /Grading Weights/ }).click()
+  const slider = page.getByRole('slider', { name: 'station contact' })
+  await slider.fill('0.5')
+  await slider.dispatchEvent('pointerup')
+  await page.getByRole('dialog', { name: 'Grading Weights' }).getByRole('button', { name: 'Apply', exact: true }).click()
+  await expect(tool.getByRole('button', { name: 'Apply', exact: true })).toBeVisible()
+  await expect(tool.getByRole('list', { name: 'Best areas' })).toHaveCount(0)
 })

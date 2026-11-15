@@ -242,3 +242,10 @@ def test_startup_refuses_bad_site_entries(
     broken = edited_manifest(bundle_dir, tmp_path, change)
     with pytest.raises(BundleError, match="manifest.json"):
         create_app(catalog_path=catalog_path, bundle_dir=broken)
+
+
+def test_meta_sun_declination_comes_from_the_bundle_ephemeris(client: TestClient) -> None:
+    # The sample says ±1.55 degrees; the test bundle's synthetic Sun stays in the equator plane.
+    assert client.get("/api/v1/meta").json()["sun_declination_deg"] == pytest.approx([0.0, 0.0], abs=1e-9)
+    sample = TestClient(create_app(catalog_path=FIXTURE_CATALOG)).get("/api/v1/meta").json()
+    assert sample["sun_declination_deg"] == [-1.557, 1.548]

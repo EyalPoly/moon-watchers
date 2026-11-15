@@ -7,17 +7,22 @@ from numpy.typing import NDArray
 from engine.geometry import site_basis
 from engine.terrain import MOON_RADIUS_M, Dem, project, sample_stack
 
-HORIZON_ALGO_VERSION: str = "2"
+HORIZON_ALGO_VERSION: str = "3"
 MAX_REACH_M: float = 200_000.0
 REACH_MARGIN_M: float = 10_000.0
+NEAR_STEP_M: float = 40.0
+NEAR_WINDOW_M: float = 10_000.0
+# 240 m clipped narrow ridges by up to 0.03 degrees on the real terrain; at 60 m no direction
+# differs from a 15 m step by more than 0.01 degrees.
+FAR_STEP_M: float = 60.0
 
 _AZ_CHUNK = 120
 
 
 def ray_distances(
-    near_step_m: float = 40.0,
-    near_m: float = 10_000.0,
-    far_step_m: float = 240.0,
+    near_step_m: float = NEAR_STEP_M,
+    near_m: float = NEAR_WINDOW_M,
+    far_step_m: float = FAR_STEP_M,
     reach_m: float = MAX_REACH_M,
 ) -> NDArray[np.float64]:
     return np.concatenate(

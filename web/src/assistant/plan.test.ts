@@ -32,6 +32,9 @@ describe('intent schema', () => {
       today: '2026-11-15',
       limits: { firstLanding: '2026-01-01T00:00Z', lastLanding: '2030-12-31T23:50Z', minDays: 1, maxDays: 365, minHeight: 1, maxHeight: 10 },
       defaults: { landing: '2027-03-01T00:00Z', days: 29.53, panel: 2, antenna: 3, station: 'houston' },
+      topicIndex: '- score: Score and weights (the 7 grades)',
+      appState: 'Site cards (1): A: Mons Mouton.',
+      mode: 'advisor',
     })
     for (const s of catalog) expect(text).toContain(`- ${s.id}: ${s.name}`)
     expect(text).toContain('- madrid: Madrid (Spain)')
@@ -85,8 +88,9 @@ describe('intentToPlan', () => {
     expect(plan.settings.days).toBe(120)
   })
 
-  it('opens nothing for "none"', () => {
-    expect(intentToPlan(intent({ action: 'none', reply: 'Hello' }), ctx)).toEqual({ kind: 'none', notes: [] })
+  it('opens nothing for an answer, and reads an old "none" as an answer', () => {
+    expect(intentToPlan(intent({ action: 'answer', reply: 'Hello' }), ctx)).toEqual({ kind: 'none', notes: [] })
+    expect(intentSchema.parse({ action: 'none', reply: 'Hi' }).action).toBe('answer')
   })
 
   it('keeps values in range and falls back, with a note, for the rest', () => {

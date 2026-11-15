@@ -145,13 +145,15 @@ function statusOf(live: LiveStatus | null, site: Site | undefined) {
       : live.earth.visible === null
         ? { word: 'Unknown', tone: 'none' as Tone }
         : live.earth.visible
-        ? { word: 'Clear', tone: 'good' as Tone }
+        ? { word: 'Station Contact', tone: 'good' as Tone }
         : !live.earth.stationUp
           ? { word: 'No station', tone: 'mid' as Tone }
           : { word: 'Blocked', tone: 'bad' as Tone },
     slope: slope ?? { word: '—', tone: 'none' as Tone },
   }
 }
+
+const CRATER_CATEGORY = 'crater floor'
 
 const signed = (v: number) => `${v >= 0 ? '+' : ''}${v.toFixed(1)}°`
 
@@ -287,11 +289,18 @@ export function PointCard(props: PointCardProps) {
                 id={`${fieldId}-catalog`} aria-label="Site"
               >
                 <option value="">Custom site (latitude, longitude)</option>
-                {catalog.map((s) => (
+                {catalog.filter((s) => s.category !== CRATER_CATEGORY).map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.name}
                   </option>
                 ))}
+                <optgroup label="Craters">
+                  {catalog.filter((s) => s.category === CRATER_CATEGORY).map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+                </optgroup>
               </select>
             </div>
 

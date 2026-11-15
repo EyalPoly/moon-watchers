@@ -38,7 +38,7 @@ export function MissionMetrics({ summary }: { summary: Summary }) {
   const m = summary.metrics
   const unknownReason = `terrain unknown for ${Number(m.unknown_h.toFixed(1))} h`
   const rows: { label: string; value: string; known: boolean }[] = [
-    { label: 'Sun + Earth together', value: percent(m.both_pct), known: m.both_pct !== null },
+    { label: 'Light and communication overlap', value: percent(m.both_pct), known: m.both_pct !== null },
     { label: 'Sunlight (L)', value: fraction(m.sun_disk_mean), known: m.sun_disk_mean !== null },
     { label: 'Station contact (C)', value: fraction(m.contact_mean), known: m.contact_mean !== null },
     { label: 'Earth above horizon', value: percent(m.earth_any_pct), known: m.earth_any_pct !== null },

@@ -64,3 +64,13 @@ test('unknown terrain does not break the drawing', () => {
   expect(container.querySelector('.sky-unknown-band')).not.toBeNull()
   expect(container.innerHTML).not.toContain('NaN')
 })
+
+test('a Sun season band is drawn only when the range is known', () => {
+  const view = (sunSeason?: { latDeg: number; minDeg: number; maxDeg: number }) => (
+    <SkyView horizon={samples.horizon.sample_a} series={null} startMs={t0} endMs={t0 + DAY_MS} nowMs={t0} sunSeason={sunSeason} />
+  )
+  const { container, rerender } = render(view())
+  expect(container.querySelector('.sky-sun-season')).toBeNull()
+  rerender(view({ latDeg: -89, minDeg: -1.55, maxDeg: 1.55 }))
+  expect(container.querySelector('.sky-sun-season')).not.toBeNull()
+})

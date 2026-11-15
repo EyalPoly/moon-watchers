@@ -16,10 +16,10 @@ function setup(value: ScoreSettings = SCORE_DEFAULTS) {
   return { onChange, onCommit }
 }
 
-test('seven weight sliders are labeled from the grades, and dust says simulated', () => {
+test('seven weight sliders are labeled from the grades, and lunar regolith says simulated', () => {
   setup()
   for (const grade of spec.grades) expect(screen.getByRole('slider', { name: grade.label })).toBeTruthy()
-  expect(screen.getAllByRole('slider', { name: /^(sunlight|station contact|longest|sunlight at landing|slope$|dust)/ }).length).toBe(7)
+  expect(screen.getAllByRole('slider', { name: /^(sunlight|station contact|longest|sunlight at landing|slope$|lunar regolith)/ }).length).toBe(7)
   expect(screen.getByText(/simulated/)).toBeTruthy()
 })
 

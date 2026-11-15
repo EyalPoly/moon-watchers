@@ -99,7 +99,7 @@ export function SitePins({ layer = 'Relief', config, search = '', ticket, sites,
 function SiteReading({ layer, config, search, ticket, site }: {
   layer: MapLayer; config: AppConfig; search: string; ticket: Ticket; site: Site
 }) {
-  const needsSummary = layer === 'Earth DTE' || layer === 'Dust'
+  const needsSummary = layer === 'Earth DTE' || layer === 'Lunar regolith'
   const scenario = useScenario(needsSummary ? site.id : null, ticket, ticket.station)
   const query = useSummary(config, search, scenario)
   const reading = mapReading(layer, site, query.isPlaceholderData ? undefined : query.data)

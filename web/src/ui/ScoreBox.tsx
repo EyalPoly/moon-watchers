@@ -12,7 +12,7 @@ const FACTOR: Record<Score['factors'][number]['name'], { label: string; unit: st
   OT: { label: 'longest outage', unit: ' h' },
   LS: { label: 'sunlight at landing', unit: ' h' },
   S: { label: 'slope', unit: '°' },
-  D: { label: 'dust: simulated', unit: '' },
+  D: { label: 'lunar regolith: simulated', unit: '' },
 }
 
 export const ILLUSTRATIVE_NOTE = 'Illustrative weights and thresholds, not validated landing criteria'

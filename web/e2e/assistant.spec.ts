@@ -103,3 +103,117 @@ test('the floating guide can move and minimize without losing a conversation dra
   await expect(guide).toHaveCount(0)
   await expect(launcher).toBeFocused()
 })
+
+// --- Guide v2: memory, app state, reference notes, asking back, score advice, region tool.
+
+/** The guide panel, already connected (a key in this tab). */
+async function openGuide(page: import('@playwright/test').Page, url: string) {
+  await page.goto(url)
+  await page.evaluate(() => sessionStorage.setItem('moon-watchers.gemini-key', 'k'))
+  await page.reload()
+  await page.getByRole('button', { name: 'Ask the AI guide' }).click()
+  return page.getByRole('dialog', { name: 'AI Guide' })
+}
+
+async function sendTo(guide: import('@playwright/test').Locator, text: string) {
+  await guide.getByRole('textbox', { name: 'Message to the AI guide' }).fill(text)
+  await guide.getByRole('textbox', { name: 'Message to the AI guide' }).press('Enter')
+}
+
+const systemOf = (body: string) => JSON.parse(body).systemInstruction.parts[0].text as string
+const turnsOf = (body: string) => (JSON.parse(body).contents as { role: string; parts: { text: string }[] }[]).map((c) => `${c.role}: ${c.parts[0].text}`)
+
+const ONE_SITE = '/?tk=sample_b~2027-03-01T00:00Z~29.53~2~3'
+
+test('the guide sees the open sites with their score breakdown and explains a low score', async ({ page, context }) => {
+  const seen = await fakeGemini(context, [{ action: 'answer', reply: 'Site A scores low mostly because of station contact.' }])
+  const guide = await openGuide(page, ONE_SITE)
+  // Let the card's results load, so the guide is told about them.
+  await expect(page.getByText(/Weighted Score \d+/).first()).toBeVisible()
+  await sendTo(guide, 'Why is site A low?')
+  await expect(guide.getByText('Site A scores low mostly because of station contact.')).toBeVisible()
+  const system = systemOf(seen.at(-1)!.body)
+  expect(system).toContain('A: Sample site B. catalog site sample_b')
+  expect(system).toMatch(/Factors \(raw value, grade 0-1, weight share, points lost\): L sunlight/)
+  expect(system).toContain('Warnings: ')
+})
+
+test('the guide reads reference notes when it needs them, then answers', async ({ page, context }) => {
+  const seen = await fakeGemini(context, [
+    { action: 'lookup', topics: ['south-pole-screen'], reply: 'Checking…' },
+    { action: 'answer', reply: 'Ridge graph shows the highest ridge at each compass bearing.' },
+  ])
+  const guide = await openGuide(page, ONE_SITE)
+  await sendTo(guide, 'What does the Ridge graph button do?')
+  await expect(guide.getByText('Ridge graph shows the highest ridge at each compass bearing.')).toBeVisible()
+  const posts = seen.filter((r) => r.body !== '')
+  expect(posts).toHaveLength(2)
+  expect(systemOf(posts[0].body)).not.toContain('=== south-pole-screen ===')
+  expect(systemOf(posts[1].body)).toContain('=== south-pole-screen ===')
+})
+
+test('the guide asks back with options, and remembers the conversation', async ({ page, context }) => {
+  const seen = await fakeGemini(context, [
+    { action: 'ask', reply: 'Which month do you want to land?', options: ['March 2027', 'June 2027'] },
+    { action: 'open', points: [{ site_id: 'sample_a' }], landing: '2027-06-01', reply: 'Opening.' },
+  ])
+  const guide = await openGuide(page, '/')
+  await sendTo(guide, 'Land at sample A')
+  await expect(guide.getByText('Which month do you want to land?')).toBeVisible()
+  await guide.getByRole('button', { name: 'June 2027' }).click()
+  await expect(guide.getByText(/Opened site A Sample site A\./)).toBeVisible()
+  await expect(page).toHaveURL(/tk=sample_a%7E2027-06-01T00%3A00Z/)
+  const posts = seen.filter((r) => r.body !== '')
+  expect(turnsOf(posts[1].body)).toEqual(['user: Land at sample A', 'model: Which month do you want to land?', 'user: June 2027'])
+})
+
+test('in Advisor mode the guide suggests weights and applies them only on Apply', async ({ page, context }) => {
+  await fakeGemini(context, [{ action: 'set_score', weights: { L: 0.15, C: 0.45, DK: 0.1, OT: 0.15, LS: 0.05, S: 0.1, D: 0 }, reply: 'More weight on contact.' }])
+  const guide = await openGuide(page, ONE_SITE)
+  await expect(guide.getByRole('button', { name: 'Advisor' })).toHaveAttribute('aria-pressed', 'true')
+  await sendTo(guide, 'I care most about communication')
+  await expect(guide.getByText(/Suggested: sunlight 0\.25 → 0\.15, station contact 0\.25 → 0\.45/)).toBeVisible()
+  await expect(page).not.toHaveURL(/[?&]w=/)
+  await guide.getByRole('button', { name: 'Apply weights' }).click()
+  await expect(page).toHaveURL(/[?&]w=0\.15,0\.45,0\.1,0\.15,0\.05,0\.1,0/)
+  await expect(guide.getByText('Applied. Back undoes it.')).toBeVisible()
+  await page.goBack()
+  await expect(page).not.toHaveURL(/[?&]w=/)
+})
+
+test('in Direct mode the guide applies a preset at once', async ({ page, context }) => {
+  await fakeGemini(context, [{ action: 'set_score', preset: 'sunlight_first', reply: 'Sunlight first.' }])
+  const guide = await openGuide(page, ONE_SITE)
+  await guide.getByRole('button', { name: 'Direct' }).click()
+  await sendTo(guide, 'Power matters most')
+  await expect(guide.getByText(/Applied: Sunlight first preset: sunlight 0\.25 → 0\.60/)).toBeVisible()
+  await expect(page).toHaveURL(/[?&]w=0\.6,0\.2,0,0,0,0\.1,0\.1/)
+})
+
+test('the guide opens Manual Selection and reports the best areas once the outline has 3 points', async ({ page, context }) => {
+  await fakeGemini(context, [{ action: 'open_region', reply: 'Click three or more grid points around the area.' }])
+  const guide = await openGuide(page, '/')
+  await sendTo(guide, 'Help me find the best area')
+  const tool = page.getByRole('dialog', { name: 'Manual Selection' })
+  await expect(tool).toBeVisible()
+  await expect(tool.getByText('The AI guide finds the best areas once the outline has 3 points.')).toBeVisible()
+  // Close the guide so it doesn't cover the map, outline a square, and reopen it.
+  await guide.getByRole('button', { name: 'Close the AI guide' }).click()
+  // The tool's panel sits at the map's top right and is taller when the guide opened it,
+  // so outline a square in the free part of the map to its left (font widths differ by OS).
+  const map = (await page.locator('.panel .polar-map').first().boundingBox())!
+  const panel = (await tool.boundingBox())!
+  const freeRight = Math.min(panel.x, map.x + map.width) - 16
+  const half = Math.min(26, (freeRight - map.x - 32) / 2)
+  const cx = (map.x + 16 + freeRight) / 2
+  const cy = map.y + map.height / 2
+  const corners = [[-half, -half], [half, -half], [half, half]]
+  corners.forEach(([dx]) => expect(cx + dx, 'outline stays left of the tool panel').toBeLessThan(panel.x))
+  for (const [i, [dx, dy]] of corners.entries()) {
+    await page.mouse.click(cx + dx, cy + dy)
+    await expect(tool.getByText(new RegExp(`^${i + 1} selected`))).toBeVisible()
+  }
+  await expect(tool.getByRole('list', { name: 'Best areas' })).toBeVisible({ timeout: 5000 })
+  await page.getByRole('button', { name: 'Ask the AI guide' }).click()
+  await expect(guide.getByText(/^Best areas in your outline \(5 km grid, best first\): #1 /)).toBeVisible()
+})
