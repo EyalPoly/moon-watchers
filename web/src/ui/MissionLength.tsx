@@ -52,7 +52,7 @@ export function MissionLength({ days, onChange }: MissionLengthProps) {
             step={1}
             value={d}
             onChange={(e) => setD(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && commit()}
+            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); commit() } }}
             aria-label="Mission days"
             aria-invalid={!valid || !inRange}
           />
@@ -66,7 +66,7 @@ export function MissionLength({ days, onChange }: MissionLengthProps) {
             step={0.1}
             value={h}
             onChange={(e) => setH(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && commit()}
+            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); commit() } }}
             aria-label="Mission hours"
             aria-invalid={!valid || !inRange}
           />

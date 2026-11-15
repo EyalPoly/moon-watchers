@@ -1,3 +1,4 @@
+import { pointLetter } from './points'
 import type { CSSProperties } from 'react'
 
 // One identity color per ticket, kept clear of lime (primary actions) and of the
@@ -11,7 +12,7 @@ export function ticketColor(index: number): string {
 
 export function ticketLabel(index: number, name = ''): string {
   if (name !== '') return name
-  return `Ticket ${index + 1}`
+  return `Site ${pointLetter(index)}`
 }
 
 /** DOM id of a ticket's panel in the main area, for scrolling it into view. */

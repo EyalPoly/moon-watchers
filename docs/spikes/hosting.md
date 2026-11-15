@@ -11,10 +11,23 @@ Status: **decided for the API** (Google Cloud Run). GPU hosting is not offered, 
 - Deploy by hand with `make deploy GCLOUD=<path to gcloud>`: it builds the `Dockerfile` in Cloud Build and rolls out a new revision. No CI job deploys the API.
 - The default compute service account needed `roles/cloudbuild.builds.builder` before the first source deploy would build.
 
+## Horizon bundle
+
+The API serves skylines from a bundle (`make masks`), which is not in the repo. It is a GitHub Release asset, pinned by checksum in `deploy/bundle.lock.json`; the `Dockerfile` downloads it while the image is built (`deploy/fetch_bundle.py`: size and sha256 checked, bundle id compared with the lock, unpacked to `/app/bundle`, `BUNDLE_DIR` set). A build with a wrong or missing asset fails instead of shipping an image without horizons.
+
+To ship a new bundle:
+
+1. `make masks`, then `cd bundle && python3 -m zipfile -c <id>.zip <id>/`.
+2. `gh release create bundle-<id> bundle/<id>.zip --title "Horizon bundle <id>" --notes "..."`.
+3. Put the asset's URL, `sha256sum` and size (`stat -c %s`) into `deploy/bundle.lock.json`, together with the id, and commit.
+4. `make deploy`, then check `GET /api/v1/sites/sample_a/horizon` and that `config.json` can switch `horizon` to `real`.
+
+The bundle is 8 MB (masks 0.4 MB, ephemeris and Earth-rotation tables 7.6 MB), so memory stays far below 512 MiB. Terrain for custom points is a separate, later question (spec §6.6).
+
 ## Frontend
 
 - Static previews on GitHub Pages, built by `.github/workflows/deploy.yml` on every push to `main`.
-- `/product/` is all `sample`. `/integrated/` uses the committed `web/public/config.json`: `sites` is `real` (served by Cloud Run), `horizon` and `summary` stay `sample` until the API serves them.
+- `/product/` is all `sample`. `/integrated/` uses the committed `web/public/config.json`: `sites` is `real` (served by Cloud Run), `horizon` and `summary` stay `sample` until the API serves them (switch `horizon` after the first deploy with a bundle).
 
 ## Open
 
