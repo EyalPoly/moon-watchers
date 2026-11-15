@@ -5,11 +5,12 @@ import yaml
 from fastapi.testclient import TestClient
 
 from api.main import create_app
+from tests.catalog_fixture import FIXTURE_CATALOG
 
 
 @pytest.fixture
 def client() -> TestClient:
-    return TestClient(create_app())
+    return TestClient(create_app(catalog_path=FIXTURE_CATALOG))
 
 
 def test_sites_list(client: TestClient) -> None:

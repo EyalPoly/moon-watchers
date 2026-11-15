@@ -231,3 +231,33 @@ def test_summary_api_rejects_off_grid_t0(bundle_dir: Path, catalog_file: Path) -
     api = TestClient(create_app(catalog_path=catalog_file, bundle_dir=bundle_dir))
     response = api.get("/api/v1/scenario/summary?site=s1&t0=2027-03-01T00:07Z")
     assert response.status_code == 422 and response.json()["code"] == "INVALID_PARAM"
+
+
+def test_summary_all_sites_matches_single_runs(bundle_dir: Path, catalog_file: Path, tmp_path: Path) -> None:
+    out = tmp_path / "all"
+    common = ["--t0", "2027-03-01T00:00Z", "--bundle", str(bundle_dir), "--catalog", str(catalog_file)]
+    assert main(["summary", "--site", "all", *common, "--out", str(out)]) == 0
+    assert sorted(p.name for p in out.iterdir()) == sorted(f"{site_id}_summary.csv" for site_id in CATALOG)
+    for site_id in CATALOG:
+        single = tmp_path / f"{site_id}.csv"
+        assert main(["summary", "--site", site_id, *common, "--out", str(single)]) == 0
+        assert (out / f"{site_id}_summary.csv").read_bytes() == single.read_bytes()
+
+
+def test_horizon_all_sites_names(bundle_dir: Path, catalog_file: Path, tmp_path: Path) -> None:
+    common = ["--bundle", str(bundle_dir), "--catalog", str(catalog_file)]
+    assert main(["horizon", "--site", "all", "--height", "3", *common, "--out", str(tmp_path / "h")]) == 0
+    assert sorted(p.name for p in (tmp_path / "h").iterdir()) == sorted(f"{s}_h3.csv" for s in CATALOG)
+    assert main(["horizon", "--site", "all", "--part", "far", *common, "--out", str(tmp_path / "f")]) == 0
+    assert sorted(p.name for p in (tmp_path / "f").iterdir()) == sorted(f"{s}_far.csv" for s in CATALOG)
+    single = tmp_path / "s1.csv"
+    run(bundle_dir, single, "--height", "3")
+    assert (tmp_path / "h" / "s1_h3.csv").read_bytes() == single.read_bytes()
+
+
+def test_all_sites_out_is_a_file(bundle_dir: Path, catalog_file: Path, tmp_path: Path) -> None:
+    taken = tmp_path / "taken.csv"
+    taken.write_text("x")
+    common = ["--bundle", str(bundle_dir), "--catalog", str(catalog_file), "--out", str(taken)]
+    assert main(["horizon", "--site", "all", *common]) == 2
+    assert main(["summary", "--site", "all", "--t0", "2027-03-01T00:00Z", *common]) == 2

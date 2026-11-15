@@ -256,3 +256,40 @@ def test_chip_color_follows_the_rounded_percentage() -> None:
     chips = summary_json.rag_chips(near, 4.2, configs.rag)  # type: ignore[arg-type]
     assert "60.0%" in chips.sun.reason and chips.sun.color == "green"
     assert "30.0%" in chips.dte.reason and chips.dte.color == "amber"
+
+
+def test_heavy_summary_work_runs_at_most_two_at_a_time(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import threading
+    import time
+
+    import api.main as main
+
+    bundle = make_bundle(tmp_path)
+    catalog = tmp_path / "sites.yaml"
+    catalog.write_text(yaml.safe_dump({"sites": [s.model_dump() for s in CATALOG.values()]}))
+    client = TestClient(create_app(catalog_path=catalog, bundle_dir=bundle))
+    real = main.mission_series
+    lock = threading.Lock()
+    state = {"now": 0, "peak": 0}
+
+    def slow(*args, **kwargs):  # type: ignore[no-untyped-def]
+        with lock:
+            state["now"] += 1
+            state["peak"] = max(state["peak"], state["now"])
+        time.sleep(0.05)
+        try:
+            return real(*args, **kwargs)
+        finally:
+            with lock:
+                state["now"] -= 1
+
+    monkeypatch.setattr(main, "mission_series", slow)
+    paths = [f"{SUMMARY}&days={d}" for d in (5, 6, 7, 8, 9, 10, 11, 12)]
+    threads = [threading.Thread(target=client.get, args=(p,)) for p in paths]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    assert 1 <= state["peak"] <= 2

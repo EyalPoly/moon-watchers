@@ -10,7 +10,7 @@ from api.bundle import BundleError, load_bundle
 from build.make_ephemeris import KERNELS, build_ephemeris, direct_sky
 from build.make_masks import add_ephemeris, build_bundle
 from engine.geometry import Ephemeris, interpolate
-from tests.ephemeris_helpers import synthetic_ephemeris
+from tests.ephemeris_helpers import default_ephemeris, synthetic_ephemeris
 from tests.test_masks_build import CATALOG, make_sources
 
 EPH_START = datetime(2027, 2, 27, tzinfo=UTC)
@@ -158,3 +158,13 @@ def test_newest_bundle_follows_creation_time_not_name(tmp_path: Path) -> None:
     (tmp_path / "stray").mkdir()
     assert newest_bundle(tmp_path).name == "20261114-00000000"  # type: ignore[union-attr]
     assert newest_bundle(tmp_path / "missing") is None
+
+
+def test_bundle_refused_when_a_site_moved_since_the_build(tmp_path: Path) -> None:
+    from tests.test_masks_build import site
+
+    bundle = build_bundle(CATALOG, make_sources(tmp_path), tmp_path / "bundle", default_ephemeris())
+    moved = {**CATALOG, "s1": site("s1", -89.5, 0.0)}
+    with pytest.raises(BundleError, match="s1.*moved"):
+        load_bundle(bundle, moved)
+    assert load_bundle(bundle, CATALOG).bundle_id == bundle.name

@@ -23,7 +23,7 @@ from engine.horizons import (
     ray_distances,
 )
 from engine.geometry import MOON_FRAME, Ephemeris
-from engine.terrain import MOON_RADIUS_M, Dem, load_dem, project
+from engine.terrain import MOON_RADIUS_M, Dem, dem_bounds, load_dem, project
 
 FRAME_NOTE = (
     "Engine frame MOON_ME_DE440_ME421; LOLA DEMs are MOON_ME_DE421, "
@@ -45,9 +45,10 @@ class Terrain:
 
 # Half-widths are ground distances covering the 10 km near zone and the 200 km maximum reach;
 # load_windows widens them for the map scale.
-DEM_20 = Layer("lola/LDEM_80S_20MPP_ADJ.TIF", 12_000.0)
-DEM_40 = Layer("lola/LDEM_80S_40MPP_ADJ.TIF", 12_000.0)
-DEM_80 = Layer("lola/LDEM_80S_80MPP_ADJ.TIF", 12_000.0)
+NEAR_HALF_WIDTH_M = 12_000.0
+DEM_20 = Layer("lola/LDEM_80S_20MPP_ADJ.TIF", NEAR_HALF_WIDTH_M)
+DEM_40 = Layer("lola/LDEM_80S_40MPP_ADJ.TIF", NEAR_HALF_WIDTH_M)
+DEM_80 = Layer("lola/LDEM_80S_80MPP_ADJ.TIF", NEAR_HALF_WIDTH_M)
 DEM_240 = Layer("lola/LDEM_60S_240MPP_ADJ.TIF", 202_000.0)
 
 # Each set is named by its finest terrain, finest first. "20m" is the one the API serves and
@@ -76,16 +77,35 @@ def map_half_width_m(lat_deg: float, ground_m: float) -> float:
     return float(ground_m * 2.0 / (1.0 + np.cos(outer_colatitude)))
 
 
+def site_window(site: Site, layer: Layer) -> tuple[float, float, float, float]:
+    x, y = project(site.lat_deg, site.lon_deg)
+    cx, cy = float(x), float(y)
+    half = map_half_width_m(site.lat_deg, layer.half_width_m)
+    return (cx - half, cy - half, cx + half, cy + half)
+
+
+def check_near_coverage(site: Site, sources: Path, finest: Layer) -> None:
+    """A site partly outside its finest file would quietly get coarser near terrain.
+
+    Only near-zone layers are checked: the long-reach layer is meant to run past its edges.
+    """
+    if finest.half_width_m > NEAR_HALF_WIDTH_M:
+        return
+    x0, y0, x1, y1 = site_window(site, finest)
+    fx0, fy0, fx1, fy1 = dem_bounds(sources / finest.dem)
+    if x0 < fx0 or y0 < fy0 or x1 > fx1 or y1 > fy1:
+        raise ValueError(
+            f"site {site.id}: {finest.dem} does not cover its {(x1 - x0) / 1000:.1f} km near window"
+        )
+
+
 def load_windows(
     site: Site, sources: Path, layers: list[Layer]
 ) -> tuple[list[Dem], list[Dem]]:
-    x, y = project(site.lat_deg, site.lon_deg)
-    cx, cy = float(x), float(y)
     terrain: list[Dem] = []
     errors: list[Dem] = []
     for layer in layers:
-        half = map_half_width_m(site.lat_deg, layer.half_width_m)
-        window = (cx - half, cy - half, cx + half, cy + half)
+        window = site_window(site, layer)
         try:
             terrain.append(load_dem(sources / layer.dem, layer.dem, window))
             if (sources / error_path(layer.dem)).is_file():
@@ -135,6 +155,7 @@ def build_bundle(
     ephemeris: Ephemeris,
     kernel_hashes: dict[str, str] | None = None,
     terrain: str = DEFAULT_TERRAIN,
+    require_finest: bool = False,
 ) -> Path:
     if terrain not in TERRAINS:
         raise ValueError(f"unknown terrain {terrain!r}; choose from {', '.join(TERRAINS)}")
@@ -142,6 +163,11 @@ def build_bundle(
     missing = [layer.dem for layer in chosen.required if not (sources / layer.dem).is_file()]
     if missing:
         raise FileNotFoundError(f"terrain {terrain} is missing {', '.join(missing)} under {sources}")
+    if require_finest and not (sources / chosen.layers[0].dem).is_file():
+        raise FileNotFoundError(
+            f"terrain {terrain} needs {chosen.layers[0].dem} under {sources}; "
+            "without it the build would quietly use coarser terrain"
+        )
     present = [layer for layer in chosen.layers if (sources / layer.dem).is_file()]
     if not present:
         raise FileNotFoundError(f"no LOLA DEM found under {sources}")
@@ -155,6 +181,7 @@ def build_bundle(
     try:
         site_warnings: dict[str, list[str]] = {}
         for site in catalog.values():
+            check_near_coverage(site, sources, present[0])
             dems, errors = load_windows(site, sources, present)
             try:
                 masks = compute_site_masks(site.lat_deg, site.lon_deg, dems, errors)
@@ -254,7 +281,9 @@ def main(argv: list[str] | None = None) -> None:
         return
     catalog = load_catalog(Path("catalog/sites.yaml"))
     for name in names:
-        path = build_bundle(catalog, Path("data/sources"), Path("bundle"), ephemeris, spice_hash, terrain=name)
+        path = build_bundle(
+            catalog, Path("data/sources"), Path("bundle"), ephemeris, spice_hash, terrain=name, require_finest=True
+        )
         print(f"{name}: {path}", flush=True)
 
 

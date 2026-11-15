@@ -1,6 +1,7 @@
 import argparse
 import os
 import sys
+from collections.abc import Callable
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -34,6 +35,7 @@ from engine.metrics import compute_metrics, day_bins
 from engine.series import STEP_S
 
 FAR_ROW = 10
+ALL_SITES = "all"
 COLUMNS = "az_deg,elevation_deg,low_deg,high_deg,blocking_distance_km"
 
 
@@ -190,10 +192,11 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="engine.cli")
     sub = parser.add_subparsers(dest="command", required=True)
     horizon = sub.add_parser("horizon")
-    horizon.add_argument("--site", required=True)
+    horizon.add_argument("--site", required=True, help="a site id, or 'all' for one file per catalog site")
     horizon.add_argument("--height", type=int, default=2, choices=range(1, 11), metavar="1-10")
     horizon.add_argument("--part", choices=["full", "far"], default="full")
     horizon.add_argument("--bundle", type=Path)
+    horizon.add_argument("--catalog", type=Path, default=Path("catalog/sites.yaml"))
     horizon.add_argument("--out", type=Path, required=True)
     series = sub.add_parser("series")
     series.add_argument("--site", required=True)
@@ -205,7 +208,7 @@ def main(argv: list[str] | None = None) -> int:
     series.add_argument("--catalog", type=Path, default=Path("catalog/sites.yaml"))
     series.add_argument("--out", type=Path, required=True)
     summary = sub.add_parser("summary")
-    summary.add_argument("--site", required=True)
+    summary.add_argument("--site", required=True, help="a site id, or 'all' for one file per catalog site")
     summary.add_argument("--t0", required=True, help="YYYY-MM-DDTHH:MMZ")
     summary.add_argument("--days", type=float, default=30)
     summary.add_argument("--panel", type=float, default=2.0)
@@ -224,9 +227,32 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     if args.command == "series":
         return _write_series(args)
-    if args.command == "summary":
-        return _write_summary(args)
+    writer = _write_summary if args.command == "summary" else _write_horizon
+    if args.site == ALL_SITES:
+        return _write_all(args, writer)
+    return writer(args)
 
+
+def _all_name(args: argparse.Namespace, site_id: str) -> str:
+    if args.command == "summary":
+        return f"{site_id}_summary.csv"
+    return f"{site_id}_far.csv" if args.part == "far" else f"{site_id}_h{args.height}.csv"
+
+
+def _write_all(args: argparse.Namespace, writer: Callable[[argparse.Namespace], int]) -> int:
+    out_dir: Path = args.out
+    if out_dir.exists() and not out_dir.is_dir():
+        print(f"--out {out_dir} is a file; with --site all it must be a directory", file=sys.stderr)
+        return 2
+    out_dir.mkdir(parents=True, exist_ok=True)
+    for site_id in load_catalog(args.catalog):
+        code = writer(argparse.Namespace(**{**vars(args), "site": site_id, "out": out_dir / _all_name(args, site_id)}))
+        if code != 0:
+            return code
+    return 0
+
+
+def _write_horizon(args: argparse.Namespace) -> int:
     bundle_dir: Path = args.bundle or _default_bundle()
     try:
         bundle = load_bundle(bundle_dir, [args.site])
