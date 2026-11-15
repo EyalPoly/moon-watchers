@@ -1,6 +1,7 @@
 import { http, HttpResponse } from 'msw'
 import { POINT_AREA, formatLatLon, inPointArea, parsePointId, pointId } from '../points'
 import { HEIGHT_RANGE, roundCm } from '../heights'
+import { readScoreSettings, SETTING_RULES } from '../scoreSettings'
 import { HOUSTON, normalizeStation } from '../stations'
 import type { Horizon, Scenario, StationPoint } from '../types'
 import { parseIsoMinute } from '../../time'
@@ -87,8 +88,8 @@ function invalid(detail: string) {
 function scenarioFrom(url: URL, siteId: string): Scenario | string {
   const t0 = url.searchParams.get('t0') ?? ''
   if (parseIsoMinute(t0) === null) return 't0 must be YYYY-MM-DDTHH:MMZ'
-  const w = (url.searchParams.get('w') ?? '1,1,1,0').split(',').map(Number)
-  if (w.length !== 4 || w.some((x) => !(x >= 0 && x <= 1))) return 'w must be four weights in [0, 1]'
+  const { settings, invalid: badKeys } = readScoreSettings(url.searchParams)
+  if (badKeys.length > 0) return SETTING_RULES[badKeys[0]].message
   const station = stationParam(url)
   if (typeof station === 'string') return station
   const panel = heightParam(url, 'panel', 2)
@@ -101,8 +102,8 @@ function scenarioFrom(url: URL, siteId: string): Scenario | string {
     days: clampParam(url, 'days', 1, 365, 30),
     panel,
     antenna,
-    w: w as Scenario['w'],
     station,
+    ...settings,
   }
 }
 

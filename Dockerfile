@@ -14,6 +14,7 @@ RUN uv sync --frozen --no-dev --no-install-project
 COPY api ./api
 COPY engine ./engine
 COPY catalog ./catalog
+COPY config ./config
 COPY contract/samples ./contract/samples
 
 # The horizon bundle is a GitHub Release asset pinned by checksum, not part of the repo.

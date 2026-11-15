@@ -86,24 +86,59 @@ input[type="datetime-local"] {
 
 .verdict {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 10px;
   margin: 10px 0 4px;
 }
 
+.score-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1 1 100%;
+}
+.score-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  min-width: 0;
+}
+.score-note {
+  color: var(--muted);
+  font-size: 11px;
+}
+.score-badge {
+  padding: 1px 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 12px;
+}
+.score-badge-excluded {
+  border-style: dashed;
+}
+.score-badge-custom {
+  border-style: dotted;
+}
 .score {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  width: 52px;
-  height: 52px;
+  width: 58px;
+  height: 58px;
   border: 2px solid currentColor;
   border-radius: 50%;
   cursor: help;
   flex: none;
 }
 
+.score-icon {
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+}
 .score .num {
   font-size: 18px;
   font-weight: 700;
@@ -116,6 +151,19 @@ input[type="datetime-local"] {
   letter-spacing: 0.06em;
 }
 
+.score-excluded,
+.chip-excluded {
+  color: var(--muted);
+}
+.score-excluded {
+  border-style: dashed;
+}
+.chip-unknown {
+  color: var(--muted);
+}
+.chip-unknown .chip-icon {
+  background: var(--muted);
+}
 .score-green,
 .chip-green {
   color: var(--green);
@@ -616,4 +664,65 @@ input[type="range"] {
   fill: #d4a017;
   opacity: 0.18;
   pointer-events: none;
+}
+
+.metrics .metric-reason {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+/* Warnings */
+
+.warnings {
+  margin: 6px 0;
+  font-size: 12px;
+}
+.warning-list {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.warning {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+  padding: 3px 8px;
+  border-left: 3px solid var(--border);
+  border-radius: 3px;
+}
+.warning-icon {
+  flex: none;
+  width: 14px;
+  text-align: center;
+  font-weight: 800;
+}
+.warning-blocking {
+  border-left-style: solid;
+  border-left-color: var(--red);
+  background: color-mix(in srgb, var(--red) 12%, transparent);
+}
+.warning-caution {
+  border-left-style: dashed;
+  border-left-color: var(--amber);
+}
+.warning-info {
+  border-left-style: dotted;
+  color: var(--muted);
+}
+.warning-code {
+  font-size: 11px;
+}
+.warning-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 4px;
+}
+.warning-standing {
+  margin-top: 4px;
+}
+.compare-warnings {
+  text-align: left;
+  vertical-align: top;
 }

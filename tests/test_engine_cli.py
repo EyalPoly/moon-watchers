@@ -138,3 +138,96 @@ def test_series_cli_month_outside_table_exits_nonzero(bundle_dir: Path, catalog_
         main(["series", "--site", "s1", "--month", "2031-05", "--bundle", str(bundle_dir),
               "--catalog", str(catalog_file), "--out", str(tmp_path / "s.csv")])
     assert error.value.code not in (0, None)
+
+
+def run_summary(bundle_dir: Path, catalog: Path, out: Path, *extra: str) -> int:
+    return main(
+        ["summary", "--site", "s1", "--t0", "2027-03-01T00:00Z", "--bundle", str(bundle_dir),
+         "--catalog", str(catalog), "--out", str(out), *extra]
+    )
+
+
+def split_summary(path: Path) -> tuple[list[str], list[dict[str, str]]]:
+    lines = path.read_text().splitlines()
+    comments = [line for line in lines if line.startswith("#")]
+    return comments, list(csv.DictReader(line for line in lines if not line.startswith("#")))
+
+
+def test_summary_cli_rows(bundle_dir: Path, catalog_file: Path, tmp_path: Path) -> None:
+    out = tmp_path / "m.csv"
+    assert run_summary(bundle_dir, catalog_file, out, "--margin", "12") == 0
+    comments, rows = split_summary(out)
+    assert comments[0].startswith("# site=s1 t0=2027-03-01T00:00Z days=30 panel_m=2 antenna_m=3 station=")
+    assert any(c.startswith("# score value=") for c in comments)
+    assert any(c.startswith("# metric sun_pct=") for c in comments)
+    assert any(c.startswith("# factor L weight=") for c in comments)
+    assert list(rows[0]) == ["day", "start_utc", "end_utc", "hours", "sun_pct", "dte_pct", "sun_disk_mean"]
+    assert len(rows) == 31
+    assert rows[0]["hours"] == "24" and rows[-1]["hours"] == "12"
+    assert rows[0]["start_utc"] == "2027-02-28T12:00Z"
+
+
+def test_summary_cli_matches_api(bundle_dir: Path, catalog_file: Path, tmp_path: Path) -> None:
+    out = tmp_path / "m.csv"
+    assert run_summary(bundle_dir, catalog_file, out, "--w", "0.6,0.2,0,0,0,0.1,0.1", "--slope", "0,10,20") == 0
+    comments, rows = split_summary(out)
+    api = TestClient(create_app(catalog_path=catalog_file, bundle_dir=bundle_dir))
+    body = api.get(
+        "/api/v1/scenario/summary?site=s1&t0=2027-03-01T00:00Z&w=0.6,0.2,0,0,0,0.1,0.1&slope=0,10,20"
+    ).json()
+    metrics = {c.split()[2].split("=")[0]: c.split("=", 1)[1] for c in comments if c.startswith("# metric ")}
+    assert float(metrics["sun_pct"]) == body["metrics"]["sun_pct"]
+    assert float(metrics["longest_dark_h"]) == body["metrics"]["longest_dark_h"]
+    score = next(c for c in comments if c.startswith("# score "))
+    assert f"value={body['score']['value']} category={body['score']['category']}" in score
+    assert [float(r["sun_pct"]) for r in rows] == body["daily"]["sun_pct"]
+
+
+@pytest.mark.parametrize(
+    ("extra", "word"),
+    [
+        (["--w", "1,1,1,0"], "w must"),
+        (["--slope", "20,10,15"], "slope"),
+        (["--days", "400"], "days must"),
+        (["--t0", "2027-03-01T00:07Z"], "t0"),
+        (["--sun-req", "73"], "sun_req must"),
+        (["--sun-req", "6.3"], "sun_req must"),
+        (["--panel", "11"], "panel must"),
+        (["--panel", "2.555"], "panel must"),
+    ],
+)
+def test_summary_cli_bad_setting_exits_nonzero(
+    bundle_dir: Path, catalog_file: Path, tmp_path: Path, extra: list[str], word: str
+) -> None:
+    with pytest.raises(SystemExit) as error:
+        run_summary(bundle_dir, catalog_file, tmp_path / "m.csv", *extra)
+    assert str(error.value.code).startswith(f"invalid input: {word}")
+    assert not (tmp_path / "m.csv").exists()
+
+
+def test_summary_cli_unknown_site_exits_nonzero(bundle_dir: Path, catalog_file: Path, tmp_path: Path) -> None:
+    with pytest.raises(SystemExit) as error:
+        main(["summary", "--site", "nope", "--t0", "2027-03-01T00:00Z", "--bundle", str(bundle_dir),
+              "--catalog", str(catalog_file), "--out", str(tmp_path / "m.csv")])
+    assert "unknown site" in str(error.value.code)
+
+
+def test_summary_cli_missing_bundle_exits_nonzero(catalog_file: Path, tmp_path: Path) -> None:
+    with pytest.raises(SystemExit) as error:
+        run_summary(tmp_path / "no-bundle", catalog_file, tmp_path / "m.csv")
+    assert "cannot read bundle" in str(error.value.code)
+    assert not (tmp_path / "m.csv").exists()
+
+
+def test_summary_cli_window_outside_table_exits_nonzero(bundle_dir: Path, catalog_file: Path, tmp_path: Path) -> None:
+    with pytest.raises(SystemExit) as error:
+        main(["summary", "--site", "s1", "--t0", "2030-01-01T00:00Z", "--bundle", str(bundle_dir),
+              "--catalog", str(catalog_file), "--out", str(tmp_path / "m.csv")])
+    assert "no ephemeris" in str(error.value.code)
+    assert not (tmp_path / "m.csv").exists()
+
+
+def test_summary_api_rejects_off_grid_t0(bundle_dir: Path, catalog_file: Path) -> None:
+    api = TestClient(create_app(catalog_path=catalog_file, bundle_dir=bundle_dir))
+    response = api.get("/api/v1/scenario/summary?site=s1&t0=2027-03-01T00:07Z")
+    assert response.status_code == 422 and response.json()["code"] == "INVALID_PARAM"
