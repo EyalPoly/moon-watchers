@@ -87,7 +87,7 @@ def sample(ds: rasterio.DatasetReader, x: float, y: float) -> float:
 
 
 def iau_rows(shp: Path) -> list[dict[str, Any]]:
-    import shapefile  # type: ignore[import-not-found]  # pyshp serves only this one-off tool
+    import shapefile
 
     reader = shapefile.Reader(str(shp))
     names = [f[0] for f in reader.fields][1:]
