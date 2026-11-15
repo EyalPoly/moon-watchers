@@ -1,3 +1,4 @@
+import dataclasses
 import os
 import threading
 from functools import lru_cache
@@ -12,6 +13,7 @@ from numpy.typing import NDArray
 
 from api.bundle import Bundle, load_bundle
 from api.catalog import load_catalog
+from api.custom_points import COARSE_TERRAIN, CustomPoints
 from api.errors import ApiError, install_error_handlers
 from api.models import (
     CustomPointRequest,
@@ -27,6 +29,7 @@ from api.models import (
 )
 from api.series_json import series_response, site_series
 from api.summary_json import build_summary, data_codes, mission_series, span_text, summary_version
+from api.point_ids import format_point_id, parse_point_id
 from api.score_config import load_configs
 from api.scenario import Mast, MonthParam, ScenarioParams, parse_t0
 from engine import __version__
@@ -41,7 +44,7 @@ FAR_MAST_M = 2.0
 # One year-long series needs tens of MiB of temporaries per piece; the browser sends every month
 # and every card at once, so the heavy work is queued rather than run all together.
 MAX_HEAVY_REQUESTS = 2
-ENGINE_PENDING = "the engine for this endpoint is not built yet; the web app uses sample answers"
+NO_TERRAIN = "custom points need terrain data, and none is configured on this server"
 
 
 def create_app(
@@ -49,6 +52,7 @@ def create_app(
     catalog_path: Path = Path("catalog/sites.yaml"),
     bundle_dir: Path | None = None,
     config_dir: Path = Path("config"),
+    terrain_dir: Path | None = None,
 ) -> FastAPI:
     configs = load_configs(config_dir)
     meta = Meta.model_validate_json((sample_dir / "meta.json").read_text()).model_copy(
@@ -59,9 +63,51 @@ def create_app(
         bundle_dir = Path(os.environ["BUNDLE_DIR"])
     bundle: Bundle | None = load_bundle(bundle_dir, catalog) if bundle_dir else None
     heavy = threading.BoundedSemaphore(MAX_HEAVY_REQUESTS)
+    if terrain_dir is None and os.environ.get("TERRAIN_DIR"):
+        terrain_dir = Path(os.environ["TERRAIN_DIR"])
+    area = meta.regions[0].custom_area
+    customs = (
+        CustomPoints(terrain_dir, heavy, (area.min_lat_deg, area.max_lat_deg))
+        if terrain_dir is not None and terrain_dir.is_dir()
+        else None
+    )
+    if customs is not None:
+        meta = meta.model_copy(update={"capabilities": meta.capabilities.model_copy(update={"custom_points": True})})
+
+    def lookup_site(site_id: str) -> Site:
+        site = catalog.get(site_id)
+        if site is not None:
+            return site
+        if parse_point_id(site_id) is None:
+            raise ApiError(404, "INVALID_PARAM", "unknown site id")
+        if customs is None:
+            raise ApiError(503, "FEATURE_DISABLED", NO_TERRAIN)
+        return customs.get(site_id)[0]
+
+    def resolve(site_id: str) -> tuple[Site, Bundle]:
+        """The site and a bundle view holding its masks. Call it outside `heavy`: a new custom
+        point takes a heavy slot while it computes."""
+        site = catalog.get(site_id)
+        if site is None and parse_point_id(site_id) is None:
+            raise ApiError(404, "INVALID_PARAM", "unknown site id")
+        if bundle is None:
+            raise ApiError(503, "FEATURE_DISABLED", "no horizon bundle is configured")
+        if site is not None:
+            return site, bundle
+        if customs is None:
+            raise ApiError(503, "FEATURE_DISABLED", NO_TERRAIN)
+        custom_site, point = customs.get(site_id)
+        view = dataclasses.replace(
+            bundle,
+            masks={custom_site.id: point.masks},
+            blocking={custom_site.id: point.blocking},
+            warnings={custom_site.id: [*point.warnings, COARSE_TERRAIN]},
+        )
+        return custom_site, view
+
     app = FastAPI(title="CLPS Lunar Mission Browser API", version=__version__, redirect_slashes=False)
     install_error_handlers(app)
-    app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["GET"])
+    app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["GET", "POST"])
     app.add_middleware(GZipMiddleware, minimum_size=1000)
 
     @app.get("/api/v1/health")
@@ -80,18 +126,11 @@ def create_app(
 
     @app.get("/api/v1/sites/{site_id}")
     def get_site(site_id: str) -> Site:
-        site = catalog.get(site_id)
-        if site is None:
-            raise ApiError(404, "INVALID_PARAM", "unknown site id")
-        return site
+        return lookup_site(site_id)
 
     @app.post("/api/v1/sites/custom")
     def create_custom_site(point: CustomPointRequest) -> Site:
-        """Contract only (slice S7): the engine builds the point's terrain and returns it as
-        a site whose id encodes the point, so the call is idempotent (spec §8.2).
-
-        Open decision for when the engine lands: CORS allows GET only, so a web app on
-        another origin cannot call this yet (tests/test_api_basic.py guards that)."""
+        """Creates (or finds again) the site for a point; the id encodes the point, so the call is idempotent."""
         area = meta.regions[0].custom_area
         if not area.min_lat_deg <= point.lat_deg <= area.max_lat_deg:
             raise ApiError(
@@ -99,7 +138,9 @@ def create_app(
                 "OUT_OF_COVERAGE",
                 f"custom points must lie between {area.min_lat_deg}° and {area.max_lat_deg}° latitude",
             )
-        raise ApiError(503, "FEATURE_DISABLED", ENGINE_PENDING)
+        if customs is None:
+            raise ApiError(503, "FEATURE_DISABLED", NO_TERRAIN)
+        return customs.get(format_point_id(point.lat_deg, point.lon_deg))[0]
 
     # Contract only (slices S2-S4): shapes are fixed here so the web app can build against
     # sample answers. Each route answers FEATURE_DISABLED until its engine function lands.
@@ -112,13 +153,11 @@ def create_app(
         part: Literal["full", "far"] = "full",
         v: str = "",
     ) -> HorizonResponse:
-        if site_id not in catalog:
-            raise ApiError(404, "INVALID_PARAM", "unknown site id")
-        if bundle is None:
-            raise ApiError(503, "FEATURE_DISABLED", "no horizon bundle is configured")
+        site, view = resolve(site_id)
         if v:
             response.headers["Cache-Control"] = IMMUTABLE_CACHE
-        masks = bundle.masks[site_id]
+        site_id = site.id
+        masks = view.masks[site_id]
         if part == "far":
             row = FAR_ROW
             shown = masks[:, row]
@@ -132,11 +171,11 @@ def create_app(
             part=part,
             az_step_deg=0.5,
             elevation_deg=_nullable(shown[0], 4),
-            distance_km=_nullable(bundle.blocking[site_id][row], 3),
+            distance_km=_nullable(view.blocking[site_id][row], 3),
             low_deg=_nullable(shown[1], 4),
             high_deg=_nullable(shown[2], 4),
-            algo_version=bundle.algo_version,
-            warnings=bundle.warnings.get(site_id, []),
+            algo_version=view.algo_version,
+            warnings=view.warnings.get(site_id, []),
         )
 
     @app.get("/api/v1/scenario/series")
@@ -146,15 +185,11 @@ def create_app(
         month: MonthParam,
         v: str = "",
     ) -> SeriesResponse:
-        entry = catalog.get(scenario.site)
-        if entry is None:
-            raise ApiError(404, "INVALID_PARAM", "unknown site id")
-        if bundle is None:
-            raise ApiError(503, "FEATURE_DISABLED", "no horizon bundle is configured")
+        entry, view = resolve(scenario.site)
         try:
             with heavy:
                 arrays, start, n = site_series(
-                    bundle, entry, month, scenario.panel, scenario.antenna, scenario.station
+                    view, entry, month, scenario.panel, scenario.antenna, scenario.station
                 )
         except (OutOfRange, ValueError, OverflowError) as error:
             raise ApiError(422, "OUT_OF_TIME_RANGE", f"no ephemeris for month {month}") from error
@@ -177,18 +212,14 @@ def create_app(
             site=site_id, t0=t0, days=days, margin=margin, panel=panel, antenna=antenna,
             station=StationPoint(lat_deg=station[0], lon_deg=station[1], alt_m=station[2], min_el_deg=station[3]),
         )
-        assert bundle is not None
+        site, view = resolve(site_id)
         with heavy:
-            arrays, window = mission_series(bundle, catalog[site_id], keyed)
+            arrays, window = mission_series(view, site, keyed)
             return window, compute_metrics(arrays, window.landing)
 
     @app.get("/api/v1/scenario/summary")
     def get_summary(response: Response, scenario: ScenarioParams, v: str = "") -> SummaryResponse:
-        entry = catalog.get(scenario.site)
-        if entry is None:
-            raise ApiError(404, "INVALID_PARAM", "unknown site id")
-        if bundle is None:
-            raise ApiError(503, "FEATURE_DISABLED", "no horizon bundle is configured")
+        entry, view = resolve(scenario.site)
         st = scenario.station
         try:
             window, metrics = _metrics(
@@ -197,7 +228,7 @@ def create_app(
             )
         except (OutOfRange, ValueError, OverflowError) as error:
             first = mission_window(parse_t0(scenario.t0), scenario.days, scenario.margin).start
-            eph = bundle.ephemeris
+            eph = view.ephemeris
             raise ApiError(
                 422,
                 "OUT_OF_TIME_RANGE",
@@ -207,7 +238,7 @@ def create_app(
         if v:
             response.headers["Cache-Control"] = IMMUTABLE_CACHE
         return build_summary(
-            entry, scenario, window, metrics, data_codes(bundle, scenario.site, window), configs, summary_version(bundle)
+            entry, scenario, window, metrics, data_codes(view, entry.id, window), configs, summary_version(view)
         )
 
     return app

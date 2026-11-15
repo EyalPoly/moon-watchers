@@ -412,6 +412,13 @@
       "affects": "sun",
       "text": "The Sun's and Earth's disks use 128-strip sampling and a small-angle approximation.",
       "standing": true
+    },
+    {
+      "code": "CUSTOM_COARSE_TERRAIN",
+      "severity": "caution",
+      "affects": "skyline",
+      "text": "This point uses 80 m terrain; catalog sites use 20 m. Near-horizon angles can differ by up to about 0.7 degrees.",
+      "standing": false
     }
   ]
 }

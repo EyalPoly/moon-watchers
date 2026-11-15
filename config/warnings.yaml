@@ -10,3 +10,4 @@
 - {code: DEM_RESOLUTION, severity: info, affects: all, standing: true, text: "Rocks and relief smaller than a terrain cell are not modeled."}
 - {code: GEOMETRIC_CONTACT, severity: info, affects: contact, standing: true, text: "Contact uses instantaneous positions (no light-time delay)."}
 - {code: DISK_QUADRATURE, severity: info, affects: sun, standing: true, text: "The Sun's and Earth's disks use 128-strip sampling and a small-angle approximation."}
+- {code: CUSTOM_COARSE_TERRAIN, severity: caution, affects: skyline, standing: false, text: "This point uses 80 m terrain; catalog sites use 20 m. Near-horizon angles can differ by up to about 0.7 degrees."}
