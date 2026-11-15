@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 330" width="760" height="330">
+  <rect width="760" height="330" fill="white"/>
+  <text x="20" y="28" font-family="Arial" font-size="20" font-weight="bold">Solar elevation band</text>
+  <text x="20" y="50" font-family="Arial" font-size="12" fill="#555">Simple seasonal shift of the solar elevation curve relative to the local terrain</text>
+  <line x1="70" y1="280" x2="720" y2="280" stroke="#444" stroke-width="1.5"/>
+  <line x1="70" y1="40" x2="70" y2="280" stroke="#444" stroke-width="1.5"/>
+  <text x="715" y="302" font-family="Arial" font-size="12" text-anchor="end">Azimuth</text>
+  <text x="18" y="30" transform="rotate(-90 18 30)" font-family="Arial" font-size="12">Elevation (°)</text>
+  <text x="70" y="300" font-family="Arial" font-size="11" text-anchor="middle">−180°</text>
+  <text x="395" y="300" font-family="Arial" font-size="11" text-anchor="middle">0°</text>
+  <text x="720" y="300" font-family="Arial" font-size="11" text-anchor="middle">180°</text>
+  <text x="55" y="78" font-family="Arial" font-size="11" text-anchor="end">4°</text>
+  <text x="55" y="138" font-family="Arial" font-size="11" text-anchor="end">2°</text>
+  <text x="55" y="198" font-family="Arial" font-size="11" text-anchor="end">0°</text>
+  <text x="55" y="258" font-family="Arial" font-size="11" text-anchor="end">−2°</text>
+
+  <path d="M70,190 C125,186 160,180 210,168 C270,152 335,140 395,138 C455,140 520,152 580,168 C630,180 665,186 720,190" fill="none" stroke="#d6a026" stroke-width="3" stroke-dasharray="7 5"/>
+  <path d="M70,222 C125,218 160,212 210,200 C270,184 335,172 395,170 C455,172 520,184 580,200 C630,212 665,218 720,222" fill="none" stroke="#d6a026" stroke-width="3" stroke-dasharray="7 5"/>
+  <path d="M70,206 C125,202 160,196 210,184 C270,168 335,156 395,154 C455,156 520,168 580,184 C630,196 665,202 720,206" fill="none" stroke="#d6a026" stroke-width="3"/>
+
+  <path d="M70,225 C120,218 140,220 165,210 C195,198 205,148 226,150 C252,152 248,220 273,218 C298,216 305,110 333,107 C362,104 361,206 397,208 C436,210 444,163 470,160 C498,157 510,205 545,205 C580,205 584,140 612,138 C642,136 646,214 675,214 C696,214 705,205 720,202" fill="#bdbdbd" opacity="0.55"/>
+  <path d="M70,225 C120,218 140,220 165,210 C195,198 205,148 226,150 C252,152 248,220 273,218 C298,216 305,110 333,107 C362,104 361,206 397,208 C436,210 444,163 470,160 C498,157 510,205 545,205 C580,205 584,140 612,138 C642,136 646,214 675,214 C696,214 705,205 720,202" fill="none" stroke="#8f8f8f" stroke-width="2"/>
+
+  <line x1="600" y1="120" x2="600" y2="222" stroke="#777" stroke-width="1.5" stroke-dasharray="4 4"/>
+  <line x1="609" y1="121" x2="609" y2="189" stroke="#777" stroke-width="1.5" stroke-dasharray="4 4"/>
+  <path d="M612,122 L612,188" stroke="#777" stroke-width="1.2" marker-start="url(#a1)" marker-end="url(#a1)"/>
+  <text x="620" y="159" font-family="Arial" font-size="12" fill="#555">3.08° seasonal band</text>
+
+  <path d="M510,102 L510,77" stroke="#b33" stroke-width="2" marker-end="url(#up)"/>
+  <text x="520" y="80" font-family="Arial" font-size="12" fill="#b33">toward summer</text>
+  <path d="M510,233 L510,258" stroke="#2a6fb1" stroke-width="2" marker-end="url(#down)"/>
+  <text x="520" y="262" font-family="Arial" font-size="12" fill="#2a6fb1">toward winter</text>
+
+  <text x="468" y="150" font-family="Arial" font-size="12" fill="#d6a026">current month</text>
+  <text x="470" y="131" font-family="Arial" font-size="12" fill="#9e7a15">summer limit</text>
+  <text x="470" y="225" font-family="Arial" font-size="12" fill="#9e7a15">winter limit</text>
+
+  <defs>
+    <marker id="up" markerWidth="7" markerHeight="7" refX="3.5" refY="3.5" orient="auto"><path d="M3.5 0 L7 7 L0 7 Z" fill="#b33"/></marker>
+    <marker id="down" markerWidth="7" markerHeight="7" refX="3.5" refY="3.5" orient="auto"><path d="M0 0 L7 0 L3.5 7 Z" fill="#2a6fb1"/></marker>
+    <marker id="a1" markerWidth="7" markerHeight="7" refX="3.5" refY="3.5" orient="auto"><path d="M3.5 0 L7 7 L0 7 Z" fill="#777"/></marker>
+  </defs>
+</svg>

@@ -1,3 +1,4 @@
+import { FieldHelp } from './FieldHelp'
 import { useEffect, useId, useRef, useState } from 'react'
 import { normalizeStation, sameStation, stationLabel, type StationPreset } from '../api/stations'
 import type { StationPoint } from '../api/types'
@@ -56,7 +57,7 @@ export function StationPicker({ value, presets, onChange }: StationPickerProps) 
 
   return (
     <div className="station-picker">
-      <span className="field-label" id={id}>Earth stations (direct contact)</span>
+      <span className="field-label"><span id={id}>Earth Stations (Direct Contact)</span><FieldHelp field="Earth stations">Choose individual ground stations or an entire network. Select a station in the results to see its direct contact with this site.</FieldHelp></span>
       <details ref={disclosure} className="station-menu"
         onKeyDown={(e) => { if (e.key === 'Escape') { closeMenu(); disclosure.current?.querySelector('summary')?.focus() } }}>
         <summary aria-labelledby={`${id} ${id}-summary`}><span id={`${id}-summary`}>{summary}</span></summary>
@@ -95,13 +96,13 @@ export function StationPicker({ value, presets, onChange }: StationPickerProps) 
         <div
           className="station-custom"
           onKeyDown={(e) => {
-            if (e.key !== 'Enter') return
+            if (e.key !== 'Enter' || !(e.target instanceof HTMLInputElement)) return
             e.preventDefault()
             if (draft !== null && changed) onChange([draft])
           }}
         >
-          <label className="control">
-            <span>Latitude °</span>
+          <div className="control">
+            <span><label htmlFor={`${id}-lat`}>Latitude °</label><FieldHelp field="station latitude">Earth latitude in degrees. Use negative values south of the equator.</FieldHelp></span>
             <input
               type="text"
               inputMode="decimal"
@@ -109,11 +110,11 @@ export function StationPicker({ value, presets, onChange }: StationPickerProps) 
               placeholder="31.25"
               onChange={(e) => setLat(e.target.value)}
               aria-invalid={invalidField(lat, 0)}
-              aria-label="Station latitude"
+              id={`${id}-lat`} aria-label="Station latitude"
             />
-          </label>
-          <label className="control">
-            <span>Longitude °</span>
+          </div>
+          <div className="control">
+            <span><label htmlFor={`${id}-lon`}>Longitude °</label><FieldHelp field="station longitude">Earth longitude from −180° to 180°. Use negative values west of Greenwich.</FieldHelp></span>
             <input
               type="text"
               inputMode="decimal"
@@ -121,31 +122,31 @@ export function StationPicker({ value, presets, onChange }: StationPickerProps) 
               placeholder="34.79"
               onChange={(e) => setLon(e.target.value)}
               aria-invalid={invalidField(lon, 1)}
-              aria-label="Station longitude"
+              id={`${id}-lon`} aria-label="Station longitude"
             />
-          </label>
-          <label className="control">
-            <span>Altitude m</span>
+          </div>
+          <div className="control">
+            <span><label htmlFor={`${id}-alt`}>Altitude m</label><FieldHelp field="station altitude">Ground station height in metres above sea level, from −500 to 9,000 m.</FieldHelp></span>
             <input
               type="text"
               inputMode="decimal"
               value={alt}
               onChange={(e) => setAlt(e.target.value)}
               aria-invalid={invalidField(alt, 2)}
-              aria-label="Station altitude"
+              id={`${id}-alt`} aria-label="Station altitude"
             />
-          </label>
-          <label className="control">
-            <span>Lowest Moon elevation °</span>
+          </div>
+          <div className="control">
+            <span><label htmlFor={`${id}-mask`}>Lowest Moon elevation °</label><FieldHelp field="station elevation mask">Minimum angle above the station’s horizon for a link, from 0° to 45°.</FieldHelp></span>
             <input
               type="text"
               inputMode="decimal"
               value={mask}
               onChange={(e) => setMask(e.target.value)}
               aria-invalid={invalidField(mask, 3)}
-              aria-label="Station elevation mask"
+              id={`${id}-mask`} aria-label="Station elevation mask"
             />
-          </label>
+          </div>
           <button type="button" className="secondary" disabled={!changed} onClick={() => draft !== null && onChange([draft])}>
             Use
           </button>

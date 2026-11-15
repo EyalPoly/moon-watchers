@@ -16,17 +16,19 @@ export function solarCurveDeg(azDeg: number, latDeg: number, decDeg: number): nu
 }
 
 /** The sky between the curves of lowest and highest declination, as one closed outline.
- *  `x` must map 0° to the left edge and 360° to the right edge, not wrap 360° back to 0°. */
+ *  `x` receives degrees from `startDeg` and must map 0° to the left edge and 360° to the right edge,
+ *  not wrap 360° back to 0°. */
 export function seasonOutline(
   season: SunSeason,
   x: (az: number) => number,
   y: (el: number) => number,
   stepDeg = 3,
+  startDeg = 0,
 ): string {
   const azimuths: number[] = []
-  for (let az = 0; az <= 360; az += stepDeg) azimuths.push(az)
+  for (let az = 0; az <= 360; az += stepDeg) azimuths.push(startDeg + az)
   const trace = (dec: number, order: number[]) =>
-    order.map((az) => `${x(az).toFixed(1)},${y(solarCurveDeg(az, season.latDeg, dec)).toFixed(1)}`)
+    order.map((az) => `${x(az - startDeg).toFixed(1)},${y(solarCurveDeg(az, season.latDeg, dec)).toFixed(1)}`)
   const forward = trace(season.minDeg, azimuths)
   const back = trace(season.maxDeg, [...azimuths].reverse())
   return `M${forward.join('L')}L${back.join('L')}Z`

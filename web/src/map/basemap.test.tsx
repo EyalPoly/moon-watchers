@@ -1,6 +1,9 @@
 import 'vitest-canvas-mock'
 import { act, cleanup, render, screen } from '@testing-library/react'
 import type OlMap from 'ol/Map'
+import { Circle, LineString } from 'ol/geom'
+import VectorLayer from 'ol/layer/Vector'
+import { transform } from 'ol/proj'
 import { afterEach, expect, test, vi } from 'vitest'
 import meta from '@samples/meta.json'
 import type { Region } from '../api/types'
@@ -58,4 +61,26 @@ test('a working tile loader shows no fallback message and keeps the circle', asy
   expect(onBasemapError).not.toHaveBeenCalled()
   expect(screen.queryByText('Basemap unavailable')).toBeNull()
   expect(hasCircle(map)).toBe(true)
+})
+
+test('the lunar graticule has a meridian and a parallel at every five degrees across the polar map', async () => {
+  const { map } = await mountWith((tile) => tile.setState(2))
+  const layer = map.getLayers().getArray().find((item) => item.get('name') === 'lunar-graticule')
+  if (!(layer instanceof VectorLayer)) throw new Error('Missing lunar graticule')
+  const crs = map.getView().getProjection()
+  const longitudes: number[] = []
+  const latitudes: number[] = []
+  for (const feature of layer.getSource()!.getFeatures()) {
+    const geometry = feature.getGeometry()
+    if (geometry instanceof LineString) {
+      expect(geometry.getFirstCoordinate()).toEqual([0, 0])
+      const [lon] = transform(geometry.getLastCoordinate(), crs, 'EPSG:4326')
+      longitudes.push((Math.round(lon) + 360) % 360)
+    } else if (geometry instanceof Circle) {
+      const [, lat] = transform([geometry.getRadius(), 0], crs, 'EPSG:4326')
+      latitudes.push(Math.round(lat))
+    }
+  }
+  expect(longitudes.sort((a, b) => a - b)).toEqual(Array.from({ length: 72 }, (_, i) => 5 * i))
+  expect(latitudes.sort((a, b) => a - b)).toEqual([-85, -80, -75, -70])
 })

@@ -1,70 +1,222 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { askGemini, checkKey, DEFAULT_MODEL, GeminiError, isModelName } from '../assistant/gemini'
-import { systemPrompt } from '../assistant/intent'
-import { forgetGuideSettings, loadGuideSettings, saveGuideSettings, type GuideSettings } from '../assistant/keyStore'
-import { describePlan, intentToPlan, type Plan, type PlanContext } from '../assistant/plan'
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
+import type { AppConfig } from '../api/config'
 import { HEIGHT_RANGE } from '../api/heights'
-import { EMPTY_TICKET } from '../state/tickets'
+import type { ScoreSettings } from '../api/scoreSettings'
+import { stationLabel } from '../api/stations'
+import type { Scenario, Site } from '../api/types'
+import { describeAppState, type CardState } from '../assistant/appState'
+import { askGemini, checkKey, DEFAULT_MODEL, GeminiError, isModelName, type Turn } from '../assistant/gemini'
+import { systemPrompt, type GuideMode, type Intent } from '../assistant/intent'
+import { forgetGuideSettings, loadGuideSettings, saveGuideSettings, type GuideSettings } from '../assistant/keyStore'
+import { TOPICS, topicIndex, topicTexts } from '../assistant/knowledge'
+import { describePlan, intentToPlan, type Plan, type PlanContext } from '../assistant/plan'
+import { adviseScore, describeChanges } from '../assistant/scoreAdvice'
+import { useSummaries } from '../state/queries'
+import { toScenario } from '../state/scenario'
+import type { AppScreen } from '../state/screen'
+import { EMPTY_TICKET, type Ticket } from '../state/tickets'
 import { MISSION_RANGE } from '../state/urlState'
+import { GuideWindow } from './GuideWindow'
+import { pointLetter, siteDisplayName } from './points'
 
 // The AI guide: a panel on the right edge. The first time, the user adds their own Gemini
-// API key; after that they type a request and the guide opens the matching site cards.
+// API key. After that the guide opens sites, explains numbers, buttons and warnings from
+// the app's own results and reference notes, asks back, suggests score weights and opens
+// the region tool.
 
 export interface AssistantPanelProps {
   open: boolean
-  onClose: () => void
+  onOpenChange: (open: boolean) => void
   ctx: PlanContext
   /** True while typed locations (custom points) use sample answers. */
   customIsSample: boolean
   /** Opens the planned sites and returns their card letters. */
   onOpen: (plan: Extract<Plan, { kind: 'open' }>) => string[]
+  // What the user sees, for the guide's APP STATE.
+  tickets: readonly Ticket[]
+  sitesById: ReadonlyMap<string, Site>
+  settings: ScoreSettings
+  config: AppConfig
+  search: string
+  screen: AppScreen
+  explorer: 'map' | 'graph'
+  regionToolOpen: boolean
+  activeIndex: number
+  /** Applies new score settings (one history step). */
+  onSetScore: (settings: ScoreSettings) => void
+  /** Opens Manual Selection on the map; the tool then finds the best areas by itself. */
+  onOpenRegion: () => void
+  /** The latest best areas found by a region tool the guide opened. */
+  regionResult: { id: number; text: string } | null
+}
+
+interface Proposal {
+  w: ScoreSettings['w']
+  summary: string
+  state: 'open' | 'applied' | 'dismissed'
 }
 
 interface Message {
   id: number
-  from: 'user' | 'guide' | 'error'
+  from: 'user' | 'guide' | 'error' | 'note'
   text: string
+  options?: string[]
+  proposal?: Proposal
 }
 
 const EXAMPLES = [
-  'I want to land at Sample site A',
+  'I want to land at Mons Mouton',
   'Check locations for a 4-month mission to the south pole from March 2027',
-  'Land at 87.5° S, 45° E with the antenna at 5 m, talking to Madrid',
+  'Why is site A’s score low?',
+  'I care most about communication: change the grade weights',
+  'Help me find the best area near Shackleton',
+  'What does the ridge graph show?',
 ]
 
 const KEY_PAGE = 'https://aistudio.google.com/apikey'
+const MODE_KEY = 'moon-watchers.guide-mode'
 
-export function AssistantPanel({ open, onClose, ctx, customIsSample, onOpen }: AssistantPanelProps) {
+function readMode(): GuideMode {
+  try {
+    return localStorage.getItem(MODE_KEY) === 'direct' ? 'direct' : 'advisor'
+  } catch {
+    return 'advisor'
+  }
+}
+
+export function AssistantPanel(props: AssistantPanelProps) {
+  const { open, onOpenChange, ctx, customIsSample, onOpen } = props
   const [settings, setSettings] = useState<GuideSettings | null>(loadGuideSettings)
   const [setup, setSetup] = useState(false)
+  const [mode, setModeState] = useState<GuideMode>(readMode)
   const [messages, setMessages] = useState<Message[]>([])
   const [draft, setDraft] = useState('')
-  const [pending, setPending] = useState(false)
+  const [pending, setPending] = useState<string | null>(null)
   const nextId = useRef(1)
   const abort = useRef<AbortController | null>(null)
   const logRef = useRef<HTMLDivElement>(null)
-  const inputRef = useRef<HTMLTextAreaElement>(null)
+
+  const setMode = (m: GuideMode) => {
+    setModeState(m)
+    try {
+      localStorage.setItem(MODE_KEY, m)
+    } catch {
+      /* Optional preference. */
+    }
+  }
+
+  // The open sites' results, only while the panel is open (they are cached from the cards).
+  const located = useMemo(
+    () =>
+      open
+        ? props.tickets.flatMap((t, index) => {
+            const site = t.site === null ? undefined : props.sitesById.get(t.site)
+            return site ? [{ index, scenario: toScenario(site.id, t, t.station, props.settings) as Scenario }] : []
+          })
+        : [],
+    [open, props.tickets, props.sitesById, props.settings],
+  )
+  const results = useSummaries(props.config, props.search, located.map((l) => l.scenario))
+
+  const appState = () => {
+    const cards: CardState[] = props.tickets.map((t, index) => {
+      const site = t.site === null ? undefined : props.sitesById.get(t.site)
+      const k = located.findIndex((l) => l.index === index)
+      const result = k >= 0 ? results[k] : undefined
+      return {
+        letter: pointLetter(index),
+        name: t.name || siteDisplayName(site) || `Site ${pointLetter(index)}`,
+        site,
+        t0: t.t0,
+        days: t.days,
+        panel: t.panel,
+        antenna: t.antenna,
+        station: stationLabel(t.station, ctx.stations),
+        shown: t.shown,
+        summary: result?.data,
+        pending: result?.isPending ?? false,
+      }
+    })
+    return describeAppState({
+      screen: props.screen,
+      explorer: props.explorer,
+      regionToolOpen: props.regionToolOpen,
+      activeLetter: pointLetter(props.activeIndex),
+      cards,
+      settings: props.settings,
+    })
+  }
 
   useEffect(() => () => abort.current?.abort(), [])
   useEffect(() => {
     logRef.current?.scrollTo({ top: logRef.current.scrollHeight })
   }, [messages, pending])
-  useEffect(() => {
-    if (open && settings !== null && !setup) inputRef.current?.focus()
-  }, [open, settings, setup])
 
-  const say = (from: Message['from'], text: string) =>
-    setMessages((all) => [...all, { id: nextId.current++, from, text }])
+  const say = (from: Message['from'], text: string, extra: Partial<Message> = {}) =>
+    setMessages((all) => [...all, { id: nextId.current++, from, text, ...extra }])
+
+  // Best areas from a region tool the guide opened arrive as a guide message.
+  const lastRegion = useRef<number | null>(null)
+  useEffect(() => {
+    if (!props.regionResult || props.regionResult.id === lastRegion.current) return
+    lastRegion.current = props.regionResult.id
+    say('guide', props.regionResult.text)
+  }, [props.regionResult])
+
+  const act = (intent: Intent) => {
+    switch (intent.action) {
+      case 'open':
+      case 'explore': {
+        const plan = intentToPlan(intent, ctx)
+        if (plan.kind === 'open') say('guide', describePlan(plan, ctx, onOpen(plan), customIsSample))
+        else say('guide', [intent.reply, ...plan.notes].filter((t) => t.trim() !== '').join('\n') || 'Tell me a site, a location or the mission you have in mind.')
+        return
+      }
+      case 'set_score': {
+        const advice = adviseScore(intent, props.settings)
+        if (advice.ok === false) {
+          say('guide', `${intent.reply}\n(${advice.reason} Nothing was changed.)`.trim())
+          return
+        }
+        const summary = `${advice.preset ? `${advice.preset} preset: ` : ''}${describeChanges(advice.changes)}`
+        if (advice.changes.length === 0) {
+          say('guide', `${intent.reply}\nThese are already the current weights.`.trim())
+        } else if (mode === 'direct') {
+          props.onSetScore(advice.settings)
+          say('guide', `${intent.reply}\nApplied: ${summary}. Back undoes it; Grading Weights can reset it.`.trim())
+        } else {
+          say('guide', `${intent.reply}\nSuggested: ${summary}.`.trim(), { proposal: { w: advice.settings.w, summary, state: 'open' } })
+        }
+        return
+      }
+      case 'open_region':
+        props.onOpenRegion()
+        say('guide', intent.reply || 'Manual Selection is open. Click grid points around the area; I will find the best areas once there are three.')
+        return
+      case 'ask':
+        say('guide', intent.reply, { options: intent.options?.filter((o) => o.trim() !== '') })
+        return
+      default:
+        say('guide', intent.reply || 'I could not find an answer to that.')
+    }
+  }
 
   const send = async (text: string) => {
     const message = text.trim()
-    if (message === '' || settings === null || pending) return
+    if (message === '' || settings === null || pending !== null) return
     setDraft('')
+    // The conversation so far (the guide's own replies as the model's turns), then this message.
+    const turns: Turn[] = [
+      ...messages.flatMap((m): Turn[] =>
+        m.from === 'user' ? [{ role: 'user', text: m.text }] : m.from === 'guide' ? [{ role: 'model', text: m.text }] : [],
+      ),
+      { role: 'user', text: message },
+    ]
     say('user', message)
-    setPending(true)
+    setPending('Thinking…')
     abort.current = new AbortController()
     try {
-      const system = systemPrompt({
+      const base = {
         sites: ctx.catalog,
         stations: ctx.stations,
         today: new Date().toISOString().slice(0, 10),
@@ -77,42 +229,42 @@ export function AssistantPanel({ open, onClose, ctx, customIsSample, onOpen }: A
           maxHeight: HEIGHT_RANGE.max,
         },
         defaults: { landing: EMPTY_TICKET.t0, days: EMPTY_TICKET.days, panel: EMPTY_TICKET.panel, antenna: EMPTY_TICKET.antenna, station: 'houston' },
-      })
-      const intent = await askGemini(settings.key, settings.model, system, message, abort.current.signal)
-      const plan = intentToPlan(intent, ctx)
-      if (plan.kind === 'open') {
-        const letters = onOpen(plan)
-        say('guide', describePlan(plan, ctx, letters, customIsSample))
-      } else {
-        say('guide', [intent.reply, ...plan.notes].filter((t) => t.trim() !== '').join('\n') || 'Tell me a site, a location or the mission you have in mind.')
+        topicIndex: topicIndex(),
+        appState: appState(),
+        mode,
       }
+      let intent = await askGemini(settings.key, settings.model, systemPrompt(base), turns, abort.current.signal)
+      if (intent.action === 'lookup') {
+        const reference = topicTexts(intent.topics ?? [])
+        if (reference.ids.length > 0) {
+          const titles = TOPICS.filter((t) => reference.ids.includes(t.id)).map((t) => t.title)
+          setPending(`Reading: ${titles.join(', ')}…`)
+          intent = await askGemini(settings.key, settings.model, systemPrompt({ ...base, reference }), turns, abort.current.signal)
+        }
+        // A second lookup is answered with what it has.
+        if (intent.action === 'lookup') intent = { ...intent, action: 'answer' }
+      }
+      act(intent)
     } catch (e) {
       if (e instanceof DOMException && e.name === 'AbortError') return
       if (e instanceof GeminiError && e.kind === 'key') setSetup(true)
       say('error', e instanceof GeminiError ? e.message : 'Something went wrong. Try again.')
     } finally {
-      setPending(false)
+      setPending(null)
     }
   }
 
-  if (!open) return null
+  const decide = (id: number, state: 'applied' | 'dismissed') => {
+    const message = messages.find((m) => m.id === id)
+    if (!message?.proposal || message.proposal.state !== 'open') return
+    if (state === 'applied') props.onSetScore({ ...props.settings, w: message.proposal.w })
+    setMessages((all) => all.map((m) => (m.id === id && m.proposal ? { ...m, proposal: { ...m.proposal, state } } : m)))
+  }
 
   const showSetup = settings === null || setup
   return (
-    <aside
-      className="guide"
-      aria-label="AI guide"
-      onKeyDown={(e) => {
-        if (e.key === 'Escape') onClose()
-      }}
-    >
-      <header className="guide-head">
-        <span className="guide-title"><span aria-hidden="true">✦</span> AI guide</span>
-        {settings !== null && !setup && (
-          <button type="button" className="link-button" onClick={() => setSetup(true)}>Key settings</button>
-        )}
-        <button type="button" className="guide-close" aria-label="Close the AI guide" onClick={() => onClose()}>×</button>
-      </header>
+    <GuideWindow open={open} setOpen={onOpenChange} settingsControl={!showSetup &&
+      <button type="button" className="link-button" onClick={() => setSetup(true)}>Key Settings</button>}>
 
       {showSetup ? (
         <KeySetup
@@ -132,10 +284,15 @@ export function AssistantPanel({ open, onClose, ctx, customIsSample, onOpen }: A
         />
       ) : (
         <>
+          <div className="guide-mode" role="group" aria-label="When the guide changes score weights">
+            <span className="muted">Score changes:</span>
+            <button type="button" aria-pressed={mode === 'advisor'} onClick={() => setMode('advisor')} title="The guide suggests weights; you press Apply">Advisor</button>
+            <button type="button" aria-pressed={mode === 'direct'} onClick={() => setMode('direct')} title="The guide applies weights right away">Direct</button>
+          </div>
           <div className="guide-log" ref={logRef} role="log" aria-live="polite" aria-label="Conversation">
             {messages.length === 0 && (
               <div className="guide-intro">
-                <p>Tell me where you want to land, or what mission you are planning, and I will open the sites in the calculator.</p>
+                <p>I can open sites, explain any number, button or warning, suggest score weights for your priorities, and help you search an area.</p>
                 <p className="muted">Try:</p>
                 <ul>
                   {EXAMPLES.map((example) => (
@@ -147,9 +304,30 @@ export function AssistantPanel({ open, onClose, ctx, customIsSample, onOpen }: A
               </div>
             )}
             {messages.map((m) => (
-              <p key={m.id} className={`guide-msg guide-${m.from}`}>{m.text}</p>
+              <div key={m.id} className={`guide-msg guide-${m.from}`}>
+                <p>{m.text}</p>
+                {m.options && m.options.length > 0 && (
+                  <div className="guide-options" role="group" aria-label="Suggested answers">
+                    {m.options.map((o) => (
+                      <button key={o} type="button" className="guide-option" disabled={pending !== null} onClick={() => void send(o)}>{o}</button>
+                    ))}
+                  </div>
+                )}
+                {m.proposal && (
+                  <div className="guide-proposal">
+                    {m.proposal.state === 'open' ? (
+                      <>
+                        <button type="button" className="guide-apply" onClick={() => decide(m.id, 'applied')}>Apply weights</button>
+                        <button type="button" className="link-button" onClick={() => decide(m.id, 'dismissed')}>Dismiss</button>
+                      </>
+                    ) : (
+                      <span className="muted">{m.proposal.state === 'applied' ? 'Applied. Back undoes it.' : 'Dismissed.'}</span>
+                    )}
+                  </div>
+                )}
+              </div>
             ))}
-            {pending && <p className="guide-msg guide-guide guide-thinking">Thinking…</p>}
+            {pending !== null && <p className="guide-msg guide-guide guide-thinking">{pending}</p>}
           </div>
           <form
             className="guide-input"
@@ -159,11 +337,11 @@ export function AssistantPanel({ open, onClose, ctx, customIsSample, onOpen }: A
             }}
           >
             <textarea
-              ref={inputRef}
+              autoFocus
               value={draft}
               rows={2}
               maxLength={1000}
-              placeholder="e.g. a 2-week mission at Sample site B in June 2027"
+              placeholder="Ask about a site, a number or a button, or describe a mission"
               aria-label="Message to the AI guide"
               onChange={(e) => setDraft(e.target.value)}
               onKeyDown={(e) => {
@@ -173,12 +351,12 @@ export function AssistantPanel({ open, onClose, ctx, customIsSample, onOpen }: A
                 }
               }}
             />
-            <button type="submit" disabled={pending || draft.trim() === ''}>Send</button>
+            <button type="submit" disabled={pending !== null || draft.trim() === ''}>Send</button>
           </form>
-          <p className="guide-privacy muted">Your messages and the site list are sent to Google Gemini with your key.</p>
+          <p className="guide-privacy muted">Your messages, the sites and their results are sent to Google Gemini with your key.</p>
         </>
       )}
-    </aside>
+    </GuideWindow>
   )
 }
 

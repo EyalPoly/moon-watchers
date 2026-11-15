@@ -1,68 +1,88 @@
-/* AI guide: a panel docked to the right edge, over the site calculator. */
-
-.guide-launcher span[aria-hidden],
-.guide-title span[aria-hidden] {
+/* The helmet sits in the upper-right corner of the calculator header. */
+.guide-launcher {
+  position: fixed;
+  z-index: 35;
+  top: 64px;
+  right: 14px;
+  width: 46px;
+  height: 46px;
+  padding: 1px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
   color: var(--primary);
+  filter: drop-shadow(0 3px 4px #0008);
+  cursor: pointer;
 }
+.guide-launcher svg { display: block; width: 100%; height: 100%; }
+.guide-launcher:hover, .guide-launcher[aria-expanded=true] { color: #e5ffbd; }
+.guide-launcher:focus-visible, .guide-control:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.app > .side > .col-head { padding-inline-end: 72px; }
 
 .guide {
+  --guide-width: min(365px, calc(100vw - 16px));
+  --guide-start: 114px;
+  --guide-height: min(470px, calc(100dvh - var(--guide-start) - 8px));
   position: fixed;
   z-index: 40;
-  top: 68px;
-  right: 0;
-  bottom: 0;
-  width: min(380px, 100vw);
+  box-sizing: border-box;
+  top: clamp(8px, var(--guide-y, var(--guide-start)), calc(100dvh - var(--guide-height) - 8px));
+  left: clamp(8px, var(--guide-x, calc(100vw - var(--guide-width) - 14px)), calc(100vw - var(--guide-width) - 8px));
+  width: var(--guide-width);
+  height: var(--guide-height);
   display: flex;
   flex-direction: column;
-  border-left: 1px solid var(--border);
-  background: #0d1412;
-  box-shadow: -12px 0 32px rgb(0 0 0 / 0.45);
-  animation: guide-in 160ms ease-out;
+  overflow: hidden;
+  border: 1px solid var(--border-strong);
+  border-radius: 11px;
+  background: var(--surface);
+  box-shadow: 0 12px 36px #0008;
 }
-
-@keyframes guide-in {
-  from { transform: translateX(24px); opacity: 0; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .guide { animation: none; }
-}
-
-/* Below the top bar on desktop (south-pole.css: 56px from 761px); full screen on phones. */
-@media (min-width: 761px) {
-  .guide { top: 56px; }
-}
-
+.guide[data-minimized=true] { --guide-height: 44px; --guide-width: min(230px, calc(100vw - 16px)); }
+.guide-content:not([hidden]) { display: flex; flex: 1; min-height: 0; flex-direction: column; }
 @media (max-width: 760px) {
-  .guide { top: 0; width: 100vw; border-left: 0; }
+  .guide { --guide-start: 58px; }
+  .guide-launcher { top: 6px; right: 10px; width: 43px; height: 43px; }
+  .app > .topbar { padding-inline-end: 62px; }
 }
 
 .guide-head {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px 14px;
+  flex: none;
+  box-sizing: border-box;
+  height: 42px;
+  gap: 4px;
+  padding: 5px 8px 5px 13px;
   border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
 }
+.guide[data-minimized=true] .guide-head { border-bottom: 0; }
 
 .guide-title {
   flex: 1;
+  margin: 0;
+  font-size: 15px;
   font-weight: 600;
   letter-spacing: 0.02em;
 }
 
-.guide-close {
+.guide-control {
+  display: grid;
+  place-items: center;
   width: 28px;
   height: 28px;
   padding: 0;
-  border: 1px solid var(--border);
-  border-radius: 6px;
+  border: 1px solid transparent;
+  border-radius: 5px;
   background: transparent;
   color: var(--text);
-  font-size: 18px;
-  line-height: 1;
   cursor: pointer;
 }
+.guide-control svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; }
+.guide-control:hover { color: var(--primary); border-color: var(--border-strong); }
+.guide-move { cursor: grab; touch-action: none; }
+.guide-move:active { cursor: grabbing; }
 
 .guide-log {
   flex: 1;
@@ -248,4 +268,80 @@
   display: flex;
   align-items: center;
   gap: 10px;
+}
+
+/* Guide v2: messages hold text plus answer buttons or an Apply card. */
+.guide-msg p {
+  margin: 0;
+}
+
+.guide-mode {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--border);
+  font-size: 12.5px;
+}
+
+.guide-mode button {
+  padding: 3px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.guide-mode button[aria-pressed='true'] {
+  border-color: var(--primary);
+  background: #233018;
+  color: #e9f6d6;
+}
+
+.guide-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.guide-option {
+  padding: 4px 10px;
+  border: 1px solid var(--primary);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--primary);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.guide-option:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.guide-proposal {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.guide-apply {
+  padding: 6px 12px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--primary);
+  color: #111;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.area-auto {
+  color: var(--primary);
 }

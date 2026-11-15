@@ -62,15 +62,6 @@ export function TimeSlider({ tau, maxTau, landingMs, onInput, onCommit }: TimeSl
 
   return (
     <div className="time-slider">
-      <button
-        type="button"
-        className="icon-button"
-        onClick={togglePlay}
-        aria-label={playing ? 'Pause' : 'Play'}
-        title={playing ? 'Pause' : 'Play (6 h per second)'}
-      >
-        {playing ? '❚❚' : '▶'}
-      </button>
       <div className="time-track">
         <input
           type="range"
@@ -89,6 +80,15 @@ export function TimeSlider({ tau, maxTau, landingMs, onInput, onCommit }: TimeSl
           <span className="num muted">{formatUtc(landingMs + tau * 60_000)}</span>
         </div>
       </div>
+      <button
+        type="button"
+        className="icon-button"
+        onClick={togglePlay}
+        aria-label={playing ? 'Pause' : 'Play'}
+        title={playing ? 'Pause' : 'Play (6 h per second)'}
+      >
+        {playing ? '❚❚' : '▶'}
+      </button>
     </div>
   )
 }

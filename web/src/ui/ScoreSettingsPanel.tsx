@@ -9,9 +9,9 @@ type Key = keyof ScoreSettings
 export interface ScoreSettingsPanelProps {
   spec: Spec
   value: ScoreSettings
-  /** While dragging: the URL is replaced. */
+  /** Proposes a slider edit to the current settings draft. */
   onChange: (s: ScoreSettings) => void
-  /** On release, a typed value, a preset or a reset: one history entry. */
+  /** Commits the control value to the current settings draft. */
   onCommit: (s: ScoreSettings) => void
 }
 
@@ -84,7 +84,7 @@ function RangeField({ label, spec, value, withNumber, onDrag, onRelease, onTyped
             onChange={(e) => setTyped(e.target.value)}
             onBlur={commitTyped}
             onKeyDown={(e) => {
-              if (e.key === 'Enter') commitTyped()
+              if (e.key === 'Enter') { e.preventDefault(); commitTyped() }
               if (e.key === 'Escape') setTyped(null)
             }}
             aria-invalid={invalid}
@@ -269,7 +269,7 @@ export function ScoreSettingsPanel({ spec, value, onChange, onCommit }: ScoreSet
         )}
       {single('margin')}
       {group('colors')}
-      <button type="button" className="secondary" disabled={!isCustom(shown)} onClick={() => onCommit(SCORE_DEFAULTS)}>
+      <button type="button" className="secondary" disabled={!isCustom(shown)} onClick={() => { setDraft(null); setErrors({}); onCommit(SCORE_DEFAULTS) }}>
         Reset all
       </button>
     </div>

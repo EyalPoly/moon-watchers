@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import type { ReactNode } from 'react'
 import type { AppConfig } from '../api/config'
 import type { Site } from '../api/types'
 import { SkyView } from '../sky/SkyView'
@@ -6,7 +6,7 @@ import { useHorizon, useMeta, useMissionSeries } from '../state/queries'
 import { useScenario } from '../state/scenario'
 import { indexAt } from '../state/series'
 import type { Ticket } from '../state/tickets'
-import { DAY_MS, parseIsoMinute } from '../time'
+import { DAY_MS, monthKey, parseIsoMinute } from '../time'
 import { Pending } from './Pending'
 import { ServerUnavailable } from './ServerUnavailable'
 
@@ -17,18 +17,19 @@ export function TicketGraph({
   search,
   site,
   ticket,
-  tau,
+  nowMs,
+  controls,
   stationLabel,
 }: {
   config: AppConfig
   search: string
   site: Site
   ticket: Ticket
-  tau: number
+  nowMs: number
+  controls: ReactNode
   stationLabel: string
 }) {
-  const mission = { t0: ticket.t0, days: ticket.days, panel: ticket.panel, antenna: ticket.antenna, tau }
-  const scenario = useScenario(site.id, mission, ticket.station)
+  const scenario = useScenario(site.id, ticket, ticket.station)
   const horizon = useHorizon(config, search, site.id, ticket.panel)
   // Same query key as the panel's when the heights match, so it costs no extra request.
   const antennaHorizon = useHorizon(config, search, site.id, ticket.antenna)
@@ -41,39 +42,43 @@ export function TicketGraph({
   )
   const t0Ms = parseIsoMinute(ticket.t0) as number
   const endMs = t0Ms + ticket.days * DAY_MS
-  const nowMs = t0Ms + Math.min(tau, Math.floor((ticket.days * 1440) / 10) * 10) * 60_000
-  const sun = useMemo(() => {
-    if (!series.data) return null
-    const i = indexAt(series.data, nowMs)
-    return i === null ? null : { az: series.data.sun_az[i], el: series.data.sun_el[i] }
-  }, [series.data, nowMs])
+  const outsideMission = nowMs < t0Ms || nowMs > endMs
+  const observation = useMissionSeries(config, search, outsideMission ? scenario : null, monthKey(nowMs))
+  const current = outsideMission ? observation : series
+  const i = current.data && indexAt(current.data, nowMs)
+  const sun = current.data && i !== null ? { az: current.data.sun_az[i], el: current.data.sun_el[i] } : null
 
-  if (horizon.isError) return <ServerUnavailable onRetry={() => void horizon.refetch()} />
-  if (!horizon.data) return <Pending label="Loading horizon…" />
+  if (!horizon.data) return <>
+    {horizon.isError ? <ServerUnavailable onRetry={() => void horizon.refetch()} /> : <Pending label="Loading horizon…" />}
+    <div className="graph-footer">{controls}</div>
+  </>
   return (
     <div className="panel-graph">
       <div className="graph-head">
         <div>
-          <h3 className="graph-title">Local horizon</h3>
+          <h3 className="graph-title">Local Horizon</h3>
           <p className="graph-sub">Highest ridge at each compass bearing</p>
         </div>
       </div>
       {sun && (
         <div className="facing">
-          <span className="facing-label">FACING THE SUN</span>
+          <span className="facing-label">Sun Bearing</span>
           <span className="mono">
             {COMPASS_WORDS[Math.round(sun.az / 45) % 8]} / {String(Math.round(sun.az)).padStart(3, '0')}°
           </span>
           <span className="facing-sun">
-            Sun elevation {tau === 0 ? 'at landing' : 'now'}: {sun.el >= 0 ? '+' : ''}
+            Sun elevation {nowMs === t0Ms ? 'at landing' : 'now'}: {sun.el >= 0 ? '+' : ''}
             {sun.el.toFixed(1)}°
           </span>
         </div>
       )}
+      {current.isError && <ServerUnavailable onRetry={current.refetch} />}
       <SkyView
         horizon={horizon.data}
         antennaHorizon={antennaHorizon.data}
         series={series.data}
+        observationSeries={current.data}
+        controls={controls}
         startMs={t0Ms}
         endMs={endMs}
         nowMs={nowMs}
