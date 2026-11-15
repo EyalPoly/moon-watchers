@@ -287,6 +287,14 @@
   .tl-axis-label {
     display: none;
   }
+  .tl-slider {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+  /* Every other day label, so they don't run together on a phone. */
+  .tl-tick:nth-child(even) {
+    display: none;
+  }
   .tl-side {
     flex-direction: row;
     flex-wrap: wrap;
