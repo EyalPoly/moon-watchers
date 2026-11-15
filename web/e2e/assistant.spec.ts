@@ -204,7 +204,7 @@ test('the guide opens Manual Selection and reports the best areas once the outli
   const map = (await page.locator('.panel .polar-map').first().boundingBox())!
   const panel = (await tool.boundingBox())!
   const freeRight = Math.min(panel.x, map.x + map.width) - 16
-  const half = Math.min(45, (freeRight - map.x - 32) / 2)
+  const half = Math.min(26, (freeRight - map.x - 32) / 2)
   const cx = (map.x + 16 + freeRight) / 2
   const cy = map.y + map.height / 2
   const corners = [[-half, -half], [half, -half], [half, half]]

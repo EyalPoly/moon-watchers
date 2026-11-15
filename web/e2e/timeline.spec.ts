@@ -18,7 +18,7 @@ test('Compare timelines opens the Timelines screen with a panel, score and rows 
   for (const letter of ['A', 'B']) {
     const panel = page.getByRole('region', { name: `Site ${letter} timeline` })
     await expect(panel.getByLabel(/^Score \d/)).toBeVisible()
-    for (const row of ['Sun visible', 'Earth contact', 'Sun + Earth', 'Unknown terrain']) {
+    for (const row of ['Sun visible', 'Earth contact', 'Light and communication overlap', 'Unknown terrain']) {
       await expect(panel.getByRole('img', { name: new RegExp(`^${row.replace('+', '\\+')}: \\d+ period`) })).toBeVisible()
     }
   }

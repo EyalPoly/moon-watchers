@@ -7,7 +7,7 @@ grades:
   - {id: OT, name: outage_time,      label: longest outage,       raw_label: longest period without contact,           raw_unit: " h"}
   - {id: LS, name: landing_sunlight, label: sunlight at landing,  raw_label: hours of sunlight from the window start,  raw_unit: " h"}
   - {id: S,  name: slope,            label: slope,                raw_label: slope,                                    raw_unit: "°"}
-  - {id: D,  name: dust,             label: dust (simulated),     raw_label: simulated dust index,                     raw_unit: ""}
+  - {id: D,  name: dust,             label: lunar regolith (simulated), raw_label: simulated lunar regolith index,                     raw_unit: ""}
 settings:
   - {key: w,       label: Weights,                                    unit: "",  default: [0.25, 0.25, 0.15, 0.15, 0.1, 0.1, 0], min: 0, max: 1,   step: 0.05}
   - {key: sun_req, label: Required sunlight at landing,               unit: h,   default: [6],      min: 0, max: 72,  step: 0.5}

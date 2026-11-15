@@ -207,8 +207,8 @@
       {
         "id": "D",
         "name": "dust",
-        "label": "dust (simulated)",
-        "raw_label": "simulated dust index",
+        "label": "lunar regolith (simulated)",
+        "raw_label": "simulated lunar regolith index",
         "raw_unit": ""
       }
     ],

@@ -11,14 +11,14 @@ The score is the physics team's illustrative formula, computed by `engine/score.
 | OT | longest outage | `1 − longest_no_contact_h / window length` |
 | LS | sunlight at landing | 1 if the sunlight at the window start lasts ≥ the required hours (default **6 h**), else 0 (pass/fail) |
 | S | slope | 1 at or below "fully good" (0°), falling in a straight line to 0 at "fully bad" (15°) |
-| D | dust (simulated) | `1 − D`, D a simulated dust index 0–1 (a fixed wave pattern, not measured) |
+| D | lunar regolith (simulated) | `1 − D`, D a simulated lunar regolith (dust) index 0–1 (a fixed wave pattern, not measured) |
 
 ## Formula
 `score = 100 × Σ w·grade / Σ w` over the seven grades.
 - **Weights are relative**: only ratios matter. Each runs 0–1 in steps of 0.05; at least one must be above 0. A weight of 0 switches that grade off.
 - **Points lost** by each grade: `100 × w / Σw × (1 − grade)`. They add up to `100 − score`.
 - **Deciding factor**: the grade that lost the most points (ties are all named). The explanation gives its raw value, grade, weight share and points lost.
-- Sun + Earth together (`both_pct`) is **not** in the score.
+- Light and communication overlap (`both_pct`) is **not** in the score.
 
 ## Presets
 | Preset | L | C | DK | OT | LS | S | D |
@@ -49,7 +49,7 @@ Changing weights or thresholds re-scores instantly from numbers already computed
 - "Better communication": raise **C**, and **OT** (shorter outages).
 - "Survive the night": raise **DK** (and **OT** if commands are needed during the night).
 - "Safe landing / flat ground": raise **S** (and consider lowering the maximum slope).
-- "Avoid dust": raise **D**, remembering it is simulated.
+- "Avoid lunar regolith / dust": raise **D**, remembering it is simulated.
 Keep the weights summing to about 1 for readability (only ratios matter). Say what the change trades away.
 
 Sources: `engine/score.py`, `config/score.yaml`, `api/summary_json.py`, `web/src/api/scoreSettings.ts`, `web/src/ui/ScoreSettingsPanel.tsx`, design spec §7.5.

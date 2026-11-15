@@ -12,7 +12,7 @@
   - A help panel explains how the **Sun's and Earth's elevation angles** behave at the south pole: the Sun circles the horizon once per lunar day (about 29.5 days) within about ±1.5°; the Earth stays in one direction and moves in a small libration loop; moving in latitude or longitude shifts these paths.
 - **Manual Selection**: opens the region tool and the Grading Weights (see the "region-tool" note).
 - **Map Key** box:
-  - **Maps Layers**: **Relief** (terrain elevation with hill shading), **PSR** (permanently shadowed regions, inside/outside, at the sites), **Earth DTE** (Earth contact for the active mission), **Slope** (local slope), **Dust** (simulated dust index). Each has a colour scale (Higher / Lower) on the map.
+  - **Maps Layers**: **Relief** (terrain elevation with hill shading), **PSR** (permanently shadowed regions, inside/outside, at the sites), **Earth DTE** (Earth contact for the active mission), **Slope** (local slope), **Lunar regolith** (simulated lunar regolith / dust index). Each has a colour scale (Higher / Lower) on the map.
   - **Polygons Layers**: None, **Planning boundary** (the dashed custom-point circle), **Selected region** and **Ranked areas** (from an applied Manual Selection).
   - Markers: PSR (potential water ice), site, steep terrain / no Earth link, sensitive research.
 

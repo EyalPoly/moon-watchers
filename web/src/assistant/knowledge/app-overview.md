@@ -14,12 +14,12 @@ Moon Watchers helps plan a landing near the Moon's south pole. For a landing sit
 - All times are on a **10-minute grid** (UTC).
 - **Mission time** (the slider) is time since landing. All sites share it, so "day 3" lines up across sites with different landing dates.
 - **Everything is in the link (URL)**: sites, settings, the screen and the viewed time. A link can be shared, reloaded or undone with the browser's Back button.
-- **Grading Weights** (inside Manual Selection) change how the score weighs sunlight, contact, darkness, outages, landing sunlight, slope and dust. They apply to every site.
+- **Grading Weights** (inside Manual Selection) change how the score weighs sunlight, contact, darkness, outages, landing sunlight, slope and lunar regolith (dust). They apply to every site.
 
 ## What the numbers are, and are not
 - Positions of the Sun and Earth come from NASA/JPL SPICE ephemeris; the terrain from NASA's LOLA laser altimeter maps.
 - Sunlight and contact are **line-of-sight geometry**: no link budget, no antenna pointing, no relay satellites, no schedules.
 - The score is **illustrative**: its weights and thresholds are the physics team's examples, not validated landing criteria. The app always says so.
-- Dust is a **simulated** index, labeled "simulated" everywhere.
+- Lunar regolith (dust) is a **simulated** index, labeled "simulated" everywhere.
 
 Sources: `docs/superpowers/specs/2026-11-10-lunar-landing-site-navigator-design.md` (§0–§4), `web/src/ui/TopBar.tsx`, `web/src/globe/OrbitScreen.tsx`, `catalog/sites.yaml`.
