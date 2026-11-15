@@ -5,40 +5,67 @@
     "days": 30,
     "panel": 2,
     "antenna": 3,
-    "w": [
-      1,
-      1,
-      1,
-      0
-    ],
     "station": {
       "lat_deg": 29.7604,
       "lon_deg": -95.3698,
       "alt_m": 0,
       "min_el_deg": 0
-    }
+    },
+    "w": [
+      0.25,
+      0.25,
+      0.15,
+      0.15,
+      0.1,
+      0.1,
+      0
+    ],
+    "sun_req": 6,
+    "slope": [
+      0,
+      15,
+      15
+    ],
+    "psr": true,
+    "margin": 12,
+    "colors": [
+      70,
+      40
+    ]
   },
   "version": "sample",
   "metrics": {
-    "sun_pct": 25.5,
-    "dte_pct": 29.7,
-    "both_pct": 11.6,
-    "longest_dark_h": 510.8,
+    "sun_pct": null,
+    "dte_pct": 30.62,
+    "both_pct": 12.82,
+    "sun_disk_mean": null,
+    "contact_mean": 0.3062,
+    "earth_any_pct": 61.04,
+    "earth_whole_pct": 52.91,
+    "longest_dark_h": 486.33,
     "longest_no_contact_h": 301.5,
-    "first_dark_after_landing_h": 71.7,
+    "longest_dark_at_edge": false,
+    "longest_no_contact_at_edge": false,
+    "first_sun_h": 83.67,
+    "first_dark_after_landing_h": 71.67,
+    "window": [
+      "2027-02-28T12:00Z",
+      "2027-03-31T00:00Z"
+    ],
     "earth_el_range": [
       -7.5,
-      6
-    ]
+      6.01
+    ],
+    "unknown_h": 15.67
   },
   "rag": {
     "sun": {
-      "color": "red",
-      "reason": "Sun visible 25.5% of the mission (green ≥ 60%, red < 30%)"
+      "color": "unknown",
+      "reason": "Sun visibility unavailable: terrain unknown for 15.7 h of the mission"
     },
     "dte": {
-      "color": "red",
-      "reason": "Earth in contact 29.7% of the mission (green ≥ 60%, red < 30%)"
+      "color": "amber",
+      "reason": "Earth contact 30.6% of the mission (green ≥ 60%, red < 30%)"
     },
     "slope": {
       "color": "amber",
@@ -46,42 +73,116 @@
     }
   },
   "score": {
-    "value": 0.8,
-    "base": 11.6,
+    "value": 37,
+    "category": "red",
+    "status": "illustrative",
     "weights": {
-      "sun": 1,
-      "dte": 1,
-      "slope": 1,
-      "dust": 0
+      "L": 0.25,
+      "C": 0.25,
+      "DK": 0.15,
+      "OT": 0.15,
+      "LS": 0.1,
+      "S": 0.1,
+      "D": 0
     },
     "factors": [
       {
-        "name": "sun",
-        "weight": 1,
-        "points": -45.5,
-        "reason": "Sun visible 25.5% of the mission"
+        "name": "L",
+        "weight": 0.25,
+        "weight_share": 0.25,
+        "raw": null,
+        "grade": 0,
+        "points_lost": 25
       },
       {
-        "name": "dte",
-        "weight": 1,
-        "points": -42.9,
-        "reason": "Earth in contact 29.7% of the mission"
+        "name": "C",
+        "weight": 0.25,
+        "weight_share": 0.25,
+        "raw": 0.3062,
+        "grade": 0.3062,
+        "points_lost": 17.35
       },
       {
-        "name": "slope",
-        "weight": 1,
-        "points": -10.8,
-        "reason": "Slope 6.8°"
+        "name": "DK",
+        "weight": 0.15,
+        "weight_share": 0.15,
+        "raw": 486.33,
+        "grade": 0.3356,
+        "points_lost": 9.97
+      },
+      {
+        "name": "OT",
+        "weight": 0.15,
+        "weight_share": 0.15,
+        "raw": 301.5,
+        "grade": 0.5881,
+        "points_lost": 6.18
+      },
+      {
+        "name": "LS",
+        "weight": 0.1,
+        "weight_share": 0.1,
+        "raw": 83.67,
+        "grade": 1,
+        "points_lost": 0
+      },
+      {
+        "name": "S",
+        "weight": 0.1,
+        "weight_share": 0.1,
+        "raw": 6.8,
+        "grade": 0.5467,
+        "points_lost": 4.53
+      },
+      {
+        "name": "D",
+        "weight": 0,
+        "weight_share": 0,
+        "raw": 0.28,
+        "grade": 0.72,
+        "points_lost": 0
       }
     ],
-    "deciding": "sun",
-    "formula": "interim: base = share of time with every weighted body visible; score = base − slope penalty",
-    "color": "red"
+    "deciding": [
+      "L"
+    ],
+    "excluded_reason": null,
+    "settings": {
+      "sun_req_h": 6,
+      "slope_deg": [
+        0,
+        15,
+        15
+      ],
+      "reject_psr": true,
+      "margin_h": 12,
+      "colors": [
+        70,
+        40
+      ],
+      "custom": false
+    },
+    "warnings": [
+      {
+        "code": "NULL_GRADE:light",
+        "text": "Sunlight could not be computed, so its grade counts as 0.",
+        "severity": "caution",
+        "affects": "score"
+      },
+      {
+        "code": "PSR_UNKNOWN",
+        "text": "The PSR map has no value at this site, so the PSR check wasn't applied.",
+        "severity": "info",
+        "affects": "score"
+      }
+    ],
+    "explanation": "Deciding factor: sunlight (average daily visible Sun-disk fraction unavailable; weight share 0.25; lost 25 points). Missing grades counted as 0: sunlight.",
+    "formula": "score = 100 × Σ w·grade / Σ w"
   },
   "windows": {
     "sun": [
       [
-        "2027-03-01T00:00Z",
+        "2027-02-28T12:00Z",
         "2027-03-03T23:40Z"
       ],
       [
@@ -99,7 +200,7 @@
     ],
     "dte": [
       [
-        "2027-03-01T00:00Z",
+        "2027-02-28T14:00Z",
         "2027-03-01T02:50Z"
       ],
       [
@@ -177,7 +278,7 @@
     ],
     "both": [
       [
-        "2027-03-01T00:00Z",
+        "2027-02-28T14:00Z",
         "2027-03-01T02:50Z"
       ],
       [
@@ -208,13 +309,20 @@
         "2027-03-30T14:20Z",
         "2027-03-31T00:00Z"
       ]
+    ],
+    "unknown": [
+      [
+        "2027-03-24T06:00Z",
+        "2027-03-24T21:40Z"
+      ]
     ]
   },
   "daily": {
     "sun_pct": [
       100,
       100,
-      98.6,
+      100,
+      48.61,
       0,
       0,
       0,
@@ -234,29 +342,29 @@
       0,
       0,
       0,
-      0,
-      0,
-      37.5,
-      29.9,
+      null,
+      null,
+      43.75,
+      50.69,
       100,
       100,
       100,
       100
     ],
     "dte_pct": [
-      50,
-      50,
-      50,
-      50,
-      50,
-      50,
-      50,
-      50,
-      50,
-      49.3,
-      49.3,
-      50.7,
-      7.6,
+      53.47,
+      53.47,
+      53.47,
+      53.47,
+      53.47,
+      53.47,
+      53.47,
+      53.47,
+      53.47,
+      53.47,
+      52.78,
+      52.78,
+      8.33,
       0,
       0,
       0,
@@ -268,13 +376,72 @@
       0,
       0,
       0,
-      31.3,
-      53.5,
-      50.7,
+      0,
+      35.42,
       50,
-      50,
-      50
+      52.78,
+      53.47,
+      53.47,
+      80.56
+    ],
+    "sun_disk_mean": [
+      0.9784,
+      0.3886,
+      0.8014,
+      0.3287,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      null,
+      null,
+      0.0165,
+      0.1995,
+      0.6157,
+      0.9993,
+      1,
+      0.9999
     ]
   },
-  "warnings": []
+  "warnings": [
+    {
+      "code": "DEM_GAPS",
+      "text": "Some skyline directions cross missing terrain, so those directions are unknown.",
+      "severity": "caution",
+      "affects": "skyline"
+    },
+    {
+      "code": "NULL_GRADE:light",
+      "text": "Sunlight could not be computed, so its grade counts as 0.",
+      "severity": "caution",
+      "affects": "score"
+    },
+    {
+      "code": "EARTH_ORIENTATION_PREDICTED",
+      "text": "The mission runs past 2026-08-06, so the Earth's orientation, and the station's position, are predicted rather than observed.",
+      "severity": "info",
+      "affects": "contact"
+    },
+    {
+      "code": "PSR_UNKNOWN",
+      "text": "The PSR map has no value at this site, so the PSR check wasn't applied.",
+      "severity": "info",
+      "affects": "score"
+    }
+  ]
 }

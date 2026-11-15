@@ -1,4 +1,5 @@
 import argparse
+import json
 import sys
 import time
 import subprocess
@@ -6,7 +7,12 @@ import urllib.parse
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
+
+import numpy as np
+
+if TYPE_CHECKING:
+    from engine.geometry import Ephemeris
 
 API = "https://ssd.jpl.nasa.gov/api/horizons.api"
 FIXTURES = Path("tests/fixtures/horizons")
@@ -17,10 +23,16 @@ CHECK_WINDOWS = [("2026-03-01", "2026-03-03"), ("2027-09-15", "2027-09-17"), ("2
 BODIES: dict[str, str] = {"10": "Sun (10)", "399": "Earth (399)"}
 BACKOFF_S = (1, 2, 4, 8)
 
+EVENT_SITE = "far"
+EVENT_SPAN = ("2027-03-01", "2027-05-01")
+EVENT_HALF_WINDOW = timedelta(minutes=30)
+SPICE_DIR = Path("data/sources/spice")
+
 Body = Literal["10", "399"]
+Kind = Literal["rise", "set"]
 
 
-def horizons_url(lat: float, lon: float, body: Body, start: str, stop: str) -> str:
+def horizons_url(lat: float, lon: float, body: Body, start: str, stop: str, step: str = "1h") -> str:
     params = {
         "format": "text",
         "OBJ_DATA": "'NO'",
@@ -31,7 +43,7 @@ def horizons_url(lat: float, lon: float, body: Body, start: str, stop: str) -> s
         "SITE_COORD": f"'{lon:g},{lat:g},0'",
         "START_TIME": f"'{start}'",
         "STOP_TIME": f"'{stop}'",
-        "STEP_SIZE": "'1h'",
+        "STEP_SIZE": f"'{step}'",
         "QUANTITIES": "'4'",
         "ANG_FORMAT": "'DEG'",
         "CSV_FORMAT": "'YES'",
@@ -42,9 +54,9 @@ def horizons_url(lat: float, lon: float, body: Body, start: str, stop: str) -> s
     return f"{API}?" + "&".join(f"{k}={urllib.parse.quote(v, safe=chr(39) + ',@')}" for k, v in params.items())
 
 
-def expected_rows(start: str, stop: str) -> int:
-    days = (datetime.fromisoformat(stop) - datetime.fromisoformat(start)).days
-    return days * 24 + 1
+def expected_rows(start: str, stop: str, step_min: int = 60) -> int:
+    minutes = (datetime.fromisoformat(stop) - datetime.fromisoformat(start)).total_seconds() / 60
+    return int(minutes // step_min) + 1
 
 
 def parse_answer(text: str, body: str, rows: int | None = None) -> list[tuple[datetime, float, float]]:
@@ -108,10 +120,70 @@ def fixture_path(site: str, body: str, start: str, folder: Path = FIXTURES) -> P
     return folder / f"{site}_{body}_{start}.txt"
 
 
+def flat_events(
+    eph: "Ephemeris", lat: float, lon: float, start: datetime, n: int
+) -> list[tuple[Body, Kind, datetime]]:
+    """Steps where the Sun's upper limb or the Earth's disk comes over or goes under a flat horizon."""
+    from engine.series import STEP_S, compute_series
+    from engine.visibility import visible_state
+    from engine.geometry import HOUSTON
+
+    flat = np.zeros(720)
+    series = compute_series(eph, lat, lon, 0.0, flat, flat, 0.0, 0.0, HOUSTON, start, n)
+    found: list[tuple[Body, Kind, datetime]] = []
+    for body, state in (("10", visible_state(series.sun_lit_frac)), ("399", series.earth_any)):
+        for i in range(1, n):
+            if np.isnan(state[i]) or np.isnan(state[i - 1]) or state[i] == state[i - 1]:
+                continue
+            found.append((body, "rise" if state[i] == 1 else "set", start + timedelta(seconds=STEP_S * i)))  # type: ignore[arg-type]
+    return sorted(found, key=lambda e: e[2])
+
+
+def event_path(body: str, engine_utc: datetime, folder: Path) -> Path:
+    return folder / f"{body}_{engine_utc:%Y%m%dT%H%M}.txt"
+
+
+def fetch_events(force: bool) -> int:
+    from build.make_ephemeris import build_ephemeris
+    from engine.series import STEPS_PER_DAY
+
+    lat, lon = CHECK_SITES[EVENT_SITE]
+    start = datetime.fromisoformat(EVENT_SPAN[0]).replace(tzinfo=UTC)
+    stop = datetime.fromisoformat(EVENT_SPAN[1]).replace(tzinfo=UTC)
+    eph = build_ephemeris(SPICE_DIR, start - timedelta(days=2), stop + timedelta(days=2))
+    n = int((stop - start).days * STEPS_PER_DAY)
+    events = flat_events(eph, lat, lon, start, n)
+    folder = FIXTURES / "events"
+    folder.mkdir(parents=True, exist_ok=True)
+    (folder / "events.json").write_text(
+        json.dumps([{"body": b, "kind": k, "engine_utc": t.isoformat()} for b, k, t in events], indent=2) + "\n"
+    )
+    failures = 0
+    for body, _, moment in events:
+        path = event_path(body, moment, folder)
+        if path.exists() and not force:
+            continue
+        first, last = (f"{(moment + d):%Y-%m-%d %H:%M}" for d in (-EVENT_HALF_WINDOW, EVENT_HALF_WINDOW))
+        try:
+            text = fetch(horizons_url(lat, lon, body, first, last, "1m"))
+            parse_answer(text, body, expected_rows(first, last, 1))
+        except (ValueError, FetchError) as error:
+            print(f"{path.name}: {error}", file=sys.stderr)
+            failures += 1
+            continue
+        path.write_text(text)
+        print(path)
+        time.sleep(1)
+    return 1 if failures else 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="build.fetch_horizons")
+    parser.add_argument("what", nargs="?", choices=["events"], help="fetch the window-edge tables instead")
     parser.add_argument("--force", action="store_true", help="fetch again even if the file exists")
     args = parser.parse_args(argv)
+    if args.what == "events":
+        return fetch_events(args.force)
     FIXTURES.mkdir(parents=True, exist_ok=True)
     failures = 0
     for site, (lat, lon) in CHECK_SITES.items():

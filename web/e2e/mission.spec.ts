@@ -102,3 +102,14 @@ test('new points open beside the first, compare side by side, and delete', async
   await page.getByRole('button', { name: 'Delete site B' }).click()
   await expect(cards(page)).toHaveCount(1)
 })
+
+test('the open card shows the illustrative score box and the warnings strip', async ({ page, context }) => {
+  await stubTiles(context)
+  await page.goto('/?site=sample_a')
+  await page.getByRole('button', { name: 'Whole mission', exact: true }).click()
+  const card = page.getByRole('region', { name: /^Site A(:|$)/ })
+  await expect(card.getByText(/Illustrative weights and thresholds/)).toBeVisible()
+  await expect(card.getByText(/predicted rather than observed/)).toBeVisible()
+  await card.getByRole('button', { name: 'Always true' }).click()
+  await expect(card.getByText(/Rocks and relief smaller than a terrain cell/)).toBeVisible()
+})

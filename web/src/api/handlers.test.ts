@@ -57,7 +57,7 @@ test('an unknown site with coordinates falls back to the nearest sample site', a
 
 // --- Horizon, series and summary ------------------------------------------------------
 
-const SCENARIO = 't0=2027-03-01T00:00Z&days=30&panel=2&antenna=3&w=1.0,1.0,1.0,0.0&station=29.7604,-95.3698,0,0'
+const SCENARIO = 't0=2027-03-01T00:00Z&days=30&panel=2&antenna=3&station=29.7604,-95.3698,0,0'
 
 test('horizon returns 720 elevations and blocking distances for a sample site', async () => {
   const response = await fetch('http://localhost/api/v1/sites/sample_b/horizon?mast=2')
@@ -96,15 +96,21 @@ test('summary chips agree with its metrics and the interim thresholds', async ()
   const color = (pct: number) => (pct >= 60 ? 'green' : pct >= 30 ? 'amber' : 'red')
   expect(body.rag.sun.color).toBe(color(body.metrics.sun_pct))
   expect(body.rag.dte.color).toBe(color(body.metrics.dte_pct))
-  // Solar-lander weights: the base is the share of time with both bodies up.
-  expect(body.score.base).toBeCloseTo(body.metrics.both_pct, 0)
-  expect(body.daily.sun_pct).toHaveLength(30)
+  expect(body.scenario).toMatchObject({ w: [0.25, 0.25, 0.15, 0.15, 0.1, 0.1, 0], sun_req: 6, slope: [0, 15, 15], psr: true, margin: 12, colors: [70, 40] })
+  expect(body.metrics.window).toEqual(['2027-02-28T12:00Z', '2027-03-31T00:00Z'])
+  expect(body.daily.sun_pct).toHaveLength(31)
   expect(body.scenario.station).toEqual({ lat_deg: 29.7604, lon_deg: -95.3698, alt_m: 0, min_el_deg: 0 })
 })
 
 test.each([
   ['t0=2027-03-01', 't0'],
-  ['t0=2027-03-01T00:00Z&w=2,1,1,0', 'w'],
+  ['t0=2027-03-01T00:00Z&w=2,1,1,0,0,0,0', 'w'],
+  ['t0=2027-03-01T00:00Z&w=1,1,1,0', 'w'],
+  ['t0=2027-03-01T00:00Z&sun_req=0.3', 'sun_req'],
+  ['t0=2027-03-01T00:00Z&slope=20,10,15', 'slope'],
+  ['t0=2027-03-01T00:00Z&psr=2', 'psr'],
+  ['t0=2027-03-01T00:00Z&margin=12.5', 'margin'],
+  ['t0=2027-03-01T00:00Z&colors=40,70', 'colors'],
   ['t0=2027-03-01T00:00Z&station=houston', 'station'],
   ['t0=2027-03-01T00:00Z&station=1,2,3', 'station'],
   ['t0=2027-03-01T00:00Z&station=95,0,0,0', 'station'],
@@ -117,6 +123,31 @@ test.each([
   expect((await response.json()).detail).toContain(word)
 })
 
+test('changing the weights changes the score but not the metrics', async () => {
+  const get = async (extra: string) =>
+    (await fetch(`http://localhost/api/v1/scenario/summary?site=sample_a&${SCENARIO}${extra}`)).json()
+  const base = await get('')
+  const other = await get('&w=0.6,0.2,0,0,0,0.1,0.1')
+  expect(other.score.value).not.toBe(base.score.value)
+  expect(other.metrics).toEqual(base.metrics)
+  expect(other.score.settings.custom).toBe(true)
+  expect(base.score.factors).toHaveLength(7)
+})
+
+test('the margin moves the window and the number of daily values', async () => {
+  const body = await (await fetch(`http://localhost/api/v1/scenario/summary?site=sample_a&${SCENARIO}&margin=0`)).json()
+  expect(body.metrics.window).toEqual(['2027-03-01T00:00Z', '2027-03-31T00:00Z'])
+  expect(body.daily.sun_pct).toHaveLength(30)
+})
+
+test('the summary carries the data and score warnings in catalog texts', async () => {
+  const body = await (await fetch(`http://localhost/api/v1/scenario/summary?site=sample_a&${SCENARIO}`)).json()
+  const codes = body.warnings.map((w: { code: string }) => w.code)
+  expect(codes).toContain('EARTH_ORIENTATION_PREDICTED')
+  expect(codes).toContain('PSR_UNKNOWN')
+  const off = await (await fetch(`http://localhost/api/v1/scenario/summary?site=sample_a&${SCENARIO}&psr=0`)).json()
+  expect(off.warnings.map((w: { code: string }) => w.code)).not.toContain('PSR_UNKNOWN')
+})
 
 // --- Series: the spec's scenario shape ---------------------------------------------------
 

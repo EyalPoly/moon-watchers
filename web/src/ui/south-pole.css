@@ -1221,3 +1221,14 @@ body {
   .point .site-output .result-station { gap: 0; }
   .point .rank { padding-block: 1px; }
 }
+
+/* Whole-mission results inside a point card: denser, so three cards still fit a laptop screen */
+.point .whole-mission .metrics { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 2px 6px; }
+.point .whole-mission .metrics div { padding: 2px 0; border: 0; border-radius: 0; }
+.point .whole-mission .metrics dt { font-size: 9px; line-height: 1.2; }
+.point .whole-mission .metrics dd { margin: 1px 0 0; font-size: 12px; }
+.point .whole-mission .metrics .metric-reason { font-size: 9px; }
+.point .whole-mission .warnings { margin: 2px 0; font-size: 11px; line-height: 1.3; }
+.point .whole-mission .warning-list { gap: 2px; }
+.point .whole-mission .warning { padding: 1px 6px; }
+.point .whole-mission .score-note { font-size: 10px; line-height: 1.25; }

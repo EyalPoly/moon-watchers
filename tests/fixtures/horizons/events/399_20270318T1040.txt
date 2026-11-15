@@ -1,0 +1,196 @@
+API VERSION: 1.2
+API SOURCE: NASA/JPL Horizons API
+
+
+
+*******************************************************************************
+Ephemeris / API_USER Sat Nov 14 20:56:12 2026 Pasadena, USA      / Horizons    
+*******************************************************************************
+Target body name: Earth (399)                     {source: DE441}
+Center body name: Moon (301)                      {source: DE441}
+Center-site name: (user defined site below)
+*******************************************************************************
+Start time      : A.D. 2027-Mar-18 10:10:00.0000 UT      
+Stop  time      : A.D. 2027-Mar-18 11:10:00.0000 UT      
+Step-size       : 1 minutes
+*******************************************************************************
+Target pole/equ : ITRF93 (high precision)         {East-longitude positive}
+Target radii    : 6378.137, 6378.137, 6356.752 km {Equator_a, b, pole_c}       
+Center geodetic : 120.0, -85.0, 0.0               {E-lon(deg),Lat(deg),Alt(km)}
+Center cylindric: 120.0, 151.42439, -1730.7887    {E-lon(deg),Dxy(km),Dz(km)}
+Center pole/equ : MEAN_ME (high precision)        {East-longitude positive}
+Center radii    : 1737.4, 1737.4, 1737.4 km       {Equator_a, b, pole_c}       
+Target primary  : Sun
+Vis. interferer : EARTH (R_eq= 6378.137) km       {source: DE441}
+Rel. light bend : Sun, EARTH                      {source: DE441}
+Rel. lght bnd GM: 1.3271E+11, 3.9860E+05 km^3/s^2                              
+Atmos refraction: NO (AIRLESS)
+RA format       : DEG
+Time format     : CAL 
+Calendar mode   : Mixed Julian/Gregorian
+EOP file        : eop.261113.p270209                                           
+EOP coverage    : DATA-BASED 1962-JAN-20 TO 2026-NOV-13. PREDICTS-> 2027-FEB-08
+Units conversion: 1 au= 149597870.700 km, c= 299792.458 km/s, 1 day= 86400.0 s 
+Table cut-offs 1: Elevation (-90.0deg=NO ),Airmass     n.a.    , Daylight (NO )
+Table cut-offs 2: Solar elongation (  0.0,180.0=NO ),Local Hour Angle( 0.0=NO )
+Table cut-offs 3: RA/DEC angular rate (     0.0=NO )                           
+Table format    : Comma Separated Values (spreadsheet)
+*******************************************************************************
+ Date__(UT)__HR:MN, , ,Azimuth_(a-app), Elevation_(a-app),
+**********************************************************
+$$SOE
+ 2027-Mar-18 10:10,*,i,  239.503712576,      -0.972704226,
+ 2027-Mar-18 10:11,*,i,  239.504618910,      -0.973773334,
+ 2027-Mar-18 10:12,*,i,  239.505525278,      -0.974842499,
+ 2027-Mar-18 10:13,*,i,  239.506431680,      -0.975911720,
+ 2027-Mar-18 10:14,*,i,  239.507338116,      -0.976980997,
+ 2027-Mar-18 10:15,*,i,  239.508244585,      -0.978050331,
+ 2027-Mar-18 10:16,*,i,  239.509151087,      -0.979119722,
+ 2027-Mar-18 10:17,*,i,  239.510057623,      -0.980189168,
+ 2027-Mar-18 10:18,*,i,  239.510964193,      -0.981258671,
+ 2027-Mar-18 10:19,*,i,  239.511870796,      -0.982328231,
+ 2027-Mar-18 10:20,*,i,  239.512777433,      -0.983397847,
+ 2027-Mar-18 10:21,*,i,  239.513684103,      -0.984467518,
+ 2027-Mar-18 10:22,*,i,  239.514590807,      -0.985537247,
+ 2027-Mar-18 10:23,*,i,  239.515497544,      -0.986607031,
+ 2027-Mar-18 10:24,*,i,  239.516404314,      -0.987676871,
+ 2027-Mar-18 10:25,*,i,  239.517311118,      -0.988746768,
+ 2027-Mar-18 10:26,*,i,  239.518217955,      -0.989816720,
+ 2027-Mar-18 10:27,*,i,  239.519124826,      -0.990886729,
+ 2027-Mar-18 10:28,*,i,  239.520031730,      -0.991956794,
+ 2027-Mar-18 10:29,*,i,  239.520938667,      -0.993026914,
+ 2027-Mar-18 10:30,*,i,  239.521845638,      -0.994097090,
+ 2027-Mar-18 10:31,*,i,  239.522752642,      -0.995167323,
+ 2027-Mar-18 10:32,*,i,  239.523659679,      -0.996237611,
+ 2027-Mar-18 10:33,*,s,  239.524566750,      -0.997307955,
+ 2027-Mar-18 10:34,*, ,  239.525473853,      -0.998378355,
+ 2027-Mar-18 10:35,*, ,  239.526380990,      -0.999448810,
+ 2027-Mar-18 10:36,*, ,  239.527288160,      -1.000519321,
+ 2027-Mar-18 10:37,*, ,  239.528195364,      -1.001589888,
+ 2027-Mar-18 10:38,*, ,  239.529102600,      -1.002660511,
+ 2027-Mar-18 10:39,*, ,  239.530009870,      -1.003731189,
+ 2027-Mar-18 10:40,*, ,  239.530917173,      -1.004801922,
+ 2027-Mar-18 10:41,*, ,  239.531824508,      -1.005872711,
+ 2027-Mar-18 10:42,*, ,  239.532731877,      -1.006943556,
+ 2027-Mar-18 10:43,*, ,  239.533639280,      -1.008014456,
+ 2027-Mar-18 10:44,*, ,  239.534546715,      -1.009085412,
+ 2027-Mar-18 10:45,*, ,  239.535454183,      -1.010156422,
+ 2027-Mar-18 10:46,*, ,  239.536361684,      -1.011227489,
+ 2027-Mar-18 10:47,*, ,  239.537269218,      -1.012298610,
+ 2027-Mar-18 10:48,*, ,  239.538176785,      -1.013369787,
+ 2027-Mar-18 10:49,*, ,  239.539084386,      -1.014441019,
+ 2027-Mar-18 10:50,*, ,  239.539992019,      -1.015512306,
+ 2027-Mar-18 10:51,*, ,  239.540899684,      -1.016583649,
+ 2027-Mar-18 10:52,*, ,  239.541807383,      -1.017655046,
+ 2027-Mar-18 10:53,*, ,  239.542715115,      -1.018726499,
+ 2027-Mar-18 10:54,*, ,  239.543622880,      -1.019798007,
+ 2027-Mar-18 10:55,*, ,  239.544530678,      -1.020869569,
+ 2027-Mar-18 10:56,*, ,  239.545438508,      -1.021941187,
+ 2027-Mar-18 10:57,*, ,  239.546346371,      -1.023012860,
+ 2027-Mar-18 10:58,*, ,  239.547254267,      -1.024084587,
+ 2027-Mar-18 10:59,*, ,  239.548162196,      -1.025156370,
+ 2027-Mar-18 11:00,*, ,  239.549070158,      -1.026228207,
+ 2027-Mar-18 11:01,*, ,  239.549978152,      -1.027300099,
+ 2027-Mar-18 11:02,*, ,  239.550886179,      -1.028372046,
+ 2027-Mar-18 11:03,*, ,  239.551794238,      -1.029444048,
+ 2027-Mar-18 11:04,*, ,  239.552702331,      -1.030516104,
+ 2027-Mar-18 11:05,*, ,  239.553610456,      -1.031588215,
+ 2027-Mar-18 11:06,*, ,  239.554518614,      -1.032660381,
+ 2027-Mar-18 11:07,*, ,  239.555426804,      -1.033732601,
+ 2027-Mar-18 11:08,*, ,  239.556335027,      -1.034804876,
+ 2027-Mar-18 11:09,*, ,  239.557243282,      -1.035877206,
+ 2027-Mar-18 11:10,*, ,  239.558151571,      -1.036949589,
+$$EOE
+*******************************************************************************
+Column meaning:
+ 
+TIME
+
+  Times PRIOR to 1962 are UT1, a mean-solar time closely related to the
+prior but now-deprecated GMT. Times AFTER 1962 are in UTC, the current
+civil or "wall-clock" time-scale. UTC is kept within 0.9 seconds of UT1
+using integer leap-seconds for 1972 and later years.
+
+  Conversion from the internal Barycentric Dynamical Time (TDB) of solar
+system dynamics to the non-uniform civil UT time-scale requested for output
+has not been determined for UTC times after the next July or January 1st.
+Therefore, the last known leap-second is used as a constant over future
+intervals.
+
+  Time tags refer to the UT time-scale conversion from TDB on Earth
+regardless of observer location within the solar system, although clock
+rates may differ due to the local gravity field and no analog to "UT"
+may be defined for that location.
+
+  Any 'b' symbol in the 1st-column denotes a B.C. date. First-column blank
+(" ") denotes an A.D. date.
+ 
+CALENDAR SYSTEM
+
+  Mixed calendar mode was active such that calendar dates after AD 1582-Oct-15
+(if any) are in the modern Gregorian system. Dates prior to 1582-Oct-5 (if any)
+are in the Julian calendar system, which is automatically extended for dates
+prior to its adoption on 45-Jan-1 BC.  The Julian calendar is useful for
+matching historical dates. The Gregorian calendar more accurately corresponds
+to the Earth's orbital motion and seasons. A "Gregorian-only" calendar mode is
+available if such physical events are the primary interest.
+
+  NOTE: "n.a." in output means quantity "not available" at the print-time.
+ 
+SOLAR PRESENCE (OBSERVING SITE)
+  Time tag is followed by a blank, then a solar-presence symbol:
+
+       '*'  Daylight (solar upper-limb on or above apparent horizon)
+       ' '  Night OR geocentric ephemeris
+
+INTEFERING BODY PRESENCE WITH TARGET RISE/TRANSIT/SET MARKER (OBSERVING SITE)
+  The solar-presence symbol is immediately followed by an "interfering body"
+presence OR target rise/transit/set symbol.
+
+       'i'  Upper-limb of interfering body on or above apparent horizon
+       ' '  Upper-limb of interfering body below apparent horizon OR body
+               centered ephemeris
+
+       'r'  Rise          (target body on or above cut-off RTS elevation)
+       'e'  Elevation max (target body maximum elevation angle has occurred)
+       't'  Transit       (target body at or past local maximum RTS elevation)
+       's'  Set           (target body on or below cut-off RTS elevation)
+
+  An "interfering body" is the largest other body in the immediate
+planet/satellite system, potentially compromising visual observations due to
+its brightness. Any such body is identified in the print-out header.
+ 
+RTS MARKERS (TVH)
+  Rise and set are with respect to the reference ellipsoid true visual horizon
+defined by the elevation cut-off angle. Horizon dip and yellow-light refraction
+(Earth only) are considered. Accuracy is < or = to twice the requested search
+step-size.
+ 
+ 'Azimuth_(a-app), Elevation_(a-app),' =
+  Airless apparent azimuth and elevation of target center. Compensated
+for light-time, the gravitational deflection of light, stellar aberration,
+precession and nutation. Azimuth is measured clockwise from north:
+
+  North(0) -> East(90) -> South(180) -> West(270) -> North (360)
+
+Elevation angle is with respect to a plane perpendicular to the reference
+surface local zenith direction. TOPOCENTRIC ONLY.  Units: DEGREES
+
+Computations by ...
+
+    Solar System Dynamics Group, Horizons On-Line Ephemeris System
+    4800 Oak Grove Drive, Jet Propulsion Laboratory
+    Pasadena, CA  91109   USA
+
+    General site: https://ssd.jpl.nasa.gov/
+    Mailing list: https://ssd.jpl.nasa.gov/email_list.html
+    System news : https://ssd.jpl.nasa.gov/horizons/news.html
+    User Guide  : https://ssd.jpl.nasa.gov/horizons/manual.html
+    Connect     : browser        https://ssd.jpl.nasa.gov/horizons/app.html#/x
+                  API            https://ssd-api.jpl.nasa.gov/doc/horizons.html
+                  command-line   telnet ssd.jpl.nasa.gov 6775
+                  e-mail/batch   https://ssd.jpl.nasa.gov/ftp/ssd/horizons_batch.txt
+                  scripts        https://ssd.jpl.nasa.gov/ftp/ssd/SCRIPTS
+    Inquiries   : Jon.D.Giorgini@jpl.nasa.gov
+
+*******************************************************************************

@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react'
 import type { AppConfig } from '../api/config'
 import { inPointArea, parsePointId, pointId } from '../api/points'
+import type { ScoreSettings } from '../api/scoreSettings'
 import { HOUSTON, presetsFrom, sameStation, stationLabel, stationQuery } from '../api/stations'
 import type { Meta, Site, StationPoint } from '../api/types'
-import { useMissionSeries, useSummary } from '../state/queries'
+import { useMeta, useMissionSeries, useSummary } from '../state/queries'
 import type { TicketRank } from '../state/ranking'
 import { useScenario } from '../state/scenario'
 import { indexAt, liveStatus, type LiveStatus } from '../state/series'
@@ -22,6 +23,7 @@ import { StationPicker } from './StationPicker'
 import { TimeSlider } from './TimeSlider'
 import { ticketVars } from './ticketStyle'
 import { MissionMetrics, VerdictChips } from './VerdictChips'
+import { WarningsStrip } from './WarningsStrip'
 
 export interface PointCardProps {
   index: number
@@ -37,6 +39,7 @@ export interface PointCardProps {
   canDelete: boolean
   config: AppConfig
   search: string
+  settings: ScoreSettings
   tau: number
   resultView: 'live' | 'mission'
   sliderMaxTau: number
@@ -160,9 +163,10 @@ export function PointCard(props: PointCardProps) {
   const title = ticket.name || siteDisplayName(site) || (isDraftPoint ? 'New site' : 'Loading site…')
 
   const mission = { t0: ticket.t0, days: ticket.days, panel: ticket.panel, antenna: ticket.antenna, tau: props.tau }
-  const scenario = useScenario(site?.id ?? null, mission, ticket.station)
+  const scenario = useScenario(site?.id ?? null, mission, ticket.station, props.settings)
   const series = useMissionSeries(config, search, scenario)
   const summary = useSummary(config, search, scenario)
+  const meta = useMeta(config, search)
   const t0Ms = parseIsoMinute(ticket.t0) as number
   const ownMaxTau = Math.floor((ticket.days * 1440) / 10) * 10
   const nowMs = t0Ms + Math.min(props.tau, ownMaxTau) * 60_000
@@ -422,6 +426,7 @@ export function PointCard(props: PointCardProps) {
                 ) : summary.data && site ? (
                   <>
                     <VerdictChips summary={summary.data} slopeDeg={site.slope_deg} />
+                    <WarningsStrip warnings={summary.data.warnings} catalog={meta.data?.warning_catalog ?? []} />
                     <MissionMetrics summary={summary.data} />
                   </>
                 ) : (

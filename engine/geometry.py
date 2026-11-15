@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 
 import numpy as np
 from numpy.typing import NDArray
@@ -10,6 +10,7 @@ SUN_RADIUS_KM = 696_000.0
 EARTH_RADIUS_KM = 6_378.1366
 EARTH_POLAR_RADIUS_KM = 6_356.7519
 MOON_FRAME = "MOON_ME_DE440_ME421"
+EARTH_ORIENTATION_OBSERVED_UNTIL = datetime(2026, 8, 6, tzinfo=UTC)
 
 Vec = NDArray[np.float64]
 

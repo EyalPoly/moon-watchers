@@ -1,15 +1,14 @@
 import { useMemo } from 'react'
+import { SCORE_DEFAULTS, type ScoreSettings } from '../api/scoreSettings'
 import { HOUSTON } from '../api/stations'
 import type { Scenario, StationPoint } from '../api/types'
 import type { MissionState } from './urlState'
-
-// Interim until the physics team's P5: the solar-lander weights.
-const SOLAR_LANDER: Scenario['w'] = [1, 1, 1, 0]
 
 export function toScenario(
   siteId: string,
   mission: Pick<MissionState, 't0' | 'days' | 'panel' | 'antenna'>,
   station: StationPoint = HOUSTON,
+  settings: ScoreSettings = SCORE_DEFAULTS,
 ): Scenario {
   return {
     site: siteId,
@@ -17,8 +16,8 @@ export function toScenario(
     days: mission.days,
     panel: mission.panel,
     antenna: mission.antenna,
-    w: SOLAR_LANDER,
     station,
+    ...settings,
   }
 }
 
@@ -27,6 +26,7 @@ export function useScenario(
   siteId: string | null,
   mission: MissionState,
   station: StationPoint = HOUSTON,
+  settings: ScoreSettings = SCORE_DEFAULTS,
 ): Scenario | null {
   const { t0, days, panel, antenna } = mission
   const { lat_deg, lon_deg, alt_m, min_el_deg } = station
@@ -34,7 +34,7 @@ export function useScenario(
     () =>
       siteId === null
         ? null
-        : toScenario(siteId, { t0, days, panel, antenna }, { lat_deg, lon_deg, alt_m, min_el_deg }),
-    [siteId, t0, days, panel, antenna, lat_deg, lon_deg, alt_m, min_el_deg],
+        : toScenario(siteId, { t0, days, panel, antenna }, { lat_deg, lon_deg, alt_m, min_el_deg }, settings),
+    [siteId, t0, days, panel, antenna, lat_deg, lon_deg, alt_m, min_el_deg, settings],
   )
 }

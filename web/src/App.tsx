@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import meta from '@samples/meta.json'
 import { resolveSource, type AppConfig } from './api/config'
 import type { Meta, Region, Site } from './api/types'
 import { isPointId } from './api/points'
+import { parseScoreSettings, serializeScoreSettings, type ScoreSettings } from './api/scoreSettings'
 import { useCustomSites, useMeta, useSites } from './state/queries'
 import { useTicketRanking } from './state/ranking'
 import { presetsFrom, stationLabel } from './api/stations'
@@ -86,6 +87,7 @@ export default function App({ config }: { config: AppConfig }) {
   const stations = metaQuery.data?.stations ?? FALLBACK_STATIONS
   const presets = displayPresets(presetsFrom(stations))
   const screen = parseScreen2(search)
+  const settings = useMemo(() => parseScoreSettings(search), [search])
   // Custom points (new sites by lat/lon) come from POST /sites/custom, one per point.
   const customIds = [...new Set(screen.tickets.flatMap((t) => (t.site !== null && isPointId(t.site) ? [t.site] : [])))]
   const customQueries = useCustomSites(config, search, customIds)
@@ -131,6 +133,31 @@ export default function App({ config }: { config: AppConfig }) {
 
   const [resultView, setResultView] = useState<'live' | 'mission'>('live')
   const [selectedLayer, setSelectedLayer] = useState<MapLayer>('Relief')
+  // Dragging a weight replaces the URL; on release the pre-drag URL is restored first so
+  // that the one history entry added is the change as a whole.
+  const settingsDragFrom = useRef<string | null>(null)
+  const lastSettingsWrite = useRef(0)
+  const onSettingsChange = useCallback((next: ScoreSettings) => {
+    settingsDragFrom.current ??= window.location.search
+    const now = performance.now()
+    if (now - lastSettingsWrite.current < URL_WRITE_MS) return
+    lastSettingsWrite.current = now
+    writeUrl(serializeScoreSettings(next, window.location.search), 'replace')
+  }, [])
+  const onSettingsCommit = useCallback((next: ScoreSettings) => {
+    const from = settingsDragFrom.current
+    settingsDragFrom.current = null
+    if (from !== null) {
+      writeUrl(from, 'replace')
+      // A drag that ended where it began is not a change.
+      if (serializeScoreSettings(parseScoreSettings(from)) === serializeScoreSettings(next)) {
+        setSearch(window.location.search)
+        return
+      }
+    }
+    writeUrl(serializeScoreSettings(next, window.location.search), 'push')
+    setSearch(window.location.search)
+  }, [])
 
   // One panel can be expanded to full size; this is a view choice, not part of the link.
   const [expanded, setExpanded] = useState<number | null>(null)
@@ -201,7 +228,13 @@ export default function App({ config }: { config: AppConfig }) {
 
   return (
     <div className="app" style={{ '--side-w': `${Math.min(sideWidth, sideMax)}px` } as CSSProperties}>
-      <TopBar sample={showBanner} />
+      <TopBar
+        sample={showBanner}
+        scoreSpec={metaQuery.data?.score}
+        settings={settings}
+        onSettingsChange={onSettingsChange}
+        onSettingsCommit={onSettingsCommit}
+      />
 
       <main className="main" aria-label="South pole">
         <header className="col-head">
@@ -215,6 +248,7 @@ export default function App({ config }: { config: AppConfig }) {
             sitesById={sitesById}
             config={config}
             search={search}
+            settings={settings}
             isSample={missionIsSample}
             onClose={() => apply((s) => ({ ...s, compare: false }))}
             onOpenTicket={(i) => apply((s) => ({ ...updateTicket(s, i, { collapsed: undefined }), compare: false, open: i }))}
@@ -347,6 +381,7 @@ export default function App({ config }: { config: AppConfig }) {
                   canDelete={screen.tickets.length > 1 || t.site !== null}
                   config={config}
                   search={search}
+                  settings={settings}
                   tau={tau}
                   sliderMaxTau={sliderMax}
                   resultView={resultView}
