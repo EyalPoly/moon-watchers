@@ -1,6 +1,9 @@
+from datetime import UTC, datetime
+
 import pytest
 
-from build.fetch_horizons import expected_rows, horizons_url, parse_answer
+from build.fetch_horizons import expected_rows, flat_events, horizons_url, parse_answer
+from tests.ephemeris_helpers import synthetic_ephemeris
 
 
 def answer(target: str = "Sun (10)", center: str = "Moon (301)", rows: int = 3) -> str:
@@ -54,3 +57,19 @@ def test_parse_rejects_short_table() -> None:
 
 def test_expected_rows() -> None:
     assert expected_rows("2026-03-01", "2026-03-03") == 49
+
+
+def test_url_step() -> None:
+    assert "STEP_SIZE='1m'" in horizons_url(-85.0, 120.0, "10", "2027-03-01 12:00", "2027-03-01 13:00", "1m")
+    assert "STEP_SIZE='1h'" in horizons_url(-85.0, 120.0, "10", "a", "b")
+    assert expected_rows("2027-03-01 12:00", "2027-03-01 13:00", 1) == 61
+
+
+def test_flat_events_on_synthetic() -> None:
+    eph = synthetic_ephemeris(datetime(2027, 2, 27, tzinfo=UTC), 35)
+    start = datetime(2027, 2, 28, tzinfo=UTC)
+    # Stops before day 29.5, where the synthetic Sun passes behind the fixed Earth and adds a dip.
+    events = [e for e in flat_events(eph, -85.0, 0.0, start, 25 * 144) if e[0] == "10"]
+    assert [kind for _, kind, _ in events] == ["set", "rise"]
+    for _, _, moment in events:
+        assert (moment - start).total_seconds() % 600 == 0

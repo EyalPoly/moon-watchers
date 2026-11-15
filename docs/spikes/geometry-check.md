@@ -52,3 +52,24 @@ Samples where Houston is below its mask are skipped, as the contact rule says 0 
 
 The prototype's disk fraction was compared separately (`tests/test_visibility.py::test_matches_prototype_disk`):
 500 random disks with an Earth occultor over a random skyline agree to 1e-12.
+
+## Window edges (`tests/test_jpl_events.py`)
+
+The 10-minute steps mark a state change at the first step after it happens. Site `far` (−85°, 120°), flat horizon,
+panel and antenna at ground level, 2027-03-01 to 2027-05-01: the engine's Sun (upper limb) and Earth (any part of
+the disk) rises and sets, against Horizons 1-minute elevation tables over event ± 30 min. Horizons' crossing is where
+`el + r` changes sign (`r` from our table), linearly interpolated within the minute. The check accepts
+`−60 s ≤ engine − Horizons < 660 s`: up to one step late, with a minute of slack for the strips and light time.
+
+| Engine step (UTC) | Body | Edge | Engine − Horizons |
+|---|---|---|---|
+| 2027-03-05 22:10 | Sun | rise | 281 s |
+| 2027-03-07 16:40 | Earth | rise | 259 s |
+| 2027-03-18 10:40 | Earth | set | 462 s |
+| 2027-03-19 15:30 | Sun | set | 312 s |
+| 2027-04-03 23:00 | Earth | rise | 344 s |
+| 2027-04-05 01:30 | Sun | rise | 55 s |
+| 2027-04-14 14:00 | Earth | set | 146 s |
+| 2027-04-17 17:30 | Sun | set | 82 s |
+
+All eight are between 0 and 600 s late, as a step grid predicts, so none needed investigating.
