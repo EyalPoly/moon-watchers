@@ -65,7 +65,7 @@
     },
     "dte": {
       "color": "amber",
-      "reason": "Earth in contact 52.1% of the mission (green ≥ 60%, red < 30%)"
+      "reason": "Earth contact 52.1% of the mission (green ≥ 60%, red < 30%)"
     },
     "slope": {
       "color": "green",
@@ -170,7 +170,7 @@
         "affects": "score"
       }
     ],
-    "explanation": "Deciding factor: station contact (average daily contact-time fraction 0.52; weight share 0.25; lost 12 points).",
+    "explanation": "Deciding factor: station contact (average daily contact-time fraction 0.52; weight share 0.25; lost 11.97 points).",
     "formula": "score = 100 × Σ w·grade / Σ w"
   },
   "windows": {

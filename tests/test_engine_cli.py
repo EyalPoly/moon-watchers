@@ -185,14 +185,45 @@ def test_summary_cli_matches_api(bundle_dir: Path, catalog_file: Path, tmp_path:
 
 @pytest.mark.parametrize(
     ("extra", "word"),
-    [(["--w", "1,1,1,0"], "w"), (["--slope", "20,10,15"], "slope"), (["--days", "400"], "days"), (["--t0", "2027-03-01T00:07Z"], "t0")],
+    [
+        (["--w", "1,1,1,0"], "w must"),
+        (["--slope", "20,10,15"], "slope"),
+        (["--days", "400"], "days must"),
+        (["--t0", "2027-03-01T00:07Z"], "t0"),
+        (["--sun-req", "73"], "sun_req must"),
+        (["--sun-req", "6.3"], "sun_req must"),
+        (["--panel", "11"], "panel must"),
+        (["--panel", "2.555"], "panel must"),
+    ],
 )
 def test_summary_cli_bad_setting_exits_nonzero(
     bundle_dir: Path, catalog_file: Path, tmp_path: Path, extra: list[str], word: str
 ) -> None:
     with pytest.raises(SystemExit) as error:
         run_summary(bundle_dir, catalog_file, tmp_path / "m.csv", *extra)
-    assert word in str(error.value.code)
+    assert str(error.value.code).startswith(f"invalid input: {word}")
+    assert not (tmp_path / "m.csv").exists()
+
+
+def test_summary_cli_unknown_site_exits_nonzero(bundle_dir: Path, catalog_file: Path, tmp_path: Path) -> None:
+    with pytest.raises(SystemExit) as error:
+        main(["summary", "--site", "nope", "--t0", "2027-03-01T00:00Z", "--bundle", str(bundle_dir),
+              "--catalog", str(catalog_file), "--out", str(tmp_path / "m.csv")])
+    assert "unknown site" in str(error.value.code)
+
+
+def test_summary_cli_missing_bundle_exits_nonzero(catalog_file: Path, tmp_path: Path) -> None:
+    with pytest.raises(SystemExit) as error:
+        run_summary(tmp_path / "no-bundle", catalog_file, tmp_path / "m.csv")
+    assert "cannot read bundle" in str(error.value.code)
+    assert not (tmp_path / "m.csv").exists()
+
+
+def test_summary_cli_window_outside_table_exits_nonzero(bundle_dir: Path, catalog_file: Path, tmp_path: Path) -> None:
+    with pytest.raises(SystemExit) as error:
+        main(["summary", "--site", "s1", "--t0", "2030-01-01T00:00Z", "--bundle", str(bundle_dir),
+              "--catalog", str(catalog_file), "--out", str(tmp_path / "m.csv")])
+    assert "no ephemeris" in str(error.value.code)
     assert not (tmp_path / "m.csv").exists()
 
 

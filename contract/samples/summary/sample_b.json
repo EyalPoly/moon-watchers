@@ -65,7 +65,7 @@
     },
     "dte": {
       "color": "red",
-      "reason": "Earth in contact 23.3% of the mission (green ≥ 60%, red < 30%)"
+      "reason": "Earth contact 23.3% of the mission (green ≥ 60%, red < 30%)"
     },
     "slope": {
       "color": "green",

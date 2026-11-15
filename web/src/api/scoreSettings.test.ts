@@ -2,6 +2,7 @@ import { expect, test } from 'vitest'
 import meta from '@samples/meta.json'
 import {
   SCORE_DEFAULTS,
+  SETTING_RULES,
   WEIGHT_PRESETS,
   isCustom,
   parseScoreSettings,
@@ -75,4 +76,30 @@ test('the query writes every setting in canonical form', () => {
     colors: '70,40',
   })
   expect(settingsQuery({ ...SCORE_DEFAULTS, psr: false }).psr).toBe(0)
+})
+
+test('the setting rules accept the meta ranges and steps and refuse just beyond them', () => {
+  const spec = (key: string) => meta.score.settings.find((s) => s.key === key) as { min: number; max: number; step: number }
+  const ok = (key: keyof typeof SETTING_RULES, raw: string) => SETTING_RULES[key].parse(raw) !== null
+  const w = spec('w')
+  const weights = (first: number) => [first, w.min, w.min, w.min, w.min, w.min, w.min].join(',')
+  expect(ok('w', weights(w.max))).toBe(true)
+  expect(ok('w', weights(w.max + w.step))).toBe(false)
+  expect(ok('w', weights(w.step / 2))).toBe(false)
+  const r = spec('sun_req')
+  expect([r.min, r.max, r.step].every((v) => ok('sun_req', String(v)))).toBe(true)
+  expect(ok('sun_req', String(r.max + r.step))).toBe(false)
+  expect(ok('sun_req', String(r.step / 2))).toBe(false)
+  const s = spec('slope')
+  expect(ok('slope', `${s.min},${s.max},${s.max}`)).toBe(true)
+  expect(ok('slope', `${s.min},${s.max + s.step},${s.max}`)).toBe(false)
+  expect(ok('slope', `${s.min},${s.min + s.step / 2},${s.max}`)).toBe(false)
+  const m = spec('margin')
+  expect(ok('margin', String(m.min)) && ok('margin', String(m.max))).toBe(true)
+  expect(ok('margin', String(m.max + m.step))).toBe(false)
+  const c = spec('colors')
+  expect(ok('colors', `${c.max},${c.min}`)).toBe(true)
+  expect(ok('colors', `${c.max + c.step},${c.min}`)).toBe(false)
+  expect(ok('colors', `${c.max},${c.min - c.step}`)).toBe(false)
+  expect(ok('psr', '0') && ok('psr', '1') && !ok('psr', '2')).toBe(true)
 })

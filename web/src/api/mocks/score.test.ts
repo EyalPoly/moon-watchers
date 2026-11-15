@@ -82,7 +82,10 @@ test('landing sunlight flips at the requirement', () => {
 test('ties are all deciding, and nothing lost leaves none', () => {
   const tie = score({ w: [0.5, 0.5, 0, 0, 0, 0, 0] }, { ...RAW, L: 0.5, C: 0.5 })
   expect(tie.deciding).toEqual(['L', 'C'])
-  expect(tie.explanation).toMatch(/^Tied deciding factors: sunlight; station contact\./)
+  expect(tie.explanation).toBe(
+    'Tied deciding factors: sunlight (average daily visible Sun-disk fraction 0.5; weight share 0.5; lost 25 points); ' +
+      'station contact (average daily contact-time fraction 0.5; weight share 0.5; lost 25 points).',
+  )
   const perfect = score({}, { L: 1, C: 1, DK: 0, OT: 0, LS: 100, S: 0, D: 0 }, 0)
   expect(perfect).toMatchObject({ value: 100, deciding: [] })
   expect(perfect.explanation).toBe('No grade lost points.')
@@ -91,4 +94,16 @@ test('ties are all deciding, and nothing lost leaves none', () => {
 test('the labels come from the meta sample', () => {
   expect(meta.score.grades.map((g) => g.id)).toEqual(['L', 'C', 'DK', 'OT', 'LS', 'S', 'D'])
   expect(score({ w: [1, 0, 0, 0, 0, 0, 0] }).explanation).toMatch(/^Deciding factor: sunlight \(average daily visible Sun-disk fraction/)
+})
+
+test('the single deciding factor shows points lost to two decimals, like the API', () => {
+  const s = score({ w: [1, 0, 0, 0, 0, 0, 0] }, { ...RAW, L: 0.6666 })
+  expect(s.explanation).toBe(
+    'Deciding factor: sunlight (average daily visible Sun-disk fraction 0.67; weight share 1; lost 33.34 points).',
+  )
+})
+
+test('the excluded-slope text fills the numbers the way the API does', () => {
+  const s = score({ slope: [0, 15, 15.5] }, { ...RAW, S: 15.75 }, 15.75)
+  expect(s.explanation).toBe('Excluded: the slope 15.75° is above the 15.5° limit, so the score is 0.')
 })

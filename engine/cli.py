@@ -145,8 +145,10 @@ def _write_summary(args: argparse.Namespace) -> int:
         raise SystemExit(f"cannot read bundle for site {args.site!r}: {error}") from error
     try:
         arrays, window = mission_series(bundle, catalog[args.site], scenario)
-    except (OutOfRange, ValueError) as error:
+    except OutOfRange as error:
         raise SystemExit("no ephemeris for the mission window: outside the bundle's table") from error
+    except (ValueError, OverflowError) as error:
+        raise SystemExit(f"cannot compute the mission window: {error}") from error
     metrics = compute_metrics(arrays, window.landing)
     summary = build_summary(
         catalog[args.site], scenario, window, metrics, data_codes(bundle, args.site, window),

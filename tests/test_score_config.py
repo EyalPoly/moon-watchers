@@ -83,3 +83,48 @@ def test_is_custom(configs: Configs) -> None:
     assert not is_custom(scenario(), configs.score)
     assert is_custom(scenario(margin=0), configs.score)
     assert not is_custom(scenario(days=10), configs.score)
+
+
+def test_settings_config_matches_scenario_validators(configs: Configs) -> None:
+    import inspect
+
+    from api import scenario as sc
+    from api.errors import ApiError
+
+    spec = {s.key: s for s in configs.score.settings}
+    defaults = {k: v.default for k, v in spec.items()}
+    sig = inspect.signature(sc.scenario_params).parameters
+
+    assert sc.parse_weights(sc.DEFAULT_W) == tuple(defaults["w"])
+    assert sc.parse_slope(sc.DEFAULT_SLOPE) == tuple(defaults["slope"])
+    assert sc.parse_colors(sc.DEFAULT_COLORS) == tuple(defaults["colors"])
+    assert [sig["sun_req"].default] == defaults["sun_req"]
+    assert [sig["psr"].default] == defaults["psr"]
+    assert [sig["margin"].default] == defaults["margin"]
+
+    assert (spec["sun_req"].min, spec["sun_req"].max) == sc.SUN_REQ_RANGE
+    assert (spec["psr"].min, spec["psr"].max) == sc.PSR_RANGE
+    assert (spec["margin"].min, spec["margin"].max) == sc.MARGIN_RANGE
+
+    def accepts(parse: object, text: str) -> bool:
+        try:
+            parse(text)  # type: ignore[operator]
+        except ApiError:
+            return False
+        return True
+
+    w = spec["w"]
+    assert accepts(sc.parse_weights, f"{w.max},{w.min},{w.min},{w.min},{w.min},{w.min},{w.min}")
+    assert not accepts(sc.parse_weights, f"{w.max + w.step},{w.min},{w.min},{w.min},{w.min},{w.min},{w.min}")
+    assert not accepts(sc.parse_weights, f"{w.step / 2},{w.min},{w.min},{w.min},{w.min},{w.min},{w.min}")
+    s = spec["slope"]
+    assert accepts(sc.parse_slope, f"{s.min},{s.max},{s.max}")
+    assert not accepts(sc.parse_slope, f"{s.min},{s.max + s.step},{s.max}")
+    assert not accepts(sc.parse_slope, f"{s.min},{s.min + s.step / 2},{s.max}")
+    c = spec["colors"]
+    assert accepts(sc.parse_colors, f"{c.max:g},{c.min:g}")
+    assert not accepts(sc.parse_colors, f"{c.max + c.step:g},{c.min:g}")
+    assert not accepts(sc.parse_colors, f"{c.max:g},{c.min - c.step:g}")
+    assert sc.check_sun_req(spec["sun_req"].step) == spec["sun_req"].step
+    with pytest.raises(ApiError):
+        sc.check_sun_req(spec["sun_req"].step / 2)

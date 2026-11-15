@@ -2,6 +2,8 @@ import json
 from datetime import UTC, datetime
 from pathlib import Path
 
+from types import SimpleNamespace
+
 import numpy as np
 import pytest
 import yaml
@@ -220,3 +222,37 @@ def test_warning_codes_catalogued() -> None:
     emitted += [f"NULL_GRADE:{name}" for name in GRADE_NAMES.values()]
     for code in emitted:
         assert make_warning(code, catalog, label="Sunlight", slope="4.2", max="4").text
+
+
+def test_summary_route_maps_engine_value_errors_to_422(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    def broken(*args: object, **kwargs: object) -> None:
+        raise ValueError("year 12000 is out of range")
+
+    monkeypatch.setattr("api.main.mission_series", broken)
+    response = client.get(f"{SUMMARY}&days=2")
+    assert response.status_code == 422 and response.json()["code"] == "OUT_OF_TIME_RANGE"
+
+
+def test_unknown_bundle_warning_code_does_not_fail(tmp_path: Path, catalog_path: Path) -> None:
+    root = make_bundle(tmp_path)
+    manifest_path = root / "manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    manifest["sites"]["s1"]["warnings"].append("FUTURE_CODE")
+    manifest_path.write_text(json.dumps(manifest))
+    body = TestClient(create_app(catalog_path=catalog_path, bundle_dir=root)).get(SUMMARY).json()
+    unknown = next(w for w in body["warnings"] if w["code"] == "FUTURE_CODE")
+    assert unknown == {
+        "code": "FUTURE_CODE",
+        "text": "Data warning FUTURE_CODE: no description available.",
+        "severity": "caution",
+        "affects": "all",
+    }
+    assert body["warnings"][-1]["severity"] != "blocking"
+
+
+def test_chip_color_follows_the_rounded_percentage() -> None:
+    configs = load_configs(Path("config"))
+    near = SimpleNamespace(sun_pct=59.96, dte_pct=29.96, unknown_h=0.0)
+    chips = summary_json.rag_chips(near, 4.2, configs.rag)  # type: ignore[arg-type]
+    assert "60.0%" in chips.sun.reason and chips.sun.color == "green"
+    assert "30.0%" in chips.dte.reason and chips.dte.color == "amber"

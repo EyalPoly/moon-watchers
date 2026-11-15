@@ -4,7 +4,7 @@ import { HOUSTON } from '../stations'
 import type { Horizon } from '../types'
 import { parseIsoMinute } from '../../time'
 import { samples } from './samples'
-import { syntheticSummary } from './synthetic'
+import { pctChip, syntheticSummary } from './synthetic'
 
 const site = { lat_deg: -89, lon_deg: 10, slope_deg: 4 }
 const scenario = { site: 'x', t0: '2027-03-01T00:00Z', days: 30, panel: 2, antenna: 3, station: HOUSTON, ...SCORE_DEFAULTS }
@@ -45,4 +45,13 @@ test('first sun and first dark are unknown when unknown terrain comes first', ()
   expect(unknown.metrics.first_sun_h).toBeNull()
   expect(unknown.metrics.first_dark_after_landing_h).toBeNull()
   expect(unknown.windows.unknown).toHaveLength(1)
+})
+
+test('a chip is colored from the percentage it shows', () => {
+  expect(pctChip('Sun visible', 'Sun visibility', 59.96, 0)).toMatchObject({ color: 'green' })
+  expect(pctChip('Sun visible', 'Sun visibility', 59.96, 0).reason).toContain('60.0%')
+  expect(pctChip('Sun visible', 'Sun visibility', 59.94, 0).color).toBe('amber')
+  expect(pctChip('Sun visible', 'Sun visibility', null, 3.456).reason).toBe(
+    'Sun visibility unavailable: terrain unknown for 3.5 h of the mission',
+  )
 })

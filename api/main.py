@@ -186,7 +186,7 @@ def create_app(
                 scenario.site, scenario.t0, scenario.days, scenario.margin, scenario.panel,
                 scenario.antenna, (st.lat_deg, st.lon_deg, st.alt_m, st.min_el_deg),
             )
-        except OutOfRange as error:
+        except (OutOfRange, ValueError, OverflowError) as error:
             first = mission_window(parse_t0(scenario.t0), scenario.days, scenario.margin).start
             eph = bundle.ephemeris
             raise ApiError(

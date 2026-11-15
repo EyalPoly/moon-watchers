@@ -94,9 +94,10 @@ def rag_chips(metrics: MissionMetrics, slope_deg: float, rag: RagThresholds) -> 
     limits = f"(green ≥ {_g(green)}%, red < {_g(amber)}%)"
 
     def pct_chip(value: float, name: str, label: str) -> RagChip:
+        shown = f"{value:.1f}"
         return _chip(
-            value, value >= green, value >= amber,
-            f"{label} {value:.1f}% of the mission {limits}", name, metrics.unknown_h,
+            value, float(shown) >= green, float(shown) >= amber,
+            f"{label} {shown}% of the mission {limits}", name, metrics.unknown_h,
         )
 
     slope = rag.slope_deg
@@ -178,6 +179,10 @@ def build_summary(
 
     def warning(code: str) -> Warning:
         label = labels.get(code.split(":", 1)[1], "") if code.startswith("NULL_GRADE:") else ""
+        if code.split(":", 1)[0] not in configs.warnings:
+            return Warning(
+                code=code, text=f"Data warning {code}: no description available.", severity="caution", affects="all"
+            )
         return make_warning(code, configs.warnings, label=label, slope=_g(site.slope_deg), max=_g(scenario.slope[2]))
 
     score_warnings = sort_warnings([warning(c) for c in score.codes], configs.warnings)

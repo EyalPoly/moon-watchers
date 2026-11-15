@@ -6,7 +6,11 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from api.score_config import load_configs
+from api.summary_json import explain
+from api.warnings import make_warning, sort_warnings
 from engine.score import (
+    GRADE_NAMES,
     GRADE_IDS,
     GradeInputs,
     ScorePolicy,
@@ -216,6 +220,37 @@ def test_summary_samples_follow_formula(path: Path) -> None:
         in_psr=np.nan,
     )
     r = site_score(x, policy)
-    assert r.value == pytest.approx(sc["value"], abs=0.05)
+    assert r.value == pytest.approx(sc["value"], abs=0.01)
     assert r.category == sc["category"]
     assert r.deciding == sc["deciding"]
+    assert [f.points_lost for f in r.factors] == pytest.approx([f["points_lost"] for f in sc["factors"]], abs=0.01)
+
+    configs = load_configs(Path("config"))
+    labels = {GRADE_NAMES[g.id]: g.label.capitalize() for g in configs.score.grades}
+    built = [
+        make_warning(
+            code, configs.warnings,
+            label=labels[code.split(":", 1)[1]] if code.startswith("NULL_GRADE:") else "",
+            slope=format(raw["S"], "g"), max=format(scen["slope"][2], "g"),
+        )
+        for code in r.codes
+    ]
+    ordered = sort_warnings(built, configs.warnings)
+    assert [w["code"] for w in sc["warnings"]] == [w.code for w in ordered]
+    # The sample's raw values are rounded, which can move a penalty by 0.01; use its own unrounded penalties for the text.
+    factors = [replace(f, points_lost=g["points_lost"]) for f, g in zip(r.factors, sc["factors"], strict=True)]
+    assert sc["explanation"] == explain(replace(r, factors=factors), configs.score.grades, ordered)
+
+
+def test_only_dust_weighted() -> None:
+    policy = replace(POLICY, weights=(0, 0, 0, 0, 0, 0, 1))
+    nan = float("nan")
+    unknown = dict(sun_disk_mean=nan, contact_mean=nan, longest_dark_h=nan, longest_no_contact_h=nan, first_sun_h=nan)
+    r = site_score(inputs(dust=0.35, **unknown), policy)
+    assert r.value == pytest.approx(100 * (1 - 0.35), abs=0.05)
+    assert r.deciding == ["D"]
+    assert not any(code.startswith("NULL_GRADE") for code in r.codes)
+    clean = site_score(inputs(dust=0.0, **unknown), policy)
+    assert clean.value == 100
+    assert clean.deciding == []
+    assert not any(code.startswith("NULL_GRADE") for code in clean.codes)

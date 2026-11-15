@@ -48,9 +48,12 @@ function grades(raw: Record<GradeId, number | null>, slopeDeg: number, windowH: 
   } satisfies Record<GradeId, number | null>
 }
 
+/** Python's `format(v, "g")` for the values that appear in text. */
+export const general = (v: number) => String(Number(v.toPrecision(6)))
+
 const rawText = (id: GradeId, raw: number | null) => {
   const grade = GRADES.find((g) => g.id === id) as (typeof GRADES)[number]
-  return `${grade.raw_label} ${raw === null ? 'unavailable' : `${round(raw, 2)}${grade.raw_unit}`}`
+  return `${grade.raw_label} ${raw === null ? 'unavailable' : `${general(round(raw, 2))}${grade.raw_unit}`}`
 }
 const labelOf = (id: GradeId) => (GRADES.find((g) => g.id === id) as (typeof GRADES)[number]).label
 
@@ -84,9 +87,12 @@ export function mockScore(
     ...nulls.map((id) => makeWarning(`NULL_GRADE:${GRADES.find((g) => g.id === id)?.name}`, { label: labelOf(id).replace(/^./, (c) => c.toUpperCase()) })),
     ...(s.psr && inPsr === null ? [makeWarning('PSR_UNKNOWN')] : []),
     ...(excludedBy === 'psr' ? [makeWarning('EXCLUDED_PSR')] : []),
-    ...(excludedBy === 'slope' ? [makeWarning('EXCLUDED_SLOPE', { slope: String(slopeDeg), max: String(s.slope[2]) })] : []),
+    ...(excludedBy === 'slope' ? [makeWarning('EXCLUDED_SLOPE', { slope: general(slopeDeg), max: general(s.slope[2]) })] : []),
   ]
   const warnings = sortWarnings(codes)
+
+  const part = (id: GradeId) =>
+    `${labelOf(id)} (${rawText(id, id === 'S' ? slopeDeg : raw[id])}; weight share ${general(round(s.w[GRADE_IDS.indexOf(id)] / total, 4))}; lost ${general(round(penalty(id), 2))} points)`
 
   const explanation = [
     excludedBy !== null
@@ -94,8 +100,8 @@ export function mockScore(
       : deciding.length === 0
         ? 'No grade lost points.'
         : deciding.length === 1
-          ? `Deciding factor: ${labelOf(deciding[0])} (${rawText(deciding[0], raw[deciding[0]])}; weight share ${round(s.w[GRADE_IDS.indexOf(deciding[0])] / total, 4)}; lost ${round(penalty(deciding[0]), 1)} points).`
-          : `Tied deciding factors: ${deciding.map(labelOf).join('; ')}.`,
+          ? `Deciding factor: ${part(deciding[0])}.`
+          : `Tied deciding factors: ${deciding.map(part).join('; ')}.`,
     ...(nulls.length > 0 ? [`Missing grades counted as 0: ${nulls.map(labelOf).join(', ')}.`] : []),
   ].join(' ')
 

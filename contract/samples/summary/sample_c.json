@@ -61,11 +61,11 @@
   "rag": {
     "sun": {
       "color": "unknown",
-      "reason": "Sun visibility unavailable: terrain unknown for 15.67 h of the mission"
+      "reason": "Sun visibility unavailable: terrain unknown for 15.7 h of the mission"
     },
     "dte": {
       "color": "amber",
-      "reason": "Earth in contact 30.6% of the mission (green ≥ 60%, red < 30%)"
+      "reason": "Earth contact 30.6% of the mission (green ≥ 60%, red < 30%)"
     },
     "slope": {
       "color": "amber",

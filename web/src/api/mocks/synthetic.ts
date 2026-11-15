@@ -10,7 +10,7 @@ import meta from '@samples/meta.json'
 import type { ApiWarning, Horizon, Scenario, Series, Site, StationPoint, Summary } from '../types'
 import { DAY_MS, STEP_MS, formatIsoMinute, monthEndMs, monthStartMs } from '../../time'
 import { HOUSTON } from '../stations'
-import { makeWarning, mockScore, sortWarnings } from './score'
+import { general, makeWarning, mockScore, sortWarnings } from './score'
 
 export const SUN_RADIUS_DEG = 0.267
 export const EARTH_RADIUS_DEG = 0.95
@@ -233,13 +233,14 @@ type Color = 'green' | 'amber' | 'red'
 const pctColor = (pct: number): Color => (pct >= RAG.pct.green_from ? 'green' : pct >= RAG.pct.amber_from ? 'amber' : 'red')
 const slopeColor = (deg: number): Color => (deg <= RAG.slope_deg.green_max ? 'green' : deg <= RAG.slope_deg.amber_max ? 'amber' : 'red')
 
-function pctChip(name: string, unavailable: string, pct: number | null, unknownH: number): Summary['rag']['sun'] {
+export function pctChip(name: string, unavailable: string, pct: number | null, unknownH: number): Summary['rag']['sun'] {
   if (pct === null) {
-    return { color: 'unknown', reason: `${unavailable} unavailable: terrain unknown for ${unknownH} h of the mission` }
+    return { color: 'unknown', reason: `${unavailable} unavailable: terrain unknown for ${unknownH.toFixed(1)} h of the mission` }
   }
+  const shown = pct.toFixed(1)
   return {
-    color: pctColor(pct),
-    reason: `${name} ${pct.toFixed(1)}% of the mission (green ≥ ${RAG.pct.green_from}%, red < ${RAG.pct.amber_from}%)`,
+    color: pctColor(Number(shown)),
+    reason: `${name} ${shown}% of the mission (green ≥ ${RAG.pct.green_from}%, red < ${RAG.pct.amber_from}%)`,
   }
 }
 
@@ -341,10 +342,10 @@ export function syntheticSummary(
     metrics,
     rag: {
       sun: pctChip('Sun visible', 'Sun visibility', metrics.sun_pct, unknownH),
-      dte: pctChip('Earth in contact', 'Earth contact', metrics.dte_pct, unknownH),
+      dte: pctChip('Earth contact', 'Earth contact', metrics.dte_pct, unknownH),
       slope: {
         color: slopeColor(site.slope_deg),
-        reason: `Slope ${site.slope_deg.toFixed(1)}° (green ≤ ${RAG.slope_deg.green_max}°, red > ${RAG.slope_deg.amber_max}°)`,
+        reason: `Slope ${general(round(site.slope_deg, 1))}° (green ≤ ${RAG.slope_deg.green_max}°, red > ${RAG.slope_deg.amber_max}°)`,
       },
     },
     score,
