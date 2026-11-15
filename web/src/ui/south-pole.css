@@ -1232,3 +1232,5 @@ body {
 .point .whole-mission .warning-list { gap: 2px; }
 .point .whole-mission .warning { padding: 1px 6px; }
 .point .whole-mission .score-note { font-size: 10px; line-height: 1.25; }
+.point .whole-mission .verdict { margin: 2px 0; gap: 6px 10px; align-items: flex-start; }
+.point .whole-mission .score-box { flex: 1 1 180px; }

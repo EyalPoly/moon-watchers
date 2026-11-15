@@ -426,7 +426,7 @@ export function PointCard(props: PointCardProps) {
                 ) : summary.data && site ? (
                   <>
                     <VerdictChips summary={summary.data} slopeDeg={site.slope_deg} />
-                    <WarningsStrip warnings={summary.data.warnings} catalog={meta.data?.warning_catalog ?? []} />
+                    <WarningsStrip warnings={summary.data.warnings} catalog={meta.data?.warning_catalog ?? []} visible={1} />
                     <MissionMetrics summary={summary.data} />
                   </>
                 ) : (
