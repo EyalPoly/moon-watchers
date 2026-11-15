@@ -41,6 +41,17 @@ Two things were fixed on the way:
 
 The time bars in the plan (3 s for a warm page, 1 s per request) are **not met at 1 vCPU**: a series month costs about 0.25 s of CPU, and a 365-day card needs 13 of them. The browser keeps each month cached, so only the first load pays. Decide whether that is acceptable, or whether the series computation should be made faster.
 
+## Terrain for custom points
+
+Custom points (a click or typed coordinate in 84–90°S) are computed by the API from 80 m and 240 m terrain, so the image needs those files. They are GitHub Release assets pinned by size and sha256 in `deploy/terrain.lock.json`; the `Dockerfile` runs `python -m deploy.fetch_terrain --out /app/terrain` and sets `TERRAIN_DIR`. A wrong checksum or size fails the build. An empty lock (`"files": []`) fetches nothing and the feature stays off: `POST /sites/custom` answers `FEATURE_DISABLED` and a deploy is unaffected.
+
+The files, about 1.2 GB: the 80 m and 240 m elevation rasters with their `_ERR` rasters, and the 80 m slope map. To publish them from the PC that holds `data/sources/`:
+
+1. `uv run python -m build.pack_terrain --repo EyalPoly/moon-watchers --tag terrain-80m-<date>` writes the lock and prints the exact `gh release create` command; run it.
+2. Commit the updated `deploy/terrain.lock.json`, open a pull request, then `make deploy`.
+
+Custom points use coarser terrain than the catalog (80 m, not 20 m), and say so with the `CUSTOM_COARSE_TERRAIN` warning.
+
 ## Frontend
 
 - Static previews on GitHub Pages, built by `.github/workflows/deploy.yml` on every push to `main`.
