@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useMemo, type ReactNode } from 'react'
 import type { AppConfig } from '../api/config'
 import type { Site } from '../api/types'
 import { SkyView } from '../sky/SkyView'
