@@ -77,6 +77,22 @@ test('custom points follow the horizon switch, since they need the terrain engin
   expect(resolveSource({ ...config, sources: { ...config.sources, horizon: 'real' } }, 'custom', '')).toBe('real')
 })
 
+test('custom points can stay on sample while the horizon is real', async () => {
+  const config = { api_base: 'https://api.example', sources: { sites: 'real', horizon: 'real', summary: 'sample', custom: 'sample' } } as const
+  expect(resolveSource(config, 'custom', '')).toBe('sample')
+  expect(resolveSource(config, 'horizon', '')).toBe('real')
+  const own = { ...config, sources: { ...config.sources, custom: 'real' } } as const
+  expect(resolveSource(own, 'custom', '')).toBe('real')
+  expect(resolveSource(own, 'custom', '?data=sample')).toBe('sample')
+  vi.stubGlobal('fetch', async () => new Response(JSON.stringify(config)))
+  expect((await loadConfig('/config.json')).sources.custom).toBe('sample')
+})
+
+test('the sample banner ignores custom points', () => {
+  const config = { api_base: 'https://api.example', sources: { sites: 'real', horizon: 'real', summary: 'real', series: 'real', custom: 'sample' } } as const
+  expect(anySample(config, '')).toBe(false)
+})
+
 test('series follows summary until sources.series says otherwise', () => {
   const config = { api_base: 'https://api.example', sources: { sites: 'real', horizon: 'real', summary: 'real' } } as const
   expect(resolveSource(config, 'series', '')).toBe('real')
