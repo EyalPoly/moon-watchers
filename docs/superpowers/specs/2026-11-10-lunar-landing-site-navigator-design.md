@@ -413,7 +413,8 @@ $CACHE_DIR/<algo_version>/<cust_id>/ custom points at runtime, same layout as si
   - **No truncation check.** The terrain ceiling and the `HORIZON_TRUNCATED` warning were removed: terrain beyond the reach is simply not traced.
 - **How fine (the physics team's settings):**
   - Near window: 40 m steps out to 10 km, read from the 20 m DEM where it has data, otherwise the 80 m DEM.
-  - Beyond 10 km: 240 m steps out to the point's reach. A reach under 10 km stops the near steps at the reach.
+  - Beyond 10 km: **60 m** steps out to the point's reach (`FAR_STEP_M`, `HORIZON_ALGO_VERSION` 3). A reach under 10 km stops the near steps at the reach.
+  - **Why not the physics team's 240 m:** on the real terrain at the two physics sites, a 240 m far step clips narrow ridges by up to 0.032° against a 15 m step, 0.01° at 120 m, and under 0.01° in every direction at 60 m. It matters for the numbers: at site B (89°S, 8°E, 2 m panel, 15 Nov 2026) sunlight over one day is 17.12 h at 240 m and 15.37 h at 60 m (15.32 h at 15 m). The physics team measured the same shift independently (17.115 h to about 15.33 h). The cost is about 2× the ray samples, 0.3–0.4 s instead of 0.15 s per height set. Confirmation from the physics team is pending.
   - The convergence test stays as a check: widening the near window, or shrinking the steps, must change `sun_pct` and `dte_pct` by less than 0.5 percentage points.
 - **Missing terrain:** a direction whose ray crosses a missing DEM cell is **unknown** (NaN), with a `DEM_GAPS` warning. It is never treated as open sky or as blocked (§7.3).
 - **Masks (for the numbers):** 720 directions, 0.5° apart.
@@ -1283,7 +1284,7 @@ score(metrics, slope_deg, dust, weights, policy) -> {value, category, factors, d
 **Also taken from the prototype:**
 - Kernels: the DE440 set and `MOON_ME_DE440_ME421` (§6.1, §7.1).
 - CN+S for sunlight, geometric for contact (§7.1).
-- Horizon reach and steps: per point `min(200 km, √(2R|h|) + 10 km)`, 40 m then 240 m, no terrain ceiling (§7.2).
+- Horizon reach and steps: per point `min(200 km, √(2R|h|) + 10 km)`, 40 m then 60 m, no terrain ceiling (§7.2).
 - The slope source: NASA's published 20 m slope map, native pixel, no DEM-fit fallback (§7.2).
 - Unknown as a third state (§7.3).
 - The mock dust formula (§7.5).

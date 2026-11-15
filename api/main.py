@@ -33,7 +33,7 @@ from api.point_ids import format_point_id, parse_point_id
 from api.score_config import load_configs
 from api.scenario import Mast, MonthParam, ScenarioParams, parse_t0
 from engine import __version__
-from engine.geometry import OutOfRange
+from engine.geometry import OutOfRange, sun_declination_range_deg
 from engine.horizons import mask_at_height
 from engine.metrics import MissionMetrics, MissionWindow, compute_metrics, mission_window
 
@@ -62,6 +62,8 @@ def create_app(
     if bundle_dir is None and os.environ.get("BUNDLE_DIR"):
         bundle_dir = Path(os.environ["BUNDLE_DIR"])
     bundle: Bundle | None = load_bundle(bundle_dir, catalog) if bundle_dir else None
+    if bundle is not None:
+        meta = meta.model_copy(update={"sun_declination_deg": list(sun_declination_range_deg(bundle.ephemeris))})
     heavy = threading.BoundedSemaphore(MAX_HEAVY_REQUESTS)
     if terrain_dir is None and os.environ.get("TERRAIN_DIR"):
         terrain_dir = Path(os.environ["TERRAIN_DIR"])

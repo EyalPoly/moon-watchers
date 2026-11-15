@@ -319,6 +319,8 @@ export interface components {
             score: components["schemas"]["ScoreConfig"];
             /** Stations */
             stations: components["schemas"]["EarthStation"][];
+            /** Sun Declination Deg */
+            sun_declination_deg?: number[] | null;
             /** Version */
             version: string;
             /** Warning Catalog */

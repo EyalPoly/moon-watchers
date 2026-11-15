@@ -26,6 +26,7 @@ def converge_layers() -> list[Layer]:
 
 CHECKS: dict[str, dict[str, float]] = {
     "near step 40 m vs 20 m": {"near_step_m": 20.0},
+    "far step 60 m vs 30 m": {"far_step_m": 30.0},
     "near window 10 km vs 20 km": {"near_m": 20_000.0},
     "reach 200 km vs 300 km": {"reach_m": 300_000.0},
 }
