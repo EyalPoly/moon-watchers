@@ -27,7 +27,7 @@ The bundle is 8 MB (masks 0.4 MB, ephemeris and Earth-rotation tables 7.6 MB), s
 ## Frontend
 
 - Static previews on GitHub Pages, built by `.github/workflows/deploy.yml` on every push to `main`.
-- `/product/` is all `sample`. `/integrated/` uses the committed `web/public/config.json`: `sites` is `real` (served by Cloud Run), `horizon` and `summary` stay `sample` until the API serves them (switch `horizon` after the first deploy with a bundle).
+- `/product/` is all `sample`. `/integrated/` uses the committed `web/public/config.json`: `sites` is `real` (served by Cloud Run), `horizon` is `real` since the bundle deploy of 15 Nov (revision `clps-api-00002-l94`); `summary` and `custom` stay `sample` until the API serves them (`custom` has its own switch, so the horizon can be real first).
 
 ## Open
 
