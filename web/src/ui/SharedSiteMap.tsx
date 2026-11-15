@@ -16,13 +16,14 @@ interface Props {
   region: Region
   layer: MapLayer
   selecting: boolean
+  atLimit: boolean
   onFocus: (index: number) => void
   onPlace: (id: string) => void
   onRegionClose: () => void
   onOpenAreas: (points: { site: string; name: string }[]) => void
 }
 
-export function SharedSiteMap({ tickets, active, sites, region, layer, selecting, onFocus, onPlace, onRegionClose, onOpenAreas }: Props) {
+export function SharedSiteMap({ tickets, active, sites, region, layer, selecting, atLimit, onFocus, onPlace, onRegionClose, onOpenAreas }: Props) {
   const ticket = tickets[active]
   const labels = new Map<string, string[]>()
   const indexes = new Map<string, number>()
@@ -46,16 +47,18 @@ export function SharedSiteMap({ tickets, active, sites, region, layer, selecting
 
   return (
     <section className="panel shared-map" aria-label="Landing sites map">
-      {(selecting || !ticket.site) && <p className="panel-hint">{selecting
+      <p className="panel-hint">{selecting
         ? 'Click grid points to outline a region.'
-        : `Click the map to place site ${letter}, or choose a catalog site in the calculator.`}</p>}
+        : atLimit
+          ? 'Site limit reached. Delete a site to add another.'
+          : 'Click the map to add a site.'}</p>
       <div className="panel-body">
         <PolarMap region={region} showRelief={layer === 'Relief'}>
           {layer !== 'Relief' && <p role="status" className="map-layer-status">{layer} map data is not available yet.</p>}
           <SitePins sites={pins} selectedId={ticket.site} labels={labels} activeLabel={letter} onSelect={onSelectPin}
             onFocus={(l) => { if (!selecting) onFocus(indexes.get(l)!) }} />
           <CenterOn sites={targets} />
-          {!selecting && !ticket.site && <PlacePoint areaRadiusM={radius} onPlace={onPlace} />}
+          {!selecting && <PlacePoint areaRadiusM={radius} onPlace={onPlace} />}
           {selecting && <AreaTool areaRadiusM={radius} namePrefix={title} onClose={onRegionClose} onOpen={onOpenAreas} />}
         </PolarMap>
       </div>
