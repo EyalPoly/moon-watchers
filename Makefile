@@ -4,7 +4,7 @@ fetch:
 	uv run python -m build.fetch_sources $(if $(ONLY),--only $(ONLY))
 
 masks:
-	uv run python -m build.make_masks
+	uv run python -m build.make_masks $(if $(TERRAIN),--terrain $(TERRAIN))
 
 ephemeris:
 	uv run python -m build.make_masks --ephemeris-only

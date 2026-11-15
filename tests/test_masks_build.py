@@ -6,13 +6,15 @@ import pytest
 from numpy.typing import NDArray
 
 from api.models import Site
-from build.make_masks import build_bundle
+from build.make_masks import DEFAULT_TERRAIN, build_bundle, load_windows, map_half_width_m
+from build.make_masks import DEM_240 as DEM_240_LAYER
 from tests.ephemeris_helpers import default_ephemeris
 from engine.horizons import HORIZON_ALGO_VERSION
-from engine.terrain import project
+from engine.terrain import MOON_RADIUS_M, project
 from tests.tif_helpers import write_tif
 
 DEM_20 = "lola/LDEM_80S_20MPP_ADJ.TIF"
+DEM_40 = "lola/LDEM_80S_40MPP_ADJ.TIF"
 DEM_80 = "lola/LDEM_80S_80MPP_ADJ.TIF"
 DEM_240 = "lola/LDEM_60S_240MPP_ADJ.TIF"
 
@@ -102,3 +104,61 @@ def test_moving_a_site_changes_the_bundle_id(tmp_path: Path) -> None:
     moved = {**CATALOG, "s1": site("s1", -89.2, 0.0)}
     second = build_bundle(moved, sources, tmp_path / "bundle", default_ephemeris())
     assert second.name != first.name
+
+
+def test_default_terrain_is_20m(tmp_path: Path) -> None:
+    sources = make_sources(tmp_path)
+    manifest = json.loads((build_bundle(CATALOG, sources, tmp_path / "b", default_ephemeris()) / "manifest.json").read_text())
+    assert DEFAULT_TERRAIN == "20m"
+    assert manifest["parameters"]["terrain"] == "20m"
+
+
+def test_40m_terrain_skips_the_20m_file(tmp_path: Path) -> None:
+    sources = make_sources(tmp_path)
+    write_dem(sources, DEM_40, 50_000, 150)
+    bundle_20 = build_bundle(CATALOG, sources, tmp_path / "b", default_ephemeris())
+    bundle_40 = build_bundle(CATALOG, sources, tmp_path / "b", default_ephemeris(), terrain="40m")
+    manifest = json.loads((bundle_40 / "manifest.json").read_text())
+    assert manifest["parameters"]["terrain"] == "40m"
+    assert DEM_40 in manifest["sources"] and DEM_40.replace(".TIF", "_ERR.TIF") in manifest["sources"]
+    assert DEM_20 not in manifest["sources"]
+    assert bundle_40.name != bundle_20.name
+
+
+def test_80m_terrain_uses_80m_and_240m_only(tmp_path: Path) -> None:
+    sources = make_sources(tmp_path)
+    manifest = json.loads(
+        (build_bundle(CATALOG, sources, tmp_path / "b", default_ephemeris(), terrain="80m") / "manifest.json").read_text()
+    )
+    assert {path for path in manifest["sources"] if not path.endswith("_ERR.TIF")} == {DEM_80, DEM_240}
+
+
+@pytest.mark.parametrize("terrain", ["40m", "80m"])
+def test_comparison_terrain_requires_its_finest_files(tmp_path: Path, terrain: str) -> None:
+    sources = tmp_path / "sources"
+    write_dem(sources, DEM_240, 50_000, 500)
+    with pytest.raises(FileNotFoundError, match="missing"):
+        build_bundle(CATALOG, sources, tmp_path / "b", default_ephemeris(), terrain=terrain)
+
+
+def test_unknown_terrain_is_rejected(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="10m"):
+        build_bundle(CATALOG, make_sources(tmp_path), tmp_path / "b", default_ephemeris(), terrain="10m")
+
+
+
+def test_far_window_holds_a_300km_ray_heading_away_from_the_pole(tmp_path: Path) -> None:
+    sources = tmp_path / "sources"
+    write_dem(sources, DEM_240, 600_000, 4_000)
+    far_site = site("a", -85.5, 0.0)
+    _, errors = load_windows(far_site, sources, [DEM_240_LAYER])
+    window = errors[0]
+    reach_lat = -85.5 + np.degrees(300_000.0 / MOON_RADIUS_M)
+    _, y_end = project(reach_lat, 0.0)
+    assert window.y0_m >= float(y_end), "the window must reach the end of the northward ray"
+
+
+def test_map_half_width_follows_the_polar_scale() -> None:
+    assert map_half_width_m(-90.0, 1.0) == pytest.approx(1.0, rel=1e-6)
+    assert map_half_width_m(-60.0, 1.0) == pytest.approx(2 / (1 + np.cos(np.radians(30.0))), rel=1e-6)
+    assert map_half_width_m(-85.5, 300_000.0) > 302_200.0

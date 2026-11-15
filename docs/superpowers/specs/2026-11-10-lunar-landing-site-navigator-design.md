@@ -301,7 +301,8 @@ bundle/<bundle_id>/                  build output - read-only, versioned
     sites/<id>/masks.npy             [3 × 11 × 720] float32 °: nominal, low, high (height-error bounds)
                                      × 10 heights (1–10 m) + far-only; NaN = unknown direction
     sites/<id>/blocking.npy          [11 × 720] float32 km: distance to the blocking terrain
-    terrain/                         shared 240 m and 80 m terrain (+ the 20 m copy if on the server's disk)
+    terrain/                         shared 240 m and 80 m terrain (+ the 20 m copy if on the server's disk),
+                                     each with its _ERR height-error raster
   static/                            → uploaded to the CDN
     sites/<id>/grid.npy.gz           [200 × 200 × 120] int16, units of 0.01°, site frame
     sites/<id>/heightmap.npy.gz      [200 × 200] float32 m, site frame, curvature included
@@ -320,7 +321,9 @@ $CACHE_DIR/<algo_version>/<cust_id>/ custom points at runtime, same layout as si
 | Heightmap | Browser | NPY float32, gzipped | 160 KB raw per site |
 | Map tiles | Browser | PNG in the region's projection, at most 120 m per pixel | 10–20 MB and about 500 files per layer |
 | Far-field terrain (240 m, 60°S to the pole) | API | COG | ~220 MB |
+| 80 m terrain (80°S to the pole), fills gaps in the 20 m copy | API | COG | ~190 MB |
 | 20 m copy for custom points (to ~83°S) | API | COG, on the server's disk or in object storage | 0.5–1 GB |
+| Height errors (`_ERR`) of the three terrain copies above | API | COG, cropped and stored like the terrain it belongs to | ~270 MB (240 m), ~255 MB (80 m), 0.7–1.5 GB (20 m copy, *est.*) |
 
 **Formats:**
 - **NPY** is NumPy's array file: a small header followed by raw numbers. Python writes it in one call, and the browser reads it with a parser of about 30 lines.
@@ -352,6 +355,7 @@ $CACHE_DIR/<algo_version>/<cust_id>/ custom points at runtime, same layout as si
 - **Clickable area:** 84°S to 90°S, shown as a dashed circle on the map. NASA places its Artemis III candidate regions within 6° of the pole (*verify*).
 - **The 20 m copy reaches about 83°S.** The margin is the near window, so even a point at the edge has detailed terrain all around it.
 - **The 240 m copy reaches 60°S,** which covers 300 km rays from any clickable point. It is loaded into memory at startup, with the 80 m copy (80°S to the pole) that fills gaps in the 20 m data.
+- **Each copy comes with its height-error raster** (`_ERR`), cropped and stored the same way, so a custom point gets the low and high skylines (§7.3) like a catalog site. Without it the range is unavailable (`UNCERTAINTY_UNAVAILABLE`). The errors double what the server holds: the 240 m and 80 m copies with their errors take about 950 MB as float32 in memory.
 - **Format:** both copies are COGs. The area is a setting, announced in `/meta`.
 
 ### 6.7 Reproducibility and credits
@@ -430,7 +434,7 @@ $CACHE_DIR/<algo_version>/<cust_id>/ custom points at runtime, same layout as si
 - **Custom points:**
   1. Validate the point and build its canonical id.
   2. Check the cache, then lock the id.
-  3. Read a 20 m window from our copy (the 80 m and 240 m terrain are already in memory).
+  3. Read a 20 m window and its height-error window from our copy (the 80 m and 240 m terrain and their errors are already in memory).
   4. Compute the masks, heightmap and slope (~1–2 s on a CPU, *est.*).
   5. Compute the grid, only on a GPU and one at a time.
   6. Write the result atomically.

@@ -1,10 +1,19 @@
+import http.client
 import hashlib
 import json
 from pathlib import Path
 
 import pytest
 
-from build.fetch_sources import ChecksumMismatch, SizeMismatch, fetch_all, verify_file
+from build.fetch_sources import (
+    ChecksumMismatch,
+    SizeMismatch,
+    byte_ranges,
+    download_ranges,
+    fetch_all,
+    read_range,
+    verify_file,
+)
 
 CONTENT = b"known bytes"
 SHA = hashlib.sha256(CONTENT).hexdigest()
@@ -141,3 +150,114 @@ def test_fetch_only_filters_by_prefix(tmp_path: Path) -> None:
     fetched = fetch_all(lock, tmp_path / "sources", fetch, only="lola/LDEM_80S_80MPP")
     assert fetched == ["lola/LDEM_80S_80MPP_ADJ.TIF", "lola/LDEM_80S_80MPP_ADJ_ERR.TIF"]
     assert fetch.calls == ["https://x/a", "https://x/b"]
+
+
+def test_byte_ranges_cover_the_file_once() -> None:
+    assert byte_ranges(10, 4) == [(0, 3), (4, 7), (8, 9)]
+    assert byte_ranges(8, 4) == [(0, 3), (4, 7)]
+
+
+BLOB = bytes(range(256)) * 40
+
+
+class FakeRanges:
+    """Serves byte ranges of BLOB; the ranges listed in `fail_first` fail on their first request."""
+
+    def __init__(self, fail_first: frozenset[int] = frozenset(), always_fail: int | None = None) -> None:
+        self.fail_first = set(fail_first)
+        self.always_fail = always_fail
+        self.calls: list[int] = []
+
+    def __call__(self, url: str, first: int, last: int) -> bytes:
+        self.calls.append(first)
+        if first == self.always_fail:
+            raise OSError("connection reset")
+        if first in self.fail_first:
+            self.fail_first.discard(first)
+            raise OSError("connection reset")
+        return BLOB[first : last + 1]
+
+
+def test_download_ranges_assembles_the_file(tmp_path: Path) -> None:
+    dest = tmp_path / "f.part"
+    download_ranges("https://x/f", dest, len(BLOB), FakeRanges(), connections=4, step=1000)
+    assert dest.read_bytes() == BLOB
+
+
+def test_download_ranges_retries_a_failed_range(tmp_path: Path) -> None:
+    dest = tmp_path / "f.part"
+    read = FakeRanges(fail_first=frozenset({3000}))
+    download_ranges("https://x/f", dest, len(BLOB), read, connections=4, step=1000, pause=lambda s: None)
+    assert dest.read_bytes() == BLOB
+    assert read.calls.count(3000) == 2
+
+
+def test_download_ranges_gives_up_after_retries(tmp_path: Path) -> None:
+    read = FakeRanges(always_fail=2000)
+    with pytest.raises(OSError, match="2000"):
+        download_ranges(
+            "https://x/f", tmp_path / "f.part", len(BLOB), read, connections=2, step=1000, pause=lambda s: None
+        )
+    assert read.calls.count(2000) == 5
+
+
+def test_download_ranges_retries_a_cut_connection(tmp_path: Path) -> None:
+    calls: list[int] = []
+
+    def read(url: str, first: int, last: int) -> bytes:
+        calls.append(first)
+        if first == 1000 and calls.count(1000) == 1:
+            raise http.client.IncompleteRead(b"partial", 10)
+        return BLOB[first : last + 1]
+
+    dest = tmp_path / "f.part"
+    download_ranges("https://x/f", dest, len(BLOB), read, connections=2, step=1000, pause=lambda s: None)
+    assert dest.read_bytes() == BLOB
+    assert calls.count(1000) == 2
+
+
+def test_download_ranges_stops_queued_ranges_after_a_failure(tmp_path: Path) -> None:
+    read = FakeRanges(always_fail=0)
+    with pytest.raises(OSError):
+        download_ranges(
+            "https://x/f", tmp_path / "f.part", len(BLOB), read, connections=1, step=100, pause=lambda s: None
+        )
+    assert read.calls.count(0) == 5
+    assert len(set(read.calls)) < 10, "the queued ranges should be cancelled, not fetched"
+
+
+class FakeResponse:
+    """A 206 answer that hands out its body `chunk` bytes per read1 call."""
+
+    def __init__(self, first: int, last: int, chunk: int) -> None:
+        self.status = 206
+        self.headers = {"Content-Range": f"bytes {first}-{last}/{len(BLOB)}"}
+        self.body = BLOB[first : last + 1]
+        self.chunk = chunk
+
+    def read1(self, n: int) -> bytes:
+        part, self.body = self.body[: min(n, self.chunk)], self.body[min(n, self.chunk) :]
+        return part
+
+    def __enter__(self) -> "FakeResponse":
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        return None
+
+
+def test_read_range_returns_the_requested_bytes() -> None:
+    def opener(request: object, timeout: float) -> FakeResponse:
+        return FakeResponse(1000, 1999, chunk=300)
+
+    assert read_range("https://x/f", 1000, 1999, open_url=opener, clock=lambda: 0.0) == BLOB[1000:2000]
+
+
+def test_read_range_gives_up_on_a_slow_trickle() -> None:
+    ticks = iter(range(0, 100_000, 100))
+
+    def opener(request: object, timeout: float) -> FakeResponse:
+        return FakeResponse(0, 999, chunk=10)
+
+    with pytest.raises(TimeoutError, match="0-999"):
+        read_range("https://x/f", 0, 999, open_url=opener, clock=lambda: float(next(ticks)), deadline_s=250.0)
