@@ -27,6 +27,7 @@ interface Props {
   settings: ScoreSettings
   onSettingsApply: (settings: ScoreSettings) => void
   selecting: boolean
+  atLimit: boolean
   onFocus: (index: number) => void
   onPlace: (id: string) => void
   onRegionClose: () => void
@@ -34,7 +35,7 @@ interface Props {
 }
 
 export function SharedSiteMap({ tickets, active, sites, region, layer, polygonLayer, appliedRegion, config, search,
-  scoreSpec, settings, onSettingsApply, selecting, onFocus, onPlace, onRegionClose, onOpenAreas }: Props) {
+  scoreSpec, settings, onSettingsApply, selecting, atLimit, onFocus, onPlace, onRegionClose, onOpenAreas }: Props) {
   const ticket = tickets[active]
   const labels = new Map<string, string[]>()
   const indexes = new Map<string, number>()
@@ -58,8 +59,11 @@ export function SharedSiteMap({ tickets, active, sites, region, layer, polygonLa
 
   return (
     <section className="panel shared-map" aria-label="Landing sites map">
-      {!selecting && !ticket.site && <p className="panel-hint">
-        Click the map to place site {letter}, or choose a catalog site in the calculator.</p>}
+      <p className="panel-hint">{selecting
+        ? 'Click grid points to outline a region.'
+        : atLimit
+          ? 'Site limit reached. Delete a site to add another.'
+          : 'Click the map to add a site.'}</p>
       <div className="panel-body">
         <PolarMap region={region} showBoundary={selecting || polygonLayer === 'Planning boundary'} themed={layer !== 'Relief'}>
           {!selecting && <RegionOverlay selection={appliedRegion} layer={polygonLayer} />}
@@ -68,7 +72,7 @@ export function SharedSiteMap({ tickets, active, sites, region, layer, polygonLa
           <SitePins layer={layer} config={config} search={search} ticket={ticket} sites={pins} selectedId={ticket.site} labels={labels} activeLabel={letter} onSelect={onSelectPin}
             onFocus={(l) => { if (!selecting) onFocus(indexes.get(l)!) }} />
           <CenterOn sites={targets} />
-          {!selecting && !ticket.site && <PlacePoint areaRadiusM={radius} onPlace={onPlace} />}
+          {!selecting && <PlacePoint areaRadiusM={radius} onPlace={onPlace} />}
           {selecting && <AreaTool areaRadiusM={radius} namePrefix={title} spec={scoreSpec} settings={settings} onSettingsApply={onSettingsApply} onClose={onRegionClose} onOpen={onOpenAreas} />}
         </PolarMap>
       </div>

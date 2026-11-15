@@ -43,7 +43,7 @@ test('a new site can be added by latitude and longitude', async ({ page, context
 test('clicking the map places a new point', async ({ page, context }) => {
   await stubTiles(context)
   await page.goto('/')
-  await expect(page.getByText('Click the map to place site A', { exact: false })).toBeVisible()
+  await expect(page.getByText('Click the map to add a site', { exact: false })).toBeVisible()
   await expect(page.locator('.placing .ol-viewport canvas').first()).toBeVisible()
   await expect(page.getByTestId('pin-sample_b')).toBeVisible()
   // With no site the map is centered on the pole, inside the custom-point area.
@@ -51,6 +51,19 @@ test('clicking the map places a new point', async ({ page, context }) => {
   await page.mouse.click(map.x + map.width / 2 - 40, map.y + map.height / 2 + 30)
   await expect(page).toHaveURL(/tk=pt_s\d+_[ew]\d+/)
   await expect(page.getByRole('heading', { name: /^Site \d/ })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Edit site A' })).toBeVisible()
+})
+
+test('a second click on the map adds another card with results', async ({ page, context }) => {
+  await stubTiles(context)
+  await page.goto('/')
+  const map = (await page.locator('.panel .polar-map').first().boundingBox())!
+  await page.mouse.click(map.x + map.width / 2 - 40, map.y + map.height / 2 + 30)
+  await expect(page).toHaveURL(/tk=pt_s/)
+  await page.mouse.click(map.x + map.width / 2 + 60, map.y + map.height / 2 - 50)
+  await expect(page.getByRole('region', { name: 'Site B' })).toBeVisible()
+  await expect(page.getByRole('region', { name: 'Site A' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Apply site B' })).toHaveCount(0)
 })
 
 test('time on the Moon is set in days and hours, and updates the numbers once applied', async ({ page, context }) => {

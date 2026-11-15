@@ -1,0 +1,34 @@
+{
+  "files": [
+    {
+      "path": "lola/LDEM_80S_80MPP_ADJ.TIF",
+      "url": "https://github.com/EyalPoly/moon-watchers/releases/download/terrain-80m-20261115/LDEM_80S_80MPP_ADJ.TIF",
+      "sha256": "82030dcbdd7c4bb0c7d858e9b4b293b9f2cda5a543ba31ec0f42784bd6beee5a",
+      "bytes": 189158392
+    },
+    {
+      "path": "lola/LDEM_80S_80MPP_ADJ_ERR.TIF",
+      "url": "https://github.com/EyalPoly/moon-watchers/releases/download/terrain-80m-20261115/LDEM_80S_80MPP_ADJ_ERR.TIF",
+      "sha256": "e89306914bb209143f61ba66d341703d75221339424b774c6a1eb3c6c370ffc6",
+      "bytes": 254808965
+    },
+    {
+      "path": "lola/LDEM_60S_240MPP_ADJ.TIF",
+      "url": "https://github.com/EyalPoly/moon-watchers/releases/download/terrain-80m-20261115/LDEM_60S_240MPP_ADJ.TIF",
+      "sha256": "3f9663257b63022f2b0d5a623482ff3cadddceb91594a4e4ca14a94d8cec8b34",
+      "bytes": 218961039
+    },
+    {
+      "path": "lola/LDEM_60S_240MPP_ADJ_ERR.TIF",
+      "url": "https://github.com/EyalPoly/moon-watchers/releases/download/terrain-80m-20261115/LDEM_60S_240MPP_ADJ_ERR.TIF",
+      "sha256": "6b987570acf20cba527d29a519a9b1fd9d4550e98a81d4b8c1be4903b6d38fab",
+      "bytes": 267005175
+    },
+    {
+      "path": "layers/slope/LDSM_80S_80MPP_ADJ.TIF",
+      "url": "https://github.com/EyalPoly/moon-watchers/releases/download/terrain-80m-20261115/LDSM_80S_80MPP_ADJ.TIF",
+      "sha256": "d1270c4a69d01a8e4eb5503bd25713f0b2251dbb4ffee6c3161ef7a792c8f059",
+      "bytes": 241594035
+    }
+  ]
+}

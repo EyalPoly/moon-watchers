@@ -1,5 +1,5 @@
 import { SampleBanner } from './SampleBanner'
-import type { ScreenName } from '../globe/navigation'
+import type { AppScreen } from '../state/screen'
 
 // Top strip (UI design, Moon_Watchers_UI.pdf): logo and team line on the left, screen
 // tabs on the right with a green underline on the active one.
@@ -7,7 +7,7 @@ const TABS = [
   { id: 'orbit', label: 'Orbit', ready: true },
   { id: 'south_pole', label: 'Site Calculator', ready: true },
   { id: 'surface', label: 'Surface', ready: false },
-  { id: 'timelines', label: 'Timelines', ready: false },
+  { id: 'timelines', label: 'Timelines', ready: true },
 ] as const
 
 function Logo() {
@@ -21,8 +21,8 @@ function Logo() {
 
 export function TopBar({ sample, current, onScreen }: {
   sample: boolean
-  current: ScreenName
-  onScreen: (next: ScreenName) => void
+  current: AppScreen
+  onScreen: (next: AppScreen) => void
 }) {
   return (
     <header className="topbar">

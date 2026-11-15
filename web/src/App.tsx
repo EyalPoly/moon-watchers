@@ -10,10 +10,12 @@ import { presetsFrom, stationLabel } from './api/stations'
 import {
   addTicket,
   addTicketsFor,
+  MAX_URL_TICKETS,
   comparableCount,
   graphClock,
   maxTau,
   parseScreen2,
+  placePoint,
   removeTicket,
   serializeScreen2,
   showAll,
@@ -24,6 +26,8 @@ import {
 import { applyPlan, type Plan } from './assistant/plan'
 import { AssistantPanel } from './ui/AssistantPanel'
 import { CompareView } from './ui/CompareView'
+import { TimelineScreen } from './ui/TimelineScreen'
+import { parseScreen, withScreen, type AppScreen } from './state/screen'
 import { ResizeHandle } from './ui/ResizeHandle'
 import { ServerUnavailable } from './ui/ServerUnavailable'
 import { LayersBox, type MapLayer, type PolygonLayer } from './ui/LayersBox'
@@ -38,7 +42,7 @@ import { pointLetter, siteDisplayName } from './ui/points'
 import { panelId, ticketVars } from './ui/ticketStyle'
 import { TopBar } from './ui/TopBar'
 import { LUNAR_DAY_MS } from './time'
-import { exploreSite, orbitUtc, type ScreenName } from './globe/navigation'
+import { exploreSite, orbitUtc } from './globe/navigation'
 
 const OrbitScreen = lazy(() => import('./globe/OrbitScreen').then(module => ({ default: module.OrbitScreen })))
 
@@ -98,6 +102,7 @@ export default function App({ config }: { config: AppConfig }) {
   const stations = metaQuery.data?.stations ?? FALLBACK_STATIONS
   const presets = displayPresets(presetsFrom(stations))
   const screen = parseScreen2(search)
+  const appScreen = parseScreen(search)
   const settings = useMemo(() => parseScoreSettings(search), [search])
   // Custom points (new sites by lat/lon) come from POST /sites/custom, one per point.
   const customIds = [...new Set(screen.tickets.flatMap((t) => (t.site !== null && isPointId(t.site) ? [t.site] : [])))]
@@ -157,6 +162,12 @@ export default function App({ config }: { config: AppConfig }) {
     writeUrl(serializeScoreSettings(next, window.location.search), 'push')
     setSearch(window.location.search)
   }
+
+  /** Switching screens adds a history entry, so Back returns. */
+  const goTo = useCallback((next: AppScreen) => {
+    writeUrl(withScreen(window.location.search, next), 'push')
+    setSearch(window.location.search)
+  }, [])
 
   // One panel can be expanded to full size; this is a view choice, not part of the link.
   const [expanded, setExpanded] = useState<number | null>(null)
@@ -240,19 +251,14 @@ export default function App({ config }: { config: AppConfig }) {
   const tau = liveTau ?? screen.tau
   const sliderMax = maxTau(screen.tickets)
   const comparable = comparableCount(screen.tickets)
-  const currentScreen: ScreenName = new URLSearchParams(search).get('screen') === 'orbit' ? 'orbit' : 'south_pole'
-  const orbitOpen = currentScreen === 'orbit'
+  const orbitOpen = appScreen === 'orbit'
   const orbitTime = orbitUtc(search, screen.tickets[active].t0)
 
-  function navigate(next: ScreenName) {
-    if (next === currentScreen) return
+  function navigate(next: AppScreen) {
+    if (next === appScreen) return
     if (liveTau !== null) onTauCommit(liveTau)
-    const params = new URLSearchParams(window.location.search)
-    if (next === 'orbit') params.set('screen', 'orbit')
-    else params.delete('screen')
     setGuideOpen(false)
-    writeUrl(params.size ? '?' + params : '', 'push')
-    setSearch(window.location.search)
+    goTo(next)
   }
 
   function changeOrbitTime(value: string) {
@@ -275,12 +281,31 @@ export default function App({ config }: { config: AppConfig }) {
 
   return (
     <div className={orbitOpen ? 'app orbit-app' : 'app'} style={{ '--side-w': `${Math.min(sideWidth, sideMax)}px` } as CSSProperties}>
-      <TopBar sample={orbitOpen ? sitesAreSample || sites.some(site => site.is_placeholder) : showBanner} current={currentScreen} onScreen={navigate} />
+      <TopBar sample={orbitOpen ? sitesAreSample || sites.some(site => site.is_placeholder) : showBanner} current={appScreen} onScreen={navigate} />
       {orbitOpen && <Suspense fallback={<main aria-label="Orbit" role="status">Loading lunar overview…</main>}>
         <OrbitScreen utc={orbitTime} onUtc={changeOrbitTime} sites={allSites} onExplore={exploreSouthPole} />
       </Suspense>}
 
       <Activity mode={orbitOpen ? 'hidden' : 'visible'}>
+      {appScreen === 'timelines' ? (
+        <TimelineScreen
+          tickets={screen.tickets}
+          sitesById={sitesById}
+          config={config}
+          search={search}
+          settings={settings}
+          isSample={missionIsSample}
+          tau={tau}
+          onTauInput={onTauInput}
+          onTauCommit={onTauCommit}
+          onBack={() => goTo('south_pole')}
+          onOpenTicket={(i) => {
+            apply((s) => ({ ...updateTicket(s, i, { collapsed: undefined }), compare: false, open: i }))
+            goTo('south_pole')
+          }}
+        />
+      ) : (<>
+
       <main className="main" aria-label="South pole">
         <header className="col-head">
           <p className="eyebrow mono">02&nbsp;&nbsp;/&nbsp;&nbsp;South Pole</p>
@@ -307,8 +332,8 @@ export default function App({ config }: { config: AppConfig }) {
             <SharedSiteMap tickets={screen.tickets} active={active} sites={allSites} region={region} layer={selectedLayer}
               polygonLayer={polygonLayer} appliedRegion={appliedRegion} config={config} search={search}
               settings={settings} scoreSpec={metaQuery.data?.score ?? FALLBACK_SCORE} onSettingsApply={applySettings}
-              selecting={selecting} onFocus={focusTicket}
-              onPlace={(site) => apply((s) => ({ ...updateTicket(s, active, { site, editing: true, collapsed: undefined }), open: active }))}
+              selecting={selecting} atLimit={screen.tickets.length >= MAX_URL_TICKETS && screen.tickets[active]?.site !== null} onFocus={focusTicket}
+              onPlace={(site) => apply((s) => placePoint(s, active, site))}
               onRegionClose={() => setFreehand(null)}
               onOpenAreas={(points, outline) => {
                 setAppliedRegion(outline)
@@ -455,7 +480,7 @@ export default function App({ config }: { config: AppConfig }) {
                 <button
                   type="button"
                   className="compare-button"
-                  onClick={() => apply((s) => ({ ...s, compare: true }))}
+                  onClick={() => goTo('timelines')}
                   disabled={comparable < 2 || screen.compare}
                   title={comparable < 2 ? 'Show at least two sites that have a location' : 'Compare the shown sites side by side'}
                 >
@@ -469,6 +494,8 @@ export default function App({ config }: { config: AppConfig }) {
           </>
         )}
       </aside>
+
+      </>)}
 
       <AssistantPanel
         open={guideOpen} onOpenChange={setGuideOpen}

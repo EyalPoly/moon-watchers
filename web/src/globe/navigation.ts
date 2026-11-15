@@ -2,7 +2,6 @@ import { addTicket, updateTicket, type Screen2State } from '../state/tickets'
 import { MISSION_RANGE } from '../state/urlState'
 import { formatIsoMinute, parseIsoMinute, snapToStep } from '../time'
 
-export type ScreenName = 'orbit' | 'south_pole'
 const OPENING_UTC = '2026-10-15T08:30Z'
 
 export function orbitUtc(search: string, ticketUtc: string): string {

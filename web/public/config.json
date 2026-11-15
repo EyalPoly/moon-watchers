@@ -1,4 +1,4 @@
 {
   "api_base": "https://clps-api-982577966589.europe-west1.run.app",
-  "sources": { "sites": "real", "horizon": "real", "summary": "real", "custom": "sample" }
+  "sources": { "sites": "real", "horizon": "real", "summary": "real", "custom": "real" }
 }

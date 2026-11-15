@@ -23,7 +23,8 @@ from engine.horizons import (
     ray_distances,
 )
 from engine.geometry import MOON_FRAME, Ephemeris
-from engine.terrain import MOON_RADIUS_M, Dem, dem_bounds, load_dem, project
+from engine.terrain import Dem, dem_bounds, load_dem
+from engine.windows import NEAR_HALF_WIDTH_M, map_half_width_m, window_around
 
 FRAME_NOTE = (
     "Engine frame MOON_ME_DE440_ME421; LOLA DEMs are MOON_ME_DE421, "
@@ -45,7 +46,6 @@ class Terrain:
 
 # Half-widths are ground distances covering the 10 km near zone and the 200 km maximum reach;
 # load_windows widens them for the map scale.
-NEAR_HALF_WIDTH_M = 12_000.0
 DEM_20 = Layer("lola/LDEM_80S_20MPP_ADJ.TIF", NEAR_HALF_WIDTH_M)
 DEM_40 = Layer("lola/LDEM_80S_40MPP_ADJ.TIF", NEAR_HALF_WIDTH_M)
 DEM_80 = Layer("lola/LDEM_80S_80MPP_ADJ.TIF", NEAR_HALF_WIDTH_M)
@@ -67,21 +67,8 @@ def error_path(dem: str) -> str:
     return dem.replace(".TIF", "_ERR.TIF")
 
 
-def map_half_width_m(lat_deg: float, ground_m: float) -> float:
-    """The map distance holding every point within `ground_m` of the site on the ground.
-
-    The polar map stretches distances away from the pole (by 1.6% at 75°S, 7% at 60°S),
-    so the scale at the farthest latitude reached bounds the stretch along the way.
-    """
-    outer_colatitude = np.radians(90.0 + lat_deg) + ground_m / MOON_RADIUS_M
-    return float(ground_m * 2.0 / (1.0 + np.cos(outer_colatitude)))
-
-
 def site_window(site: Site, layer: Layer) -> tuple[float, float, float, float]:
-    x, y = project(site.lat_deg, site.lon_deg)
-    cx, cy = float(x), float(y)
-    half = map_half_width_m(site.lat_deg, layer.half_width_m)
-    return (cx - half, cy - half, cx + half, cy + half)
+    return window_around(site.lat_deg, site.lon_deg, layer.half_width_m)
 
 
 def check_near_coverage(site: Site, sources: Path, finest: Layer) -> None:
