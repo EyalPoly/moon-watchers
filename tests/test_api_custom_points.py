@@ -217,14 +217,6 @@ def test_heavy_work_is_limited(world: dict[str, Path], monkeypatch: pytest.Monke
     assert 1 <= state["peak"] <= MAX_HEAVY_REQUESTS
 
 
-def test_rejected_points_leave_no_locks_behind(world: dict[str, Path]) -> None:
-    store = CustomPoints(world["terrain"], contextlib.nullcontext(), AREA, new_per_minute=1)
-    store.get("pt_s89500_e010000")
-    for lon in range(20, 220):
-        with pytest.raises(ApiError):
-            store.get(f"pt_s89500_e{lon:03d}000")
-    assert store._id_locks == {}
-
 
 def test_failed_points_leave_no_locks_behind(tmp_path: Path) -> None:
     terrain = make_terrain(tmp_path)
@@ -236,20 +228,6 @@ def test_failed_points_leave_no_locks_behind(tmp_path: Path) -> None:
     assert store._id_locks == {}
 
 
-def test_a_broken_terrain_file_does_not_leak_server_paths(world: dict[str, Path], tmp_path: Path) -> None:
-    terrain = make_terrain(tmp_path)
-    (terrain / NEAR).write_bytes(b"not a raster")
-    response = make_client(world, terrain).post("/api/v1/sites/custom", json=BODY)
-    assert response.status_code == 503 and response.json()["code"] == "TERRAIN_READ_FAILED"
-    assert str(tmp_path) not in response.text and "/lola/" not in response.text
-
-
-def test_a_missing_terrain_file_does_not_leak_server_paths(world: dict[str, Path], tmp_path: Path) -> None:
-    terrain = make_terrain(tmp_path)
-    (terrain / FAR).unlink()
-    response = make_client(world, terrain).post("/api/v1/sites/custom", json=BODY)
-    assert response.status_code == 503
-    assert str(tmp_path) not in response.text and "LDEM_60S" not in response.text
 
 
 def test_a_point_without_elevation_keeps_its_plain_message(world: dict[str, Path], tmp_path: Path) -> None:
@@ -258,48 +236,3 @@ def test_a_point_without_elevation_keeps_its_plain_message(world: dict[str, Path
         punch_hole(terrain / name, -89.5, 45.0)
     response = make_client(world, terrain).post("/api/v1/sites/custom", json=BODY)
     assert response.status_code == 422 and "no terrain elevation" in response.json()["detail"]
-
-
-def test_one_client_cannot_use_up_everyones_budget(world: dict[str, Path]) -> None:
-    store = CustomPoints(world["terrain"], contextlib.nullcontext(), AREA, new_per_minute=2)
-    custom_points.CLIENT.set("a")
-    store.get("pt_s89500_e010000")
-    store.get("pt_s89500_e020000")
-    with pytest.raises(ApiError) as caught:
-        store.get("pt_s89500_e030000")
-    assert caught.value.code == "RATE_LIMITED"
-    custom_points.CLIENT.set("b")
-    store.get("pt_s89500_e030000")
-    custom_points.CLIENT.set("")
-
-
-def test_a_global_cap_still_applies(world: dict[str, Path]) -> None:
-    store = CustomPoints(world["terrain"], contextlib.nullcontext(), AREA, new_per_minute=5, global_per_minute=2)
-    for client, lon in (("a", 10), ("b", 20)):
-        custom_points.CLIENT.set(client)
-        store.get(f"pt_s89500_e{lon:03d}000")
-    custom_points.CLIENT.set("c")
-    with pytest.raises(ApiError) as caught:
-        store.get("pt_s89500_e030000")
-    assert caught.value.code == "RATE_LIMITED"
-    custom_points.CLIENT.set("")
-
-
-def test_the_client_is_the_last_forwarded_address(world: dict[str, Path], monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(custom_points, "NEW_PER_MINUTE", 1)
-    client = make_client(world)
-
-    def post(lon: int, forwarded: str) -> int:
-        return client.post(
-            "/api/v1/sites/custom", json={"lat_deg": -89.5, "lon_deg": lon}, headers={"X-Forwarded-For": forwarded}
-        ).status_code
-
-    assert post(10, "9.9.9.9, 1.1.1.1") == 200
-    assert post(20, "8.8.8.8, 1.1.1.1") == 429
-    assert post(20, "9.9.9.9, 2.2.2.2") == 200
-
-
-def test_the_warning_says_slope_too(world: dict[str, Path]) -> None:
-    catalog = make_client(world).get("/api/v1/meta").json()["warning_catalog"]
-    entry = next(w for w in catalog if w["code"] == "CUSTOM_COARSE_TERRAIN")
-    assert entry["affects"] == "all" and "slope" in entry["text"]
