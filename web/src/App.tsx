@@ -10,9 +10,11 @@ import { presetsFrom, stationLabel } from './api/stations'
 import {
   addTicket,
   addTicketsFor,
+  MAX_URL_TICKETS,
   comparableCount,
   maxTau,
   parseScreen2,
+  placePoint,
   removeTicket,
   serializeScreen2,
   showAll,
@@ -304,8 +306,8 @@ export default function App({ config }: { config: AppConfig }) {
         ) : view === 'map' ? (
           <>
             <SharedSiteMap tickets={screen.tickets} active={active} sites={allSites} region={region} layer={selectedLayer}
-              selecting={selecting} onFocus={focusTicket}
-              onPlace={(site) => apply((s) => ({ ...updateTicket(s, active, { site, editing: true, collapsed: undefined }), open: active }))}
+              selecting={selecting} atLimit={screen.tickets.length >= MAX_URL_TICKETS} onFocus={focusTicket}
+              onPlace={(site) => apply((s) => placePoint(s, active, site))}
               onRegionClose={() => setFreehand(null)}
               onOpenAreas={(points) => { setFreehand(null); apply((s) => addTicketsFor(s, active, points)) }} />
             <LayersBox selected={selectedLayer} onSelect={setSelectedLayer} />
