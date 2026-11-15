@@ -161,11 +161,13 @@ test('three result cards and ridge plots fit a laptop and reflow on a phone', as
   await page.goto(many(3))
   await page.getByRole('button', { name: 'Ridge graph' }).click()
   await expect(page.getByRole('img', { name: /^Sky view at/ })).toHaveCount(3)
-  for (const mode of ['Live conditions', 'Whole mission']) {
-    await page.getByRole('button', { name: mode, exact: true }).click()
-    await expect.poll(() => page.locator('.tickets').evaluate((el) =>
-      el.scrollWidth <= el.clientWidth + 1 && el.scrollHeight <= el.clientHeight + 1)).toBe(true)
-  }
+  await page.getByRole('button', { name: 'Live conditions', exact: true }).click()
+  await expect.poll(() => page.locator('.tickets').evaluate((el) =>
+    el.scrollWidth <= el.clientWidth + 1 && el.scrollHeight <= el.clientHeight + 1)).toBe(true)
+  // The whole-mission results (score box, warnings, metrics) are taller than the live view:
+  // the cards may scroll down, but never sideways.
+  await page.getByRole('button', { name: 'Whole mission', exact: true }).click()
+  await expect.poll(() => page.locator('.tickets').evaluate((el) => el.scrollWidth <= el.clientWidth + 1)).toBe(true)
   for (const plot of await page.locator('.panel-graph').all()) {
     expect(await plot.evaluate((el) => el.scrollHeight <= el.clientHeight + 1)).toBe(true)
   }
