@@ -3,6 +3,7 @@
 // results, so the guide can explain numbers without computing any.
 
 import { isCustom, type ScoreSettings } from '../api/scoreSettings'
+import type { AppScreen } from '../state/screen'
 import type { Site, Summary } from '../api/types'
 import { WEIGHT_IDS } from './intent'
 import { WEIGHT_LABELS } from './scoreAdvice'
@@ -23,7 +24,7 @@ export interface CardState {
 }
 
 export interface ViewState {
-  screen: 'south_pole' | 'timelines'
+  screen: AppScreen
   explorer: 'map' | 'graph'
   regionToolOpen: boolean
   activeLetter: string
@@ -67,7 +68,7 @@ export function describeAppState(v: ViewState): string {
   const w = WEIGHT_IDS.map((id, i) => `${id} ${v.settings.w[i]}`).join(', ')
   const s = v.settings
   return [
-    `Screen: ${v.screen === 'timelines' ? 'Timelines' : `South pole (explorer shows the ${v.explorer === 'map' ? 'map' : 'ridge graph'})`}. Select region tool: ${v.regionToolOpen ? 'open' : 'closed'}. Open card: ${v.activeLetter}.`,
+    `Screen: ${v.screen === 'timelines' ? 'Timelines' : v.screen === 'orbit' ? 'Orbit' : `South pole (explorer shows the ${v.explorer === 'map' ? 'map' : 'ridge graph'})`}. Manual Selection tool: ${v.regionToolOpen ? 'open' : 'closed'}. Open card: ${v.activeLetter}.`,
     `Score settings${isCustom(s) ? ' (custom)' : ' (defaults)'}: weights ${w}; required sunlight at landing ${s.sun_req} h; slope good ${s.slope[0]}°, bad ${s.slope[1]}°, max ${s.slope[2]}°; reject PSR ${s.psr ? 'on' : 'off'}; landing margin ${s.margin} h; colors green ≥ ${s.colors[0]}, amber ≥ ${s.colors[1]}.`,
     `Site cards (${v.cards.length}):`,
     ...v.cards.map(describeCard),

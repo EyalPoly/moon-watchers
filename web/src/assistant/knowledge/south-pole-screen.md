@@ -1,29 +1,34 @@
-# The South pole screen: buttons and controls
+# The Site Calculator screen: buttons and controls
 
 ## Top bar
-- **Screen tabs**: South pole, Timelines (Orbit and Surface are "coming soon").
+- **Screen tabs**: Orbit, Site Calculator (this screen), Surface ("coming soon"), Timelines.
 - **Sample data** badge: shown when some numbers come from built-in sample answers instead of the live server.
-- **Score settings**: opens the panel that sets the score's weights and thresholds (see the "score" document). "Score settings (custom)" means something differs from the defaults.
+- The **score settings** are not in the top bar: they are **Grading Weights**, inside Manual Selection.
 
 ## Left: South pole explorer
 - **Map view / Ridge graph**: switch every site's panel between the map and the ridge graph.
-  - **Map view**: a polar map of LOLA terrain. Catalog sites are pins; the sites in the calculator show their letter (A, B, …). Clicking a pin selects that site's card, or fills an empty site with it. While a site has no location, **clicking the map places it** there (inside the dashed circle: 84°S to the pole).
-  - **Ridge graph** ("Local horizon"): the highest ridge at each compass bearing, N 000° → E → S 180° → W → N 000°, at panel height (and antenna height as a thinner line). The Sun's and Earth's paths over the mission are drawn on it; a strip marks where the site is "facing the Sun". Grey gaps mean unknown (missing) terrain.
-- **Select region**: opens the region tool on the map (see the "region-tool" document).
-- **Visible layers** box: Relief is the terrain map. Illumination, Earth DTE, Slope and Dust layers show "not available yet" where their data isn't loaded. The **map key** explains the markers: PSR (permanently shadowed region, potential water ice), landing site, steep terrain / no Earth link, sensitive research.
+  - **Map view**: a polar map with NASA Moon Trek / LOLA tiles. Catalog sites are pins; the sites in the calculator show their letter (A, B, …). **Clicking the map adds a site** there (a new card with results), inside the dashed circle (84°S to the pole). Clicking a pin shows that site. At the site limit the hint says "Site limit reached. Delete a site to add another."
+  - **Ridge graph**: the local horizon, the highest ridge at each compass bearing (N → E → S → W → N), at panel height (and antenna height as a thinner line), with the Sun's and Earth's paths. A **Lunar Day** slider moves the graph's time, and arrows **move the site's coordinates** a little to compare nearby points. Grey gaps mean unknown (missing) terrain.
+  - A help panel explains how the **Sun's and Earth's elevation angles** behave at the south pole: the Sun circles the horizon once per lunar day (about 29.5 days) within about ±1.5°; the Earth stays in one direction and moves in a small libration loop; moving in latitude or longitude shifts these paths.
+- **Manual Selection**: opens the region tool and the Grading Weights (see the "region-tool" note).
+- **Map Key** box:
+  - **Maps Layers**: **Relief** (terrain elevation with hill shading), **PSR** (permanently shadowed regions, inside/outside, at the sites), **Earth DTE** (Earth contact for the active mission), **Slope** (local slope), **Dust** (simulated dust index). Each has a colour scale (Higher / Lower) on the map.
+  - **Polygons Layers**: None, **Planning boundary** (the dashed custom-point circle), **Selected region** and **Ranked areas** (from an applied Manual Selection).
+  - Markers: PSR (potential water ice), landing site, steep terrain / no Earth link, sensitive research.
 
 ## Right: Site calculator
-- The header shows how many sites there are ("02 SITES", or "1 SAVED / 1 DRAFT" while a site has no location).
-- **Show all / Hide all**: which sites appear in the explorer (each card also has an eye toggle).
-- **Sort by rank**: reorders the cards best first, using the rank badges. The ranking refreshes every 15 s.
-- **Live conditions / Whole mission**: what every card shows below its header (see the "site-card" document).
+- The header shows how many sites there are.
+- **Show all / Hide all**: which sites appear in the explorer (each card also has a toggle).
+- **Sort by rank**: reorders the cards best first, using the rank badges (a sample ranking function).
+- **Live conditions / Whole mission**: what every card shows (see the "site-card" note).
 - **Site pages**: with more than 3 sites, "Previous / Next" page through them three at a time.
-- **+ Add site**: a new empty card ("draft"), copying the open card's dates, heights and stations.
-- **Ask the AI guide**: opens this guide.
+- **+ Add site**: a new empty card, copying the open card's dates, heights and stations.
 - **Compare timelines** (with 2+ shown sites that have a location): opens the Timelines screen.
 
-## Keyboard and links
-- Every change that matters adds a browser history entry: **Back** undoes it. Dragging the time slider does not flood history.
-- Copy the address bar to share exactly what you see.
+## The AI guide
+- The round **helmet button** (Ask the AI guide) opens the guide as a floating window that can be moved (drag the move handle or use the arrow keys), minimized and closed; the conversation is kept.
 
-Sources: `web/src/App.tsx`, `web/src/ui/ExplorerControls.tsx`, `web/src/ui/SharedSiteMap.tsx`, `web/src/ui/LayersBox.tsx`, `web/src/ui/TicketPanel.tsx`, `web/src/ui/TopBar.tsx`.
+## Links
+- Every change that matters adds a browser history entry: **Back** undoes it. Copy the address bar to share exactly what you see.
+
+Sources: `web/src/App.tsx`, `web/src/ui/TopBar.tsx`, `web/src/ui/ExplorerControls.tsx`, `web/src/ui/SharedSiteMap.tsx`, `web/src/ui/LayersBox.tsx`, `web/src/ui/MapLegend.tsx`, `web/src/ui/GraphControls.tsx`, `web/src/ui/CoordinateHelp.tsx`, `web/src/ui/GuideWindow.tsx`.

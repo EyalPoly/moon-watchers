@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useRef, useState, type PointerEvent } from 'react'
+import { useEffect, useId, useMemo, useRef, useState, type PointerEvent, type ReactNode } from 'react'
 import type { Horizon, Series } from '../api/types'
 import { DAY_MS } from '../time'
 import { indexAt, seriesTimeAt } from '../state/series'
@@ -14,6 +14,9 @@ export interface SkyViewProps {
   /** The skyline at the antenna's height; a thinner line is drawn when it differs. */
   antennaHorizon?: Horizon
   series: Series | null
+  /** Current positions can come from a month outside the plotted mission. */
+  observationSeries?: Series | null
+  controls?: ReactNode
   /** Mission window and the time being viewed, in ms. */
   startMs: number
   endMs: number
@@ -22,11 +25,9 @@ export interface SkyViewProps {
   stationLabel?: string
 }
 
-// Close to the card's on-screen width, so labels stay readable without scaling.
-const W = 420
-const DEFAULT_H = 244
-const PAD = { left: 47, right: 10, top: 12, bottom: 46 }
-const PLOT_W = W - PAD.left - PAD.right
+const INITIAL_SIZE = { width: 420, height: 244 }
+const LEFT = 47
+const RIGHT = 10
 const MAX_PATH_POINTS = 1200
 const SUN_RADIUS_DEG = 0.267
 const EARTH_RADIUS_DEG = 0.95
@@ -39,9 +40,8 @@ type ContactKind = 'contact' | 'blocked' | 'no-station' | 'unknown'
 const wrap = (az: number) => ((az % 360) + 360) % 360
 
 /** The silhouette as an outline and a fill, with a gap wherever the terrain is unknown. */
-function skylineOf(h: Horizon, leftAz: number, x: (az: number) => number, y: (el: number) => number, bottom: number) {
+function skylineOf(h: Horizon, leftAz: number, y: (el: number) => number, plotWidth: number, bottom: number) {
   const n = h.elevation_deg.length
-  const right = PAD.left + PLOT_W
   type Point = { px: number; py: number }
   const runs: Point[][] = []
   const unknown: { x0: number; x1: number }[] = []
@@ -50,8 +50,8 @@ function skylineOf(h: Horizon, leftAz: number, x: (az: number) => number, y: (el
   for (let k = 0; k <= n; k++) {
     const az = leftAz + (k * 360) / n
     const el = h.elevation_deg[Math.round(wrap(az) / h.az_step_deg) % n]
-    // The last point is the left edge's value one turn later; pin it to the right edge.
-    const px = k === n ? right : x(az)
+    // Sample a full turn including the repeated south bearing at the right edge.
+    const px = LEFT + (k / n) * plotWidth
     if (el === null) {
       known = null
       if (gap) gap.x1 = px
@@ -74,25 +74,30 @@ function skylineOf(h: Horizon, leftAz: number, x: (az: number) => number, y: (el
     area: runs
       .map((r) => `M${r.map(fmt).join('L')}L${r[r.length - 1].px.toFixed(1)},${bottom}L${r[0].px.toFixed(1)},${bottom}Z`)
       .join(''),
-    unknown: unknown.map((u) => ({ x0: u.x0, width: Math.max(u.x1 - u.x0 + PLOT_W / n, 1) })),
+    unknown: unknown.map((u) => ({ x0: u.x0, width: Math.max(u.x1 - u.x0 + plotWidth / n, 1) })),
   }
 }
 
 const known = (values: readonly (number | null)[]) => values.filter((v): v is number => v !== null)
 
-export function SkyView({ horizon, antennaHorizon, series, startMs, endMs, nowMs, stationLabel = 'the Earth station' }: SkyViewProps) {
+export function SkyView({ horizon, antennaHorizon, series, observationSeries = series, controls, startMs, endMs, nowMs, stationLabel = 'the Earth station' }: SkyViewProps) {
   const svg = useRef<SVGSVGElement>(null)
-  const [H, setHeight] = useState(DEFAULT_H)
+  const [{ width, height }, setSize] = useState(INITIAL_SIZE)
   useEffect(() => {
     if (!svg.current || typeof ResizeObserver === 'undefined') return
     const observer = new ResizeObserver(([entry]) => {
       const { width, height } = entry.contentRect
-      if (width > 0 && height > 0) setHeight(Math.max(100, Math.min(520, Math.round(W * height / width))))
+      if (width > 0 && height > 0) setSize({ width, height })
     })
     observer.observe(svg.current)
     return () => observer.disconnect()
   }, [])
-  const plotHeight = H - PAD.top - PAD.bottom
+  // Work in CSS pixels, so the plot fills its flex item and text and disks keep their proportions.
+  const plotWidth = Math.max(1, width - LEFT - RIGHT)
+  const plotTop = Math.min(12, height * 0.06)
+  const axisLine = Math.min(14, Math.max(10, height / 12))
+  const plotBottom = Math.max(plotTop + 1, height - (3 * axisLine + 4))
+  const plotHeight = plotBottom - plotTop
   const [hoverAz, setHoverAz] = useState<number | null>(null)
   // React's ids may contain characters that break url(#…) references.
   const uid = `sky${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`
@@ -104,11 +109,10 @@ export function SkyView({ horizon, antennaHorizon, series, startMs, endMs, nowMs
     return { i0, i1 }
   }, [series, startMs, endMs])
 
-  // A fixed compass from north to north with south in the middle (UI design: "N 000° …
-  // S 180° … N 000°"). Paths that cross north wrap from the right edge to the left.
-  const leftAz = 0
+  // South is the seam at both edges. North stays at the centre of every site's plot.
+  const leftAz = 180
 
-  const [elMin, elMax] = useMemo(() => {
+  const [missionMin, missionMax] = useMemo(() => {
     let lo = Math.min(-5, ...known(horizon.elevation_deg), ...known(antennaHorizon?.elevation_deg ?? []))
     let hi = Math.max(10, ...known(horizon.elevation_deg), ...known(antennaHorizon?.elevation_deg ?? []))
     if (series && range) {
@@ -120,21 +124,27 @@ export function SkyView({ horizon, antennaHorizon, series, startMs, endMs, nowMs
     return [Math.floor(lo - 0.5), Math.ceil(hi + 1)]
   }, [horizon, antennaHorizon, series, range])
 
+  const now = observationSeries ? indexAt(observationSeries, nowMs) : null
+  const sunEl = observationSeries && now !== null ? observationSeries.sun_el[now] : null
+  const earthEl = observationSeries && now !== null ? observationSeries.earth_el[now] : null
+  const elMin = Math.min(missionMin, Math.floor(Math.min(sunEl ?? 0, earthEl ?? 0) - 0.5))
+  const elMax = Math.max(missionMax, Math.ceil(Math.max(sunEl ?? 0, earthEl ?? 0) + 1))
+
   const { x, y, pxPerDeg } = useMemo(
     () => ({
-      x: (az: number) => PAD.left + (wrap(az - leftAz) / 360) * PLOT_W,
-      y: (el: number) => PAD.top + ((elMax - el) / (elMax - elMin)) * plotHeight,
+      x: (az: number) => LEFT + (wrap(az - leftAz) / 360) * plotWidth,
+      y: (el: number) => plotTop + ((elMax - el) / (elMax - elMin)) * plotHeight,
       pxPerDeg: plotHeight / (elMax - elMin),
     }),
-    [leftAz, elMin, elMax, plotHeight],
+    [leftAz, elMin, elMax, plotTop, plotHeight, plotWidth],
   )
 
-  const terrain = useMemo(() => skylineOf(horizon, leftAz, x, y, H - PAD.bottom), [horizon, leftAz, x, y, H])
+  const terrain = useMemo(() => skylineOf(horizon, leftAz, y, plotWidth, plotBottom), [horizon, leftAz, y, plotWidth, plotBottom])
   // Only drawn when the antenna sits at another height, where its skyline differs.
   const antennaTerrain = useMemo(
     () =>
-      antennaHorizon && antennaHorizon.mast_m !== horizon.mast_m ? skylineOf(antennaHorizon, leftAz, x, y, H - PAD.bottom) : null,
-    [antennaHorizon, horizon.mast_m, leftAz, x, y, H],
+      antennaHorizon && antennaHorizon.mast_m !== horizon.mast_m ? skylineOf(antennaHorizon, leftAz, y, plotWidth, plotBottom) : null,
+    [antennaHorizon, horizon.mast_m, leftAz, y, plotWidth, plotBottom],
   )
 
   const paths = useMemo(() => {
@@ -146,7 +156,7 @@ export function SkyView({ horizon, antennaHorizon, series, startMs, endMs, nowMs
       for (let i = range.i0; i <= range.i1; i += stride) {
         const px = x(az[i])
         // Break the line where it wraps from one edge to the other.
-        const jump = prevX !== null && Math.abs(px - prevX) > PLOT_W / 2
+        const jump = prevX !== null && Math.abs(px - prevX) > plotWidth / 2
         d += `${prevX === null || jump ? 'M' : 'L'}${px.toFixed(1)},${y(el[i]).toFixed(1)}`
         prevX = px
       }
@@ -178,17 +188,16 @@ export function SkyView({ horizon, antennaHorizon, series, startMs, endMs, nowMs
       ticks,
       contact,
     }
-  }, [series, range, horizon, x, y, startMs, endMs])
+  }, [series, range, horizon, x, y, plotWidth, startMs, endMs])
 
-  const now = series ? indexAt(series, nowMs) : null
   const landing = series && range ? range.i0 : null
 
   const onPointerMove = (e: PointerEvent<SVGSVGElement>) => {
     const matrix = e.currentTarget.getScreenCTM()
     if (!matrix) return
     const { x: px } = new DOMPoint(e.clientX, e.clientY).matrixTransform(matrix.inverse())
-    if (px < PAD.left || px > PAD.left + PLOT_W) return setHoverAz(null)
-    setHoverAz(wrap(leftAz + ((px - PAD.left) / PLOT_W) * 360))
+    if (px < LEFT || px > LEFT + plotWidth) return setHoverAz(null)
+    setHoverAz(wrap(leftAz + ((px - LEFT) / plotWidth) * 360))
   }
 
   const gridEls: number[] = []
@@ -207,17 +216,17 @@ export function SkyView({ horizon, antennaHorizon, series, startMs, endMs, nowMs
         : `Az ${hoverAz.toFixed(1)}° · terrain ${hoverEl.toFixed(2)}°${hoverKm === null ? '' : ` · ${hoverKm.toFixed(1)} km away`}`
 
   // The tracking line follows the Sun during playback. Pointing at the graph inspects the ridge instead.
-  const trackingAz = hoverAz ?? (series && now !== null ? series.sun_az[now] : null)
-  const trackingEl = hoverAz !== null ? hoverEl : series && now !== null ? series.sun_el[now] : null
+  const trackingAz = hoverAz ?? (observationSeries && now !== null ? observationSeries.sun_az[now] : null)
+  const trackingEl = hoverAz !== null ? hoverEl : sunEl
   const trackingText = `${hoverAz === null ? 'Sun' : 'Ridge'} ${trackingEl == null ? 'unknown' : `${trackingEl.toFixed(1)}°`}`
 
   return (
     <figure className="sky-view">
       <svg
         ref={svg}
-        viewBox={`0 0 ${W} ${H}`}
+        viewBox={`0 0 ${width} ${height}`}
         role="img"
-        aria-label={skyDescription(series, now)}
+        aria-label={skyDescription(observationSeries, now)}
         onPointerMove={onPointerMove}
         onPointerLeave={() => setHoverAz(null)}
       >
@@ -231,30 +240,31 @@ export function SkyView({ horizon, antennaHorizon, series, startMs, endMs, nowMs
             <stop offset="1" stopColor="#1c2028" />
           </linearGradient>
           <clipPath id={`${uid}-below`}><path d={terrain.area} /></clipPath>
+          {antennaTerrain && <clipPath id={`${uid}-below-antenna`}><path d={antennaTerrain.area} /></clipPath>}
           <clipPath id={`${uid}-globe`}><circle r="1" /></clipPath>
           <radialGradient id={`${uid}-ocean`} cx="35%" cy="30%" r="80%">
             <stop stopColor="#96e5ff" /><stop offset=".48" stopColor="#378bca" /><stop offset="1" stopColor="#10315e" />
           </radialGradient>
           <clipPath id={`${uid}-plot`}>
-            <rect x={PAD.left} y={PAD.top} width={PLOT_W} height={plotHeight} />
+            <rect x={LEFT} y={plotTop} width={plotWidth} height={plotHeight} />
           </clipPath>
         </defs>
 
-        <rect x={PAD.left} y={PAD.top} width={PLOT_W} height={plotHeight} fill={`url(#${uid}-bg)`} />
+        <rect x={LEFT} y={plotTop} width={plotWidth} height={plotHeight} fill={`url(#${uid}-bg)`} />
 
-        <text x={PAD.left + PLOT_W / 2} y={H - 2} className="sky-axis-title" textAnchor="middle">Azimuth (° from north)</text>
-        <text transform={`translate(12 ${PAD.top + plotHeight / 2}) rotate(-90)`} className="sky-axis-title" textAnchor="middle">Elevation (°)</text>
+        <text x={LEFT + plotWidth / 2} y={height - 2} className="sky-axis-title" textAnchor="middle">Azimuth (° from north)</text>
+        <text transform={`translate(12 ${plotTop + plotHeight / 2}) rotate(-90)`} className="sky-axis-title" textAnchor="middle">Elevation (°)</text>
 
         {gridEls.map((el) => (
           <g key={el}>
             <line
-              x1={PAD.left}
-              x2={PAD.left + PLOT_W}
+              x1={LEFT}
+              x2={LEFT + plotWidth}
               y1={y(el)}
               y2={y(el)}
               className={el === 0 ? 'sky-grid sky-grid-zero' : 'sky-grid'}
             />
-            <text x={PAD.left - 4} y={y(el) + 3} className="sky-label" textAnchor="end">
+            <text x={LEFT - 4} y={y(el) + 3} className="sky-label" textAnchor="end">
               {el}°
             </text>
           </g>
@@ -264,23 +274,24 @@ export function SkyView({ horizon, antennaHorizon, series, startMs, endMs, nowMs
             key={`minor-${az}`}
             x1={x(az)}
             x2={x(az)}
-            y1={H - PAD.bottom}
-            y2={H - PAD.bottom + (az % 45 === 0 ? 5 : 3)}
+            y1={plotBottom}
+            y2={plotBottom + (az % 45 === 0 ? 5 : 3)}
             className="sky-axis-tick"
           />
         ))}
-        {[...COMPASS, 'N'].map((label, k) => {
-          const az = k * 45
-          // 360° sits on the right edge; x() would wrap it back to the left.
-          const px = k === COMPASS.length ? PAD.left + PLOT_W : x(az)
+        {Array.from({ length: 9 }, (_, k) => {
+          const az = wrap(leftAz + k * 45)
+          const label = COMPASS[az / 45]
+          // Pin the repeated south bearing to the right edge.
+          const px = k === COMPASS.length ? LEFT + plotWidth : x(az)
           const anchor = k === 0 ? 'start' : k === COMPASS.length ? 'end' : 'middle'
           return (
-            <g key={`${label}-${az}`}>
-              <line x1={px} x2={px} y1={PAD.top} y2={H - PAD.bottom} className="sky-grid" />
-              <text x={px} y={H - PAD.bottom + 15} className="sky-label sky-degrees" textAnchor={anchor}>
+            <g key={k}>
+              <line x1={px} x2={px} y1={plotTop} y2={plotBottom} className={az === 0 ? 'sky-grid sky-north' : 'sky-grid'} />
+              <text x={px} y={plotBottom + axisLine + 1} className="sky-label sky-degrees" textAnchor={anchor}>
                 {String(az % 360).padStart(3, '0')}°
               </text>
-              <text x={px} y={H - PAD.bottom + 29} className={az % 90 === 0 ? 'sky-label sky-compass sky-cardinal' : 'sky-label sky-compass'} textAnchor={anchor}>
+              <text x={px} y={plotBottom + 2 * axisLine + 1} className={az % 90 === 0 ? 'sky-label sky-compass sky-cardinal' : 'sky-label sky-compass'} textAnchor={anchor}>
                 {label}
               </text>
             </g>
@@ -307,9 +318,9 @@ export function SkyView({ horizon, antennaHorizon, series, startMs, endMs, nowMs
               ))}
             </>
           )}
-          {series && now !== null && (
-            <>
-              <g transform={`translate(${x(series.earth_az[now])} ${y(series.earth_el[now])}) scale(${Math.max(5.5, EARTH_RADIUS_DEG * pxPerDeg)})`}>
+          {observationSeries && now !== null && (
+            <defs>
+              <g id={`${uid}-earth-body`} transform={`translate(${x(observationSeries.earth_az[now])} ${y(observationSeries.earth_el[now])}) scale(${Math.max(5.5, EARTH_RADIUS_DEG * pxPerDeg)})`}>
                 <circle r="1" className="sky-disk-earth" style={{ fill: `url(#${uid}-ocean)` }} />
                 <g clipPath={`url(#${uid}-globe)`}>
                   <path d="M-.88-.54l.42-.23.27.13-.06.23-.24.14-.05.2-.19-.03-.03-.22-.19-.05z M-.33-.04l.31.07.1.24-.19.35-.13.21-.12-.34z M.08-.48l.23-.19.4.01.3.21-.12.19-.25-.03-.1.14-.27-.06-.07-.17-.15.07z M.15-.12l.33.02.12.19-.24.35-.16-.07-.14-.34z" fill="#83bf79" />
@@ -317,20 +328,20 @@ export function SkyView({ horizon, antennaHorizon, series, startMs, endMs, nowMs
                 </g>
               </g>
               <circle
-                cx={x(series.sun_az[now])}
-                cy={y(series.sun_el[now])}
+                id={`${uid}-sun-body`}
+                cx={x(observationSeries.sun_az[now])}
+                cy={y(observationSeries.sun_el[now])}
                 r={Math.max(3.5, SUN_RADIUS_DEG * pxPerDeg)}
                 className="sky-disk-sun"
               />
-            </>
+            </defs>
           )}
 
-          {/* Terrain sits in front of the bodies, so a Sun behind a ridge is cut off. */}
           <path d={terrain.area} fill={`url(#${uid}-terrain)`} />
           <path d={terrain.line} className="sky-terrain-edge" />
           {antennaTerrain && <path d={antennaTerrain.line} className="sky-terrain-edge-antenna" />}
           {terrain.unknown.map((u) => (
-            <rect key={u.x0} x={u.x0} y={PAD.top} width={u.width} height={plotHeight} className="sky-unknown-band">
+            <rect key={u.x0} x={u.x0} y={plotTop} width={u.width} height={plotHeight} className="sky-unknown-band">
               <title>Terrain unknown here (missing data)</title>
             </rect>
           ))}
@@ -364,10 +375,24 @@ export function SkyView({ horizon, antennaHorizon, series, startMs, endMs, nowMs
               </circle>
             </>
           )}
+          {observationSeries && now !== null && (
+            <>
+              <use href={`#${uid}-earth-body`} />
+              <g clipPath={`url(#${uid}-${antennaTerrain ? 'below-antenna' : 'below'})`} className="sky-obscured-bodies">
+                <title>Earth behind terrain</title>
+                <use href={`#${uid}-earth-body`} />
+              </g>
+              <use href={`#${uid}-sun-body`} />
+              <g clipPath={`url(#${uid}-below)`} className="sky-obscured-bodies">
+                <title>Sun behind terrain</title>
+                <use href={`#${uid}-sun-body`} />
+              </g>
+            </>
+          )}
           {trackingAz !== null && (
             <g className="sky-cursor" pointerEvents="none">
-              <line x1={x(trackingAz)} x2={x(trackingAz)} y1={PAD.top} y2={H - PAD.bottom} className="sky-hover" />
-              <g transform={`translate(${Math.min(x(trackingAz) + 4, W - PAD.right - 84)} ${Math.min(H - PAD.bottom - 20, Math.max(PAD.top + 2, trackingEl == null ? PAD.top + 2 : y(trackingEl) - 22))})`}>
+              <line x1={x(trackingAz)} x2={x(trackingAz)} y1={plotTop} y2={plotBottom} className="sky-hover" />
+              <g transform={`translate(${Math.min(x(trackingAz) + 4, width - RIGHT - 84)} ${Math.max(plotTop, Math.min(plotBottom - 19, trackingEl == null ? plotTop + 2 : y(trackingEl) - 22))})`}>
                 <rect width="82" height="17" rx="4" className="sky-bubble" />
                 <text x="41" y="12" textAnchor="middle" className="sky-bubble-text">{trackingText}</text>
               </g>
@@ -375,10 +400,13 @@ export function SkyView({ horizon, antennaHorizon, series, startMs, endMs, nowMs
           )}
         </g>
       </svg>
-      <figcaption className="sky-caption"><details className="sky-key">
-        <summary>Graph key</summary><div className="sky-key-items">
+      <figcaption className={controls ? 'sky-caption graph-footer' : 'sky-caption'}>
+        {controls}
+        <details className="sky-key">
+        <summary>Graph Key</summary><div className="sky-key-items">
         <span className="legend legend-sun">Sun</span>
         <span className="legend legend-earth">Earth</span>
+        <span className="legend-dot legend-obscured">Gray disk: behind terrain</span>
         <span className="legend legend-terrain">Terrain at {horizon.mast_m} m (panel)</span>
         {antennaTerrain && antennaHorizon && (
           <span className="legend legend-terrain-antenna">Terrain at {antennaHorizon.mast_m} m (antenna)</span>

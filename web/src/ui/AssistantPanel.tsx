@@ -16,6 +16,7 @@ import { toScenario } from '../state/scenario'
 import type { AppScreen } from '../state/screen'
 import { EMPTY_TICKET, type Ticket } from '../state/tickets'
 import { MISSION_RANGE } from '../state/urlState'
+import { GuideWindow } from './GuideWindow'
 import { pointLetter, siteDisplayName } from './points'
 
 // The AI guide: a panel on the right edge. The first time, the user adds their own Gemini
@@ -25,7 +26,7 @@ import { pointLetter, siteDisplayName } from './points'
 
 export interface AssistantPanelProps {
   open: boolean
-  onClose: () => void
+  onOpenChange: (open: boolean) => void
   ctx: PlanContext
   /** True while typed locations (custom points) use sample answers. */
   customIsSample: boolean
@@ -43,7 +44,7 @@ export interface AssistantPanelProps {
   activeIndex: number
   /** Applies new score settings (one history step). */
   onSetScore: (settings: ScoreSettings) => void
-  /** Opens Select region on the map; the tool then finds the best areas by itself. */
+  /** Opens Manual Selection on the map; the tool then finds the best areas by itself. */
   onOpenRegion: () => void
   /** The latest best areas found by a region tool the guide opened. */
   regionResult: { id: number; text: string } | null
@@ -84,7 +85,7 @@ function readMode(): GuideMode {
 }
 
 export function AssistantPanel(props: AssistantPanelProps) {
-  const { open, onClose, ctx, customIsSample, onOpen } = props
+  const { open, onOpenChange, ctx, customIsSample, onOpen } = props
   const [settings, setSettings] = useState<GuideSettings | null>(loadGuideSettings)
   const [setup, setSetup] = useState(false)
   const [mode, setModeState] = useState<GuideMode>(readMode)
@@ -94,7 +95,6 @@ export function AssistantPanel(props: AssistantPanelProps) {
   const nextId = useRef(1)
   const abort = useRef<AbortController | null>(null)
   const logRef = useRef<HTMLDivElement>(null)
-  const inputRef = useRef<HTMLTextAreaElement>(null)
 
   const setMode = (m: GuideMode) => {
     setModeState(m)
@@ -151,9 +151,6 @@ export function AssistantPanel(props: AssistantPanelProps) {
   useEffect(() => {
     logRef.current?.scrollTo({ top: logRef.current.scrollHeight })
   }, [messages, pending])
-  useEffect(() => {
-    if (open && settings !== null && !setup) inputRef.current?.focus()
-  }, [open, settings, setup])
 
   const say = (from: Message['from'], text: string, extra: Partial<Message> = {}) =>
     setMessages((all) => [...all, { id: nextId.current++, from, text, ...extra }])
@@ -186,7 +183,7 @@ export function AssistantPanel(props: AssistantPanelProps) {
           say('guide', `${intent.reply}\nThese are already the current weights.`.trim())
         } else if (mode === 'direct') {
           props.onSetScore(advice.settings)
-          say('guide', `${intent.reply}\nApplied: ${summary}. Back undoes it; Score settings can reset it.`.trim())
+          say('guide', `${intent.reply}\nApplied: ${summary}. Back undoes it; Grading Weights can reset it.`.trim())
         } else {
           say('guide', `${intent.reply}\nSuggested: ${summary}.`.trim(), { proposal: { w: advice.settings.w, summary, state: 'open' } })
         }
@@ -194,7 +191,7 @@ export function AssistantPanel(props: AssistantPanelProps) {
       }
       case 'open_region':
         props.onOpenRegion()
-        say('guide', intent.reply || 'Select region is open. Click grid points around the area; I will find the best areas once there are three.')
+        say('guide', intent.reply || 'Manual Selection is open. Click grid points around the area; I will find the best areas once there are three.')
         return
       case 'ask':
         say('guide', intent.reply, { options: intent.options?.filter((o) => o.trim() !== '') })
@@ -264,24 +261,10 @@ export function AssistantPanel(props: AssistantPanelProps) {
     setMessages((all) => all.map((m) => (m.id === id && m.proposal ? { ...m, proposal: { ...m.proposal, state } } : m)))
   }
 
-  if (!open) return null
-
   const showSetup = settings === null || setup
   return (
-    <aside
-      className="guide"
-      aria-label="AI guide"
-      onKeyDown={(e) => {
-        if (e.key === 'Escape') onClose()
-      }}
-    >
-      <header className="guide-head">
-        <span className="guide-title"><span aria-hidden="true">✦</span> AI guide</span>
-        {settings !== null && !setup && (
-          <button type="button" className="link-button" onClick={() => setSetup(true)}>Key settings</button>
-        )}
-        <button type="button" className="guide-close" aria-label="Close the AI guide" onClick={() => onClose()}>×</button>
-      </header>
+    <GuideWindow open={open} setOpen={onOpenChange} settingsControl={!showSetup &&
+      <button type="button" className="link-button" onClick={() => setSetup(true)}>Key Settings</button>}>
 
       {showSetup ? (
         <KeySetup
@@ -354,7 +337,7 @@ export function AssistantPanel(props: AssistantPanelProps) {
             }}
           >
             <textarea
-              ref={inputRef}
+              autoFocus
               value={draft}
               rows={2}
               maxLength={1000}
@@ -373,7 +356,7 @@ export function AssistantPanel(props: AssistantPanelProps) {
           <p className="guide-privacy muted">Your messages, the sites and their results are sent to Google Gemini with your key.</p>
         </>
       )}
-    </aside>
+    </GuideWindow>
   )
 }
 

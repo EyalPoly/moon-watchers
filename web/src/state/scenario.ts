@@ -24,7 +24,7 @@ export function toScenario(
 /** The scenario for a site and mission, stable while its values don't change. */
 export function useScenario(
   siteId: string | null,
-  mission: MissionState,
+  mission: Pick<MissionState, 't0' | 'days' | 'panel' | 'antenna'>,
   station: StationPoint = HOUSTON,
   settings: ScoreSettings = SCORE_DEFAULTS,
 ): Scenario | null {

@@ -18,6 +18,6 @@
 - Line of sight only: no link budget, antenna pointing, ground-station schedules, relays or light-time delay.
 - Rocks and relief smaller than a terrain cell are not modeled; the slope is a 20 m pixel value, not lander-footprint safety.
 - The score's weights and thresholds are illustrative. The ranking badge comes from a stand-in function.
-- Not built yet: Orbit and Surface screens, export, map layers beyond relief in some places, mission-step timelines, a power/battery model.
+- Not built yet: the Surface screen, export, mission-step timelines, a power/battery model.
 
 Sources: `data/sources.lock.json`, `catalog/sites.yaml`, `deploy/*.lock.json`, design spec §6.

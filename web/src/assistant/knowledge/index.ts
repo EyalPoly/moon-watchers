@@ -23,11 +23,11 @@ export interface KnowledgeTopic {
 }
 
 export const TOPICS: readonly KnowledgeTopic[] = [
-  { id: 'app-overview', title: 'What the app does', about: 'screens, sites, scenarios, what the numbers are and are not', text: appOverview },
-  { id: 'south-pole-screen', title: 'South pole screen', about: 'every button: map view, ridge graph, select region, layers, add site, sort, compare, score settings', text: southPoleScreen },
+  { id: 'app-overview', title: 'What the app does', about: 'screens (Orbit, Site Calculator, Timelines), sites, scenarios, what the numbers are and are not', text: appOverview },
+  { id: 'south-pole-screen', title: 'Site Calculator screen', about: 'every button: map view, click to add, ridge graph, Manual Selection, map and polygon layers, add site, sort, compare, the guide window', text: southPoleScreen },
   { id: 'site-card', title: 'A site card', about: 'card fields, apply, +29.5 d, heights, stations, live panel, whole-mission results', text: siteCard },
   { id: 'timelines-screen', title: 'Timelines screen', about: 'the Gantt rows, mission days, the compare table', text: timelinesScreen },
-  { id: 'region-tool', title: 'Select region', about: 'step-by-step use of the region tool and best areas', text: regionTool },
+  { id: 'region-tool', title: 'Manual Selection', about: 'step-by-step use of the region tool, best areas, and the Grading Weights (score settings)', text: regionTool },
   { id: 'visibility', title: 'Sunlight and contact', about: 'skyline, terrain data, Sun disk fraction, Earth contact rule, clearance', text: visibility },
   { id: 'metrics', title: 'Metrics and chips', about: 'mission window, every metric, unavailable values, chip thresholds', text: metrics },
   { id: 'score', title: 'Score and weights', about: 'the 7 grades, formula, points lost, gates, presets, settings, advising on weights', text: score },

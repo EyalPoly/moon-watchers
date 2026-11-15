@@ -1,3 +1,4 @@
+import { FieldHelp } from './FieldHelp'
 import { useState } from 'react'
 
 export interface MissionLengthProps {
@@ -42,7 +43,7 @@ export function MissionLength({ days, onChange }: MissionLengthProps) {
         if (!e.currentTarget.contains(e.relatedTarget as Node | null)) commit()
       }}
     >
-      <span>Time on the Moon</span>
+      <span>Time On The Moon <FieldHelp field="mission length">Enter whole Earth days and extra hours, or select a preset. One lunar day is about 29.53 Earth days.</FieldHelp></span>
       <span className="control-row">
         <label className="length-field">
           <input

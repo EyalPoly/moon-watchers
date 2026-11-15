@@ -31,7 +31,7 @@ test('the guide asks for a Gemini key the first time, then opens a named site', 
   ])
   await page.goto('/')
   await page.getByRole('button', { name: 'Ask the AI guide' }).click()
-  const guide = page.getByRole('complementary', { name: 'AI guide' })
+  const guide = page.getByRole('dialog', { name: 'AI Guide' })
   await expect(guide.getByRole('heading', { name: 'Connect Gemini' })).toBeVisible()
 
   await guide.getByRole('textbox', { name: 'Gemini API key' }).fill('test-key-123')
@@ -57,7 +57,7 @@ test('a request with no place opens every catalog site with the mission settings
   await page.evaluate(() => sessionStorage.setItem('moon-watchers.gemini-key', 'k'))
   await page.reload()
   await page.getByRole('button', { name: 'Ask the AI guide' }).click()
-  const guide = page.getByRole('complementary', { name: 'AI guide' })
+  const guide = page.getByRole('dialog', { name: 'AI Guide' })
   await guide.getByRole('button', { name: /4-month mission/ }).click()
   await expect(guide.getByText(/Opened 3 sites: B Sample site A, C Sample site B, D Sample site C\./)).toBeVisible()
   // The first new site (B) opens; the calculator shows three sites per page.
@@ -69,11 +69,39 @@ test('a rejected key says so and stays on the key form', async ({ page, context 
   await fakeGemini(context, [], false)
   await page.goto('/')
   await page.getByRole('button', { name: 'Ask the AI guide' }).click()
-  const guide = page.getByRole('complementary', { name: 'AI guide' })
+  const guide = page.getByRole('dialog', { name: 'AI Guide' })
   await guide.getByRole('textbox', { name: 'Gemini API key' }).fill('wrong')
   await guide.getByRole('button', { name: 'Connect' }).click()
   await expect(guide.getByRole('alert')).toHaveText('Gemini did not accept this API key.')
   await expect(guide.getByRole('heading', { name: 'Connect Gemini' })).toBeVisible()
+})
+
+test('the floating guide can move and minimize without losing a conversation draft', async ({ page }) => {
+  await page.addInitScript(() => sessionStorage.setItem('moon-watchers.gemini-key', 'sample-key'))
+  await page.goto('/?site=sample_a')
+  const launcher = page.getByRole('button', { name: 'Ask the AI guide' })
+  await launcher.click()
+  const guide = page.getByRole('dialog', { name: 'AI Guide' })
+  const message = guide.getByRole('textbox', { name: 'Message to the AI guide' })
+  await message.fill('Compare the landing sites')
+  const before = (await guide.boundingBox())!
+  const move = guide.getByRole('button', { name: 'Move the AI guide' })
+  const handle = (await move.boundingBox())!
+  await page.mouse.move(handle.x + 12, handle.y + 12)
+  await page.mouse.down()
+  await page.mouse.move(handle.x - 106, handle.y + 42, { steps: 4 })
+  await page.mouse.up()
+  await expect.poll(async () => (await guide.boundingBox())!.x).toBeLessThan(before.x - 100)
+  await move.press('ArrowLeft')
+  await expect.poll(async () => (await guide.boundingBox())!.x).toBeLessThan(before.x - 125)
+  await guide.getByRole('button', { name: 'Minimize the AI guide' }).click()
+  await expect(message).toBeHidden()
+  expect((await guide.boundingBox())!.height).toBeLessThan(56)
+  await guide.getByRole('button', { name: 'Restore the AI guide' }).click()
+  await expect(message).toHaveValue('Compare the landing sites')
+  await guide.getByRole('button', { name: 'Close the AI guide' }).click()
+  await expect(guide).toHaveCount(0)
+  await expect(launcher).toBeFocused()
 })
 
 // --- Guide v2: memory, app state, reference notes, asking back, score advice, region tool.
@@ -84,7 +112,7 @@ async function openGuide(page: import('@playwright/test').Page, url: string) {
   await page.evaluate(() => sessionStorage.setItem('moon-watchers.gemini-key', 'k'))
   await page.reload()
   await page.getByRole('button', { name: 'Ask the AI guide' }).click()
-  return page.getByRole('complementary', { name: 'AI guide' })
+  return page.getByRole('dialog', { name: 'AI Guide' })
 }
 
 async function sendTo(guide: import('@playwright/test').Locator, text: string) {
@@ -101,8 +129,7 @@ test('the guide sees the open sites with their score breakdown and explains a lo
   const seen = await fakeGemini(context, [{ action: 'answer', reply: 'Site A scores low mostly because of station contact.' }])
   const guide = await openGuide(page, ONE_SITE)
   // Let the card's results load, so the guide is told about them.
-  await page.getByRole('button', { name: 'Whole mission', exact: true }).click()
-  await expect(page.getByLabel(/^Score \d/).first()).toBeVisible()
+  await expect(page.getByText(/Weighted Score \d+/).first()).toBeVisible()
   await sendTo(guide, 'Why is site A low?')
   await expect(guide.getByText('Site A scores low mostly because of station contact.')).toBeVisible()
   const system = systemOf(seen.at(-1)!.body)
@@ -163,11 +190,11 @@ test('in Direct mode the guide applies a preset at once', async ({ page, context
   await expect(page).toHaveURL(/[?&]w=0\.6,0\.2,0,0,0,0\.1,0\.1/)
 })
 
-test('the guide opens Select region and reports the best areas once the outline has 3 points', async ({ page, context }) => {
+test('the guide opens Manual Selection and reports the best areas once the outline has 3 points', async ({ page, context }) => {
   await fakeGemini(context, [{ action: 'open_region', reply: 'Click three or more grid points around the area.' }])
   const guide = await openGuide(page, '/')
   await sendTo(guide, 'Help me find the best area')
-  const tool = page.getByRole('dialog', { name: 'Select region' })
+  const tool = page.getByRole('dialog', { name: 'Manual Selection' })
   await expect(tool).toBeVisible()
   await expect(tool.getByText('The AI guide finds the best areas once the outline has 3 points.')).toBeVisible()
   // Close the guide so it doesn't cover the map, outline a square, and reopen it.
@@ -184,7 +211,7 @@ test('the guide opens Select region and reports the best areas once the outline 
   corners.forEach(([dx]) => expect(cx + dx, 'outline stays left of the tool panel').toBeLessThan(panel.x))
   for (const [i, [dx, dy]] of corners.entries()) {
     await page.mouse.click(cx + dx, cy + dy)
-    await expect(tool.getByText(`(${i + 1} ${i === 0 ? 'point' : 'points'})`)).toBeVisible()
+    await expect(tool.getByText(new RegExp(`^${i + 1} selected`))).toBeVisible()
   }
   await expect(tool.getByRole('list', { name: 'Best areas' })).toBeVisible({ timeout: 5000 })
   await page.getByRole('button', { name: 'Ask the AI guide' }).click()

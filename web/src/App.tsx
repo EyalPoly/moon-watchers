@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { Activity, lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import meta from '@samples/meta.json'
 import { resolveSource, type AppConfig } from './api/config'
 import type { Meta, Region, Site } from './api/types'
-import { isPointId } from './api/points'
+import { isPointId, parsePointId } from './api/points'
 import { parseScoreSettings, serializeScoreSettings, type ScoreSettings } from './api/scoreSettings'
 import { useCustomSites, useMeta, useSites } from './state/queries'
 import { useTicketRanking } from './state/ranking'
@@ -10,13 +10,15 @@ import { presetsFrom, stationLabel } from './api/stations'
 import {
   addTicket,
   addTicketsFor,
+  MAX_URL_TICKETS,
   comparableCount,
+  graphClock,
   maxTau,
   parseScreen2,
+  placePoint,
   removeTicket,
   serializeScreen2,
   showAll,
-  sortByRank,
   updateTicket,
   type Screen2State,
   type Ticket,
@@ -28,7 +30,9 @@ import { TimelineScreen } from './ui/TimelineScreen'
 import { parseScreen, withScreen, type AppScreen } from './state/screen'
 import { ResizeHandle } from './ui/ResizeHandle'
 import { ServerUnavailable } from './ui/ServerUnavailable'
-import { LayersBox, type MapLayer } from './ui/LayersBox'
+import { LayersBox, type MapLayer, type PolygonLayer } from './ui/LayersBox'
+import type { AppliedRegion } from './map/RegionOverlay'
+import { GraphControls } from './ui/GraphControls'
 import { PointCard } from './ui/PointCard'
 import { TicketGraph } from './ui/TicketPanel'
 import { ExplorerControls } from './ui/ExplorerControls'
@@ -39,10 +43,16 @@ import { displayPresets } from './ui/stationNetworks'
 import { pointLetter, siteDisplayName } from './ui/points'
 import { panelId, ticketVars } from './ui/ticketStyle'
 import { TopBar } from './ui/TopBar'
+import { LUNAR_DAY_MS } from './time'
+import { exploreSite, orbitUtc } from './globe/navigation'
+
+const OrbitScreen = lazy(() => import('./globe/OrbitScreen').then(module => ({ default: module.OrbitScreen })))
 
 // Bundled region and stations so the app still works when the server is down.
 const FALLBACK_REGION = meta.regions[0] as Region
+const FALLBACK_REGION_JSON = JSON.stringify(FALLBACK_REGION)
 const FALLBACK_STATIONS = meta.stations as Meta['stations']
+const FALLBACK_SCORE = meta.score as Meta['score']
 const NO_SITES: readonly Site[] = []
 /** While dragging, the URL is written at most twice a second (spec §9.2: Safari limits). */
 const URL_WRITE_MS = 500
@@ -51,6 +61,7 @@ const SIDE_W_KEY = 'moon-watchers.calculator-share'
 const DEFAULT_SHARE = 2 / 3
 const SIDE_MIN_W = 300
 const SITES_PER_PAGE = 3
+const DEFAULT_GRAPH_HEIGHT = 280
 
 function readSideShare(): number {
   try {
@@ -127,46 +138,33 @@ export default function App({ config }: { config: AppConfig }) {
     if (now - lastUrlWrite.current >= URL_WRITE_MS) {
       lastUrlWrite.current = now
       const current = parseScreen2(window.location.search)
-      writeUrl(serializeScreen2({ ...current, tau }, window.location.search), 'replace')
+      writeUrl(serializeScreen2({ ...current, tau, graphDay: undefined }, window.location.search), 'replace')
     }
   }, [])
   const onTauCommit = useCallback(
     (tau: number) => {
-      apply((s) => ({ ...s, tau }), 'replace')
+      apply((s) => ({ ...s, tau, graphDay: undefined }), 'replace')
       setLiveTau(null)
     },
     [apply],
   )
 
-  const [resultView, setResultView] = useState<'live' | 'mission'>('live')
+  const onGraphDay = (day: number) => {
+    const minutes = day * LUNAR_DAY_MS / 60_000
+    setLiveTau(null)
+    apply((s) => ({ ...s, graphDay: day, tau: minutes >= 0 && minutes <= maxTau(s.tickets) ? minutes : s.tau }), 'replace')
+  }
+
   const [selectedLayer, setSelectedLayer] = useState<MapLayer>('Relief')
-  // Dragging a weight replaces the URL; on release the pre-drag URL is restored first so
-  // that the one history entry added is the change as a whole.
-  const settingsDragFrom = useRef<string | null>(null)
-  const lastSettingsWrite = useRef(0)
-  const onSettingsChange = useCallback((next: ScoreSettings) => {
-    settingsDragFrom.current ??= window.location.search
-    const now = performance.now()
-    if (now - lastSettingsWrite.current < URL_WRITE_MS) return
-    lastSettingsWrite.current = now
-    writeUrl(serializeScoreSettings(next, window.location.search), 'replace')
-  }, [])
-  const onSettingsCommit = useCallback((next: ScoreSettings) => {
-    const from = settingsDragFrom.current
-    settingsDragFrom.current = null
-    if (from !== null) {
-      writeUrl(from, 'replace')
-      // A drag that ended where it began is not a change.
-      if (serializeScoreSettings(parseScoreSettings(from)) === serializeScoreSettings(next)) {
-        setSearch(window.location.search)
-        return
-      }
-    }
+  const [guideOpen, setGuideOpen] = useState(false)
+  const [polygonLayer, setPolygonLayer] = useState<PolygonLayer>('Planning boundary')
+  const [appliedRegion, setAppliedRegion] = useState<AppliedRegion | null>(null)
+  const applySettings = (next: ScoreSettings) => {
+    if (serializeScoreSettings(next) === serializeScoreSettings(settings)) return
     writeUrl(serializeScoreSettings(next, window.location.search), 'push')
     setSearch(window.location.search)
-  }, [])
+  }
 
-  const [guideOpen, setGuideOpen] = useState(false)
   /** Switching screens adds a history entry, so Back returns. */
   const goTo = useCallback((next: AppScreen) => {
     writeUrl(withScreen(window.location.search, next), 'push')
@@ -177,7 +175,7 @@ export default function App({ config }: { config: AppConfig }) {
   const [expanded, setExpanded] = useState<number | null>(null)
   // The point whose map has Freehand Select on, if any.
   const [freehand, setFreehand] = useState<number | null>(null)
-  // The AI guide opened Select region: the tool finds the best areas and reports them.
+  // The AI guide opened Manual Selection: the tool finds the best areas and reports them.
   const [guideRegion, setGuideRegion] = useState(false)
   const [regionResult, setRegionResult] = useState<{ id: number; text: string } | null>(null)
   const regionCount = useRef(0)
@@ -185,7 +183,7 @@ export default function App({ config }: { config: AppConfig }) {
     const top = areas.slice(0, 5).map((a) => `#${a.rank} ${formatLatLon(a.center.lat, a.center.lon)}, grade ${a.grade.toFixed(0)}`)
     const text = areas.length === 0
       ? 'No grid cell fits inside that outline. Try a larger outline or a finer grid.'
-      : `Best areas in your outline (${spacingKm} km grid, best first): ${top.join('; ')}${areas.length > 5 ? `; and ${areas.length - 5} more` : ''}. The best one is ticked: press "Open 1 site", or tick more first.`
+      : `Best areas in your outline (${spacingKm} km grid, best first): ${top.join('; ')}${areas.length > 5 ? `; and ${areas.length - 5} more` : ''}. The best one is ticked: press "Apply" to open it as a site, or tick more first.`
     setRegionResult({ id: ++regionCount.current, text })
   }, [])
   /** Score settings from the AI guide: one history step, so Back undoes it. */
@@ -238,14 +236,16 @@ export default function App({ config }: { config: AppConfig }) {
     if (selecting) { setFreehand(null); return }
     setGuideRegion(false)
     setExpanded(null)
-    apply((s) => ({ ...s, compare: false, open: active, tickets: s.tickets.map((t, i) =>
-      ({ ...t, view: 'map', shown: t.shown || i === active })) }))
+    if (screen.compare || screen.open !== active || !screen.tickets[active].shown || view !== 'map') {
+      apply((s) => ({ ...s, compare: false, open: active, tickets: s.tickets.map((t, i) =>
+        ({ ...t, view: 'map', shown: t.shown || i === active })) }))
+    }
     setFreehand(active)
   }
 
-  /** Select region for the AI guide: on the South pole map, finding areas by itself. */
+  /** Manual Selection for the AI guide: on the South pole map, finding areas by itself. */
   const openRegionForGuide = () => {
-    if (parseScreen(window.location.search) === 'timelines') writeUrl(withScreen(window.location.search, 'south_pole'), 'push')
+    if (parseScreen(window.location.search) !== 'south_pole') writeUrl(withScreen(window.location.search, 'south_pole'), 'push')
     setExpanded(null)
     apply((s) => ({ ...s, compare: false, open: active, tickets: s.tickets.map((t, i) =>
       ({ ...t, view: 'map', shown: t.shown || i === active })) }))
@@ -266,7 +266,10 @@ export default function App({ config }: { config: AppConfig }) {
 
   // The map never waits on the server: until meta arrives (or if it never does) the
   // bundled region is used.
-  const region = metaQuery.data?.regions[0] ?? FALLBACK_REGION
+  const loadedRegion = metaQuery.data?.regions[0]
+  // Keep the mounted map and pending map clicks when the server confirms the bundled region.
+  const region = useMemo(() => !loadedRegion || JSON.stringify(loadedRegion) === FALLBACK_REGION_JSON
+    ? FALLBACK_REGION : loadedRegion, [loadedRegion])
   const sitesAreSample = resolveSource(config, 'sites', search) === 'sample'
   const missionIsSample =
     resolveSource(config, 'horizon', search) === 'sample' || resolveSource(config, 'summary', search) === 'sample'
@@ -277,19 +280,42 @@ export default function App({ config }: { config: AppConfig }) {
   const tau = liveTau ?? screen.tau
   const sliderMax = maxTau(screen.tickets)
   const comparable = comparableCount(screen.tickets)
+  const orbitOpen = appScreen === 'orbit'
+  const orbitTime = orbitUtc(search, screen.tickets[active].t0)
+
+  function navigate(next: AppScreen) {
+    if (next === appScreen) return
+    if (liveTau !== null) onTauCommit(liveTau)
+    setGuideOpen(false)
+    goTo(next)
+  }
+
+  function changeOrbitTime(value: string) {
+    const params = new URLSearchParams(window.location.search)
+    if (value === orbitTime) return
+    params.set('orbitUtc', value)
+    writeUrl('?' + params, 'replace')
+    setSearch(window.location.search)
+  }
+
+  function exploreSouthPole(site: string | null, utc: string) {
+    const params = new URLSearchParams(window.location.search)
+    params.delete('screen')
+    const next = exploreSite(parseScreen2(window.location.search), site, utc)
+    setFreehand(null)
+    setExpanded(null)
+    writeUrl(serializeScreen2(next, params.toString()), 'push')
+    setSearch(window.location.search)
+  }
 
   return (
-    <div className="app" style={{ '--side-w': `${Math.min(sideWidth, sideMax)}px` } as CSSProperties}>
-      <TopBar
-        sample={showBanner}
-        scoreSpec={metaQuery.data?.score}
-        settings={settings}
-        onSettingsChange={onSettingsChange}
-        onSettingsCommit={onSettingsCommit}
-        screen={appScreen}
-        onScreen={goTo}
-      />
+    <div className={orbitOpen ? 'app orbit-app' : 'app'} style={{ '--side-w': `${Math.min(sideWidth, sideMax)}px` } as CSSProperties}>
+      <TopBar sample={orbitOpen ? sitesAreSample || sites.some(site => site.is_placeholder) : showBanner} current={appScreen} onScreen={navigate} />
+      {orbitOpen && <Suspense fallback={<main aria-label="Orbit" role="status">Loading lunar overview…</main>}>
+        <OrbitScreen utc={orbitTime} onUtc={changeOrbitTime} sites={allSites} onExplore={exploreSouthPole} />
+      </Suspense>}
 
+      <Activity mode={orbitOpen ? 'hidden' : 'visible'}>
       {appScreen === 'timelines' ? (
         <TimelineScreen
           tickets={screen.tickets}
@@ -311,8 +337,8 @@ export default function App({ config }: { config: AppConfig }) {
 
       <main className="main" aria-label="South pole">
         <header className="col-head">
-          <p className="eyebrow mono">02&nbsp;&nbsp;/&nbsp;&nbsp;SOUTH POLE</p>
-          <h1>South pole explorer</h1>
+          <p className="eyebrow mono">02&nbsp;&nbsp;/&nbsp;&nbsp;South Pole</p>
+          <h1>South Pole Explorer</h1>
         </header>
         {!screen.compare && <ExplorerControls view={view} selecting={selecting} onView={selectView} onRegion={openRegion} />}
         {screen.compare ? (
@@ -333,22 +359,35 @@ export default function App({ config }: { config: AppConfig }) {
         ) : view === 'map' ? (
           <>
             <SharedSiteMap tickets={screen.tickets} active={active} sites={allSites} region={region} layer={selectedLayer}
-              selecting={selecting} onFocus={focusTicket}
-              onPlace={(site) => apply((s) => ({ ...updateTicket(s, active, { site, editing: true, collapsed: undefined }), open: active }))}
+              polygonLayer={polygonLayer} appliedRegion={appliedRegion} config={config} search={search}
+              settings={settings} scoreSpec={metaQuery.data?.score ?? FALLBACK_SCORE} onSettingsApply={applySettings}
+              selecting={selecting} atLimit={screen.tickets.length >= MAX_URL_TICKETS && screen.tickets[active]?.site !== null} onFocus={focusTicket}
+              onPlace={(site) => apply((s) => placePoint(s, active, site))}
               onRegionClose={() => { setFreehand(null); setGuideRegion(false) }}
               guideRegion={guideRegion} onRanked={onAreasRanked}
-              onOpenAreas={(points) => { setFreehand(null); apply((s) => addTicketsFor(s, active, points)) }} />
-            <LayersBox selected={selectedLayer} onSelect={setSelectedLayer} />
+              onOpenAreas={(points, outline) => {
+                setAppliedRegion(outline)
+                setPolygonLayer('Ranked areas')
+                setFreehand(null)
+                apply((s) => addTicketsFor(s, active, points))
+              }} />
+            <LayersBox selected={selectedLayer} onSelect={setSelectedLayer} overlay={polygonLayer} onOverlay={setPolygonLayer} />
           </>
         ) : (
           <div className="ridge-panels" data-count={visibleGraphs.length}>
             {visibleGraphs.map((i) => {
               const t = screen.tickets[i]
+              const graphHeight = panelHeights[i] ?? DEFAULT_GRAPH_HEIGHT
               const site = siteOf(t)
+              const customLocation = t.site ? parsePointId(t.site) : null
+              const location = customLocation ?? (site && { lat: site.lat_deg, lon: site.lon_deg })
+              const siteFailed = t.site && customLocation && customQueries[customIds.indexOf(t.site)]?.isError
+              const clock = graphClock(t, tau, liveTau === null ? screen.graphDay : undefined)
+              const controls = location && <GraphControls location={location} clock={clock}
+                onMove={(id) => changeTicket(i, { site: id })} onDay={onGraphDay} />
               return (
-                <section key={i} id={panelId(i)} className="panel ridge-panel" style={{
-                  ...ticketVars(i), ...(visibleGraphs.length > 1 && panelHeights[i] ? { flexGrow: panelHeights[i] / 200 } : {})
-                }} aria-label={`Site ${pointLetter(i)} graph`}>
+                <section key={i} id={panelId(i)} className="panel ridge-panel"
+                  style={{ ...ticketVars(i), '--graph-size': graphHeight } as CSSProperties} aria-label={`Site ${pointLetter(i)} graph`}>
                   <header className="panel-head">
                     <button type="button" className="panel-title" onClick={() => focusTicket(i)}>
                       <span className="badge">{pointLetter(i)}</span><span className="point-name">{t.name || siteDisplayName(site) || 'New site'}</span>
@@ -357,10 +396,14 @@ export default function App({ config }: { config: AppConfig }) {
                       aria-label={expanded === i ? 'Show all graphs' : `Expand graph ${pointLetter(i)}`}
                       onClick={() => setExpanded(expanded === i ? null : i)}>{expanded === i ? '⤡' : '⤢'}</button>}
                   </header>
-                  {site ? <TicketGraph config={config} search={search} site={site} ticket={t} tau={tau} stationLabel={stationLabel(t.station, presets)} />
-                    : <p className="panel-empty">Choose a location for site {pointLetter(i)} to see its local horizon.</p>}
+                  {site ? <TicketGraph config={config} search={search} site={site} ticket={t} nowMs={clock.nowMs}
+                    controls={controls} stationLabel={stationLabel(t.station, presets)} />
+                    : <><p className="panel-empty">{siteFailed
+                      ? 'Horizon data is unavailable for this location.' : location ? 'Loading site…'
+                      : `Choose a location for site ${pointLetter(i)} to see its local horizon.`}</p>
+                      {controls && <div className="graph-footer">{controls}</div>}</>}
                   {visibleGraphs.length > 1 && <ResizeHandle orientation="horizontal" label={`Resize graph ${pointLetter(i)}`}
-                    value={panelHeights[i] ?? 200} min={140} max={600} onResize={(h) => resizePanel(i, h)}
+                    value={graphHeight} min={140} max={600} onResize={(h) => resizePanel(i, h)}
                     onReset={() => resizePanel(i, undefined)} className="panel-resize" />}
                 </section>
               )
@@ -384,10 +427,9 @@ export default function App({ config }: { config: AppConfig }) {
 
       <aside className="side" aria-label="Site calculator">
         <header className="col-head">
-          <p className="eyebrow mono">SITE PLANNING</p>
+          <p className="eyebrow mono">Site Planning</p>
           <div className="col-head-row">
-            <h1>Site calculator</h1>
-            <span className="col-meta mono">{pointCount(screen.tickets)}</span>
+            <h1>Site Calculator</h1>
           </div>
         </header>
         {sitesQuery.isError ? (
@@ -395,30 +437,17 @@ export default function App({ config }: { config: AppConfig }) {
         ) : (
           <>
             <div className="tickets-toolbar">
-              <span className="muted">
-                {shownIndexes.length} of {screen.tickets.length} shown in the explorer
-              </span>
-              <span className="toolbar-actions">
-                <button type="button" className="link-button" onClick={() => apply((s) => showAll(s, true))}>
-                  Show all
-                </button>
-                <button type="button" className="link-button" onClick={() => apply((s) => showAll(s, false))}>
-                  Hide all
-                </button>
-                <button
-                  type="button"
-                  className="link-button"
-                  disabled={ranking.byIndex.size < 2}
-                  onClick={() => {
-                    setExpanded(null)
-                    setPanelHeights({})
-                    apply((s) => sortByRank(s, (i) => ranking.byIndex.get(i)?.rank))
-                  }}
-                  title="Reorder the sites from best to worst"
-                >
-                  Sort by rank
-                </button>
-              </span>
+              <details className="site-visibility">
+                <summary>{shownIndexes.length} of {screen.tickets.length} shown in the explorer</summary>
+                <div className="visibility-options">
+                  {screen.tickets.map((t, i) => <label key={i}>
+                    <input type="checkbox" checked={t.shown} aria-label={`Show site ${pointLetter(i)} in the explorer`}
+                      onChange={(e) => changeTicket(i, { shown: e.target.checked }, 'push')} />
+                    {pointLetter(i)} · {t.name || siteDisplayName(siteOf(t)) || 'New site'}
+                  </label>)}
+                </div>
+              </details>
+              {screen.tickets.some((t) => t.site === null) && <span className="col-meta mono">{pointCount(screen.tickets)}</span>}
               {ranking.updatedAt > 0 && (
                 <span className="ranking-status" aria-live="polite">
                   Ranking updated {formatClock(ranking.updatedAt)}
@@ -426,12 +455,6 @@ export default function App({ config }: { config: AppConfig }) {
                 </span>
               )}
             </div>
-            {screen.tickets.some((t) => t.site !== null && !t.editing) && (
-              <div className="result-tabs" role="group" aria-label="Site results view">
-                <button type="button" aria-pressed={resultView === 'live'} onClick={() => setResultView('live')}>Live conditions</button>
-                <button type="button" aria-pressed={resultView === 'mission'} onClick={() => setResultView('mission')}>Whole mission</button>
-              </div>
-            )}
             {pageCount > 1 && <nav className="site-pages" aria-label="Site pages">
               <button type="button" className="link-button" disabled={page === 0} onClick={() => { setExpanded(null); focusTicket(start - SITES_PER_PAGE) }}>Previous</button>
               <span>Sites {start + 1}–{Math.min(start + SITES_PER_PAGE, screen.tickets.length)} of {screen.tickets.length}</span>
@@ -458,7 +481,6 @@ export default function App({ config }: { config: AppConfig }) {
                   settings={settings}
                   tau={tau}
                   sliderMaxTau={sliderMax}
-                  resultView={resultView}
                   onToggle={() => changeTicket(i, { collapsed: t.collapsed ? undefined : true })}
                   onDelete={() => {
                     setExpanded(null)
@@ -484,15 +506,6 @@ export default function App({ config }: { config: AppConfig }) {
               >
                 + Add site
               </button>
-              <button
-                type="button"
-                className="secondary guide-launcher"
-                aria-expanded={guideOpen}
-                onClick={() => setGuideOpen((v) => !v)}
-                title="Describe a site or a mission in your own words"
-              >
-                <span aria-hidden="true">✦</span> Ask the AI guide
-              </button>
               {screen.tickets.length > 1 && (
                 <button
                   type="button"
@@ -515,8 +528,7 @@ export default function App({ config }: { config: AppConfig }) {
       </>)}
 
       <AssistantPanel
-        open={guideOpen}
-        onClose={() => setGuideOpen(false)}
+        open={guideOpen} onOpenChange={setGuideOpen}
         ctx={{ catalog: sites, stations: presets }}
         customIsSample={resolveSource(config, 'custom', search) === 'sample'}
         onOpen={openFromGuide}
@@ -533,6 +545,7 @@ export default function App({ config }: { config: AppConfig }) {
         onOpenRegion={openRegionForGuide}
         regionResult={regionResult}
       />
+      </Activity>
     </div>
   )
 }

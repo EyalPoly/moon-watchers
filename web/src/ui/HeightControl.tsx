@@ -1,3 +1,4 @@
+import { FieldHelp } from './FieldHelp'
 import { useState } from 'react'
 import { HEIGHT_RANGE } from '../api/heights'
 
@@ -39,6 +40,7 @@ export function HeightControl({ label, value, onChange }: HeightControlProps) {
     <div className="control height-control">
       <span>
         {label} <span className="num">{shown.toFixed(2)} m</span>
+        <FieldHelp field={`${label.toLowerCase()} height`}>{label === 'Panel' ? 'Height of the solar panel above local ground. This sets the horizon used for sunlight.' : 'Height of the antenna above local ground. This sets the horizon used for Earth contact.'} Enter 1–10 m.</FieldHelp>
       </span>
       <span className="control-row">
         <input

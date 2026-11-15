@@ -1,4 +1,10 @@
 import Feature from 'ol/Feature'
+import { asArray } from 'ol/color'
+import type { Meta } from '../api/types'
+import { isCustom, type ScoreSettings } from '../api/scoreSettings'
+import { AreaGradeLegend } from '../ui/MapLegend'
+import { ScoreSettingsPanel } from '../ui/ScoreSettingsPanel'
+import { gradeColor, type AppliedRegion } from './RegionOverlay'
 import type MapBrowserEvent from 'ol/MapBrowserEvent'
 import { LineString, Point, Polygon } from 'ol/geom'
 import { DoubleClickZoom } from 'ol/interaction'
@@ -8,14 +14,17 @@ import VectorSource from 'ol/source/Vector'
 import { Circle as CircleStyle, Fill, Stroke, Style, Text } from 'ol/style'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { rankAreas, type RankedArea } from '../api/areas'
-import { formatLatLon, pointId } from '../api/points'
+import { formatLatLon, pointId, type LatLon } from '../api/points'
 import { useMap } from './PolarMap'
 
 export interface AreaToolProps {
   /** Radius of the custom-point area in map meters: grid points stay inside it. */
   areaRadiusM: number
   /** Opens one ticket per chosen area. */
-  onOpen: (points: { site: string; name: string }[]) => void
+  spec: Meta['score']
+  settings: ScoreSettings
+  onSettingsApply: (settings: ScoreSettings) => void
+  onOpen: (points: { site: string; name: string }[], region: AppliedRegion) => void
   onClose: () => void
   /** Name prefix for the new tickets, e.g. the source ticket's name. */
   namePrefix: string
@@ -25,15 +34,13 @@ export interface AreaToolProps {
   onRanked?: (areas: RankedArea[], spacingKm: number) => void
 }
 
+const SPACINGS_KM = [2, 5, 10]
+
+/** Grid, outline and best areas on one ticket's map (spec §9.3 freehand select, as a grid polygon). */
 /** After the last click, how long to wait before finding areas by itself. */
 export const AUTO_FIND_MS = 1200
 
-const SPACINGS_KM = [2, 5, 10]
-
-const gradeColor = (g: number) => (g >= 70 ? '#4ade80' : g >= 40 ? '#fbbf24' : '#f87171')
-
-/** Grid, outline and best areas on one ticket's map (spec §9.3 freehand select, as a grid polygon). */
-export function AreaTool({ areaRadiusM, onOpen, onClose, namePrefix, autoFind = false, onRanked }: AreaToolProps) {
+export function AreaTool({ areaRadiusM, onOpen, onClose, namePrefix, spec, settings, onSettingsApply, autoFind = false, onRanked }: AreaToolProps) {
   const map = useMap()
   const [spacingKm, setSpacingKm] = useState(5)
   const [vertices, setVertices] = useState<[number, number][]>([])
@@ -41,6 +48,9 @@ export function AreaTool({ areaRadiusM, onOpen, onClose, namePrefix, autoFind = 
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [busy, setBusy] = useState(false)
   const [outside, setOutside] = useState(false)
+
+  const [draftSettings, setDraftSettings] = useState<ScoreSettings | null>(null)
+  const [outline, setOutline] = useState<LatLon[]>([])
 
   const layers = useMemo(
     () => ({
@@ -98,6 +108,7 @@ export function AreaTool({ areaRadiusM, onOpen, onClose, namePrefix, autoFind = 
   useEffect(() => {
     if (!map) return
     const onClick = (e: MapBrowserEvent<PointerEvent>) => {
+      if (busy || draftSettings) return
       const s = spacingKm * 1000
       const x = Math.round(e.coordinate[0] / s) * s
       const y = Math.round(e.coordinate[1] / s) * s
@@ -112,7 +123,7 @@ export function AreaTool({ areaRadiusM, onOpen, onClose, namePrefix, autoFind = 
     }
     map.on('click', onClick)
     return () => map.un('click', onClick)
-  }, [map, spacingKm, areaRadiusM])
+  }, [map, spacingKm, areaRadiusM, busy, draftSettings])
 
   // The outline: its points, and the polygon once there are three.
   useEffect(() => {
@@ -154,7 +165,7 @@ export function AreaTool({ areaRadiusM, onOpen, onClose, namePrefix, autoFind = 
       const chosen = selected.has(a.id)
       f.setStyle(
         new Style({
-          fill: new Fill({ color: `${gradeColor(a.grade)}${chosen ? '88' : '44'}` }),
+          fill: new Fill({ color: [...asArray(gradeColor(a.grade)).slice(0, 3), chosen ? 0.58 : 0.32] }),
           stroke: new Stroke({ color: chosen ? '#ffffff' : gradeColor(a.grade), width: chosen ? 2.5 : 1 }),
           text: new Text({ text: `#${a.rank}`, fill: new Fill({ color: '#fff' }), stroke: new Stroke({ color: '#000', width: 3 }), font: 'bold 11px system-ui' }),
         }),
@@ -170,6 +181,7 @@ export function AreaTool({ areaRadiusM, onOpen, onClose, namePrefix, autoFind = 
       const [lon, lat] = transform(v, projection, 'EPSG:4326')
       return { lat, lon }
     })
+    setOutline(polygon)
     setBusy(true)
     try {
       const ranked = await rankAreas({ polygon, spacingKm })
@@ -203,43 +215,59 @@ export function AreaTool({ areaRadiusM, onOpen, onClose, namePrefix, autoFind = 
 
   const chosen = (areas ?? []).filter((a) => selected.has(a.id))
 
+  if (draftSettings) return (
+    <form className="area-tool region-settings" role="dialog" aria-label="Grading Weights" onSubmit={(e) => {
+      e.preventDefault()
+      if (e.currentTarget.querySelector('[aria-invalid="true"], [role="alert"]')) return
+      onSettingsApply(draftSettings)
+      setDraftSettings(null)
+    }}>
+      <div className="area-tool-head"><strong>Grading Weights</strong>
+        <button type="button" className="link-button" onClick={() => setDraftSettings(null)}>Cancel</button></div>
+      <ScoreSettingsPanel spec={spec} value={draftSettings} onChange={setDraftSettings} onCommit={setDraftSettings} />
+      <button type="submit" className="primary settings-apply">Apply</button>
+    </form>
+  )
+
   return (
-    <div className="area-tool" role="dialog" aria-label="Select region">
+    <div className="area-tool" role="dialog" aria-label="Manual Selection">
       <div className="area-tool-head">
-        <strong>Select region</strong>
+        <strong>Manual Selection</strong>
         <button type="button" className="icon-plain" onClick={onClose} aria-label="Close area tool" title="Close">
           ✕
         </button>
       </div>
-      <label className="area-row">
-        Grid
-        <select
-          value={spacingKm}
-          onChange={(e) => {
-            setSpacingKm(Number(e.target.value))
-            setVertices([])
-            setAreas(null)
-          }}
-          aria-label="Grid spacing"
-        >
-          {SPACINGS_KM.map((km) => (
-            <option key={km} value={km}>
-              {km} km
-            </option>
-          ))}
-        </select>
-      </label>
       {autoFind && <p className="area-hint area-auto">The AI guide finds the best areas once the outline has 3 points.</p>}
-      <p className="area-hint">
-        Click grid points to outline the area ({vertices.length} {vertices.length === 1 ? 'point' : 'points'}).
+      <p className="region-instruction" aria-live="polite">
+        <strong>Select at least 3 different grid points</strong>
+        <span>{vertices.length} selected{vertices.length < 3 ? ` · ${3 - vertices.length} more needed` : ' · outline ready'}</span>
       </p>
       {outside && (
         <p className="field-error" role="status">
           That point is outside the custom-point area (inside the dashed circle, 84°S to the pole).
         </p>
       )}
-      <div className="area-row">
-        <button type="button" className="link-button" onClick={() => setVertices((v) => v.slice(0, -1))} disabled={vertices.length === 0}>
+      <div className="area-row region-drawing-actions">
+        <label className="area-row">
+          Grid
+          <select
+            disabled={busy}
+            value={spacingKm}
+            onChange={(e) => {
+              setSpacingKm(Number(e.target.value))
+              setVertices([])
+              setAreas(null)
+            }}
+            aria-label="Grid spacing"
+          >
+            {SPACINGS_KM.map((km) => (
+              <option key={km} value={km}>
+                {km} km
+              </option>
+            ))}
+          </select>
+        </label>
+        <button type="button" className="link-button" onClick={() => { setVertices((v) => v.slice(0, -1)); setAreas(null); setSelected(new Set()) }} disabled={busy || vertices.length === 0}>
           Undo point
         </button>
         <button
@@ -249,13 +277,23 @@ export function AreaTool({ areaRadiusM, onOpen, onClose, namePrefix, autoFind = 
             setVertices([])
             setAreas(null)
           }}
-          disabled={vertices.length === 0}
+          disabled={busy || vertices.length === 0}
         >
           Clear
         </button>
-        <button type="button" className="primary area-find" onClick={() => void findAreas()} disabled={vertices.length < 3 || busy}>
-          {busy ? 'Finding…' : 'Find best areas'}
+        <button type="button" className="secondary region-score" disabled={busy} onClick={() => setDraftSettings(settings)}>
+          {isCustom(settings) ? 'Grading Weights (custom)' : 'Grading Weights'}
         </button>
+        {areas?.length ? (
+          <button type="button" className="primary area-find" disabled={chosen.length === 0}
+            onClick={() => onOpen(chosen.map((a) => ({
+              site: pointId(a.center.lat, a.center.lon), name: `${namePrefix} · area #${a.rank}`,
+            })), { outline, areas: chosen })}>Apply</button>
+        ) : (
+          <button type="button" className="primary area-find" onClick={() => void findAreas()} disabled={vertices.length < 3 || busy}>
+            {busy ? 'Finding…' : 'Choose On Map'}
+          </button>
+        )}
       </div>
 
       {areas && (
@@ -263,36 +301,24 @@ export function AreaTool({ areaRadiusM, onOpen, onClose, namePrefix, autoFind = 
           {areas.length === 0 ? (
             <p className="area-hint">No grid cell fits inside this outline. Try a larger outline or a finer grid.</p>
           ) : (
-            <ol className="area-list" aria-label="Best areas">
-              {areas.map((a) => (
-                <li key={a.id}>
-                  <label>
-                    <input type="checkbox" checked={selected.has(a.id)} onChange={() => toggle(a.id)} />
-                    <span className="area-rank">#{a.rank}</span>
-                    <span className="num" style={{ color: gradeColor(a.grade) }}>
-                      {a.grade.toFixed(0)}
-                    </span>
-                    <span className="num muted">{formatLatLon(a.center.lat, a.center.lon)}</span>
-                  </label>
-                </li>
-              ))}
-            </ol>
+            <>
+              <AreaGradeLegend />
+              <ol className="area-list" aria-label="Best areas">
+                {areas.map((a) => (
+                  <li key={a.id}>
+                    <label>
+                      <input type="checkbox" checked={selected.has(a.id)} onChange={() => toggle(a.id)} />
+                      <span className="area-rank">#{a.rank}</span>
+                      <span className="num" style={{ color: gradeColor(a.grade) }}>
+                        {a.grade.toFixed(0)}
+                      </span>
+                      <span className="num muted">{formatLatLon(a.center.lat, a.center.lon)}</span>
+                    </label>
+                  </li>
+                ))}
+              </ol>
+            </>
           )}
-          <button
-            type="button"
-            className="primary area-open"
-            disabled={chosen.length === 0}
-            onClick={() =>
-              onOpen(
-                chosen.map((a) => ({
-                  site: pointId(a.center.lat, a.center.lon),
-                  name: `${namePrefix} · area #${a.rank}`,
-                })),
-              )
-            }
-          >
-            Open {chosen.length} {chosen.length === 1 ? 'site' : 'sites'}
-          </button>
           <p className="area-hint">Sample grades from a stand-in function, best first.</p>
         </>
       )}

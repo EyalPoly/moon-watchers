@@ -5,7 +5,8 @@ import { platformModifierKeyOnly } from 'ol/events/condition'
 import { MouseWheelZoom, defaults as defaultInteractions } from 'ol/interaction'
 import OlMap from 'ol/Map'
 import View from 'ol/View'
-import { Circle as CircleGeometry } from 'ol/geom'
+import { Circle as CircleGeometry, LineString } from 'ol/geom'
+import { transform } from 'ol/proj'
 import TileLayer from 'ol/layer/Tile'
 import VectorLayer from 'ol/layer/Vector'
 import ImageTile from 'ol/ImageTile'
@@ -21,6 +22,8 @@ type TileLoader = (tile: { setState(state: number): void }) => void
 export interface PolarMapProps {
   region: Region
   showRelief?: boolean
+  showBoundary?: boolean
+  themed?: boolean
   onBasemapError?: () => void
   tileLoader?: TileLoader
   onMapReady?: (map: OlMap) => void
@@ -39,6 +42,8 @@ export function useMap(): OlMap | null {
 export function PolarMap({
   region,
   showRelief = true,
+  showBoundary = true,
+  themed = false,
   onBasemapError,
   tileLoader,
   onMapReady,
@@ -103,9 +108,34 @@ export function PolarMap({
         setBasemapFailed(true)
         onErrorRef.current?.()
       })
-      reliefRef.current = new TileLayer({ source })
+      reliefRef.current = new TileLayer({ source, className: 'ol-layer relief-tiles' })
       layers.push(reliefRef.current)
     }
+
+    // In this south-polar stereographic projection, parallels are concentric circles
+    // and meridians are straight rays. Extend the rays to the corners of the map.
+    const [west, south, east, north] = region.extent_m
+    const radius = Math.hypot(Math.max(Math.abs(west), Math.abs(east)), Math.max(Math.abs(south), Math.abs(north)))
+    const [, outerLatitude] = transform([0, radius], projection, 'EPSG:4326')
+    const grid: Feature[] = []
+    for (let lon = 0; lon < 360; lon += 5) {
+      const end = transform([lon, outerLatitude], 'EPSG:4326', projection)
+      grid.push(new Feature(new LineString([[0, 0], end])))
+    }
+    for (let lat = -85; lat <= outerLatitude; lat += 5) {
+      grid.push(new Feature(new CircleGeometry([0, 0], parallelRadiusM(region, lat))))
+    }
+    const graticule = new VectorLayer({
+      className: 'ol-layer lunar-graticule',
+      extent: region.extent_m,
+      source: new VectorSource({ features: grid, wrapX: false }),
+      style: [
+        new Style({ stroke: new Stroke({ color: 'rgba(14, 24, 24, .36)', width: 1.8 }) }),
+        new Style({ stroke: new Stroke({ color: 'rgba(227, 238, 229, .50)', width: .75 }) }),
+      ],
+    })
+    graticule.set('name', 'lunar-graticule')
+    layers.push(graticule)
 
     const circle = new VectorLayer({
       source: new VectorSource({
@@ -146,9 +176,13 @@ export function PolarMap({
     reliefRef.current?.setVisible(showRelief)
   }, [region, showRelief])
 
+  useEffect(() => {
+    map?.getLayers().getArray().find((layer) => layer.get('name') === 'custom-area-circle')?.setVisible(showBoundary)
+  }, [map, showBoundary])
+
   return (
     <div
-      className="polar-map"
+      className={themed ? 'polar-map map-thematic' : 'polar-map'}
       style={{ position: 'relative', width: '100%', height: '100%', background: '#0b0d10' }}
       onWheel={(e) => {
         if (wheelNeedsModifier && !e.ctrlKey && !e.metaKey) setWheelHint(true)

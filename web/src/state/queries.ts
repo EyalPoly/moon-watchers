@@ -60,13 +60,14 @@ export function useSummary(config: AppConfig, search: string, scenario: Scenario
 }
 
 /** Every month the mission touches, stitched into one series (spec §9.2 "Reading the series"). */
-export function useMissionSeries(config: AppConfig, search: string, scenario: Scenario | null) {
+export function useMissionSeries(config: AppConfig, search: string, scenario: Scenario | null, onlyMonth?: string) {
   const mode = resolveSource(config, 'series', search)
   const months = useMemo(() => {
     if (scenario === null) return []
+    if (onlyMonth) return [onlyMonth]
     const t0 = parseIsoMinute(scenario.t0)
     return t0 === null ? [] : monthsBetween(t0, t0 + scenario.days * DAY_MS)
-  }, [scenario])
+  }, [scenario, onlyMonth])
   return useQueries({
     queries: months.map((month) => ({
       // The month's series depends on the site, heights and station only, so it stays cached

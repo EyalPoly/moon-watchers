@@ -45,7 +45,7 @@ test('clicking a track moves the viewed time, shared with the South pole screen'
   // Half of a 29.53-day axis, give or take a pixel.
   expect(Math.abs(tau - 29.53 * 1440 / 2)).toBeLessThan(200)
 
-  await page.getByRole('button', { name: 'South pole' }).click()
+  await page.getByRole('button', { name: 'Site Calculator' }).click()
   await expect(page).toHaveURL(new RegExp(`tau=${tau}`))
   await expect(page.getByRole('heading', { name: 'Site calculator' })).toBeVisible()
 })

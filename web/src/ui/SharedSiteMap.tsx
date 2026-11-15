@@ -1,5 +1,9 @@
 import type { RankedArea } from '../api/areas'
-import type { Region, Site } from '../api/types'
+import type { AppConfig } from '../api/config'
+import type { ScoreSettings } from '../api/scoreSettings'
+import { RegionOverlay, type AppliedRegion } from '../map/RegionOverlay'
+import { MapLegend } from './MapLegend'
+import type { Meta, Region, Site } from '../api/types'
 import { AreaTool } from '../map/AreaTool'
 import { CenterOn } from '../map/CenterOn'
 import { PlacePoint } from '../map/PlacePoint'
@@ -7,7 +11,7 @@ import { PolarMap } from '../map/PolarMap'
 import { parallelRadiusM } from '../map/projection'
 import { SitePins } from '../map/SitePins'
 import type { Ticket } from '../state/tickets'
-import type { MapLayer } from './LayersBox'
+import type { MapLayer, PolygonLayer } from './LayersBox'
 import { pointLetter, siteDisplayName } from './points'
 
 interface Props {
@@ -16,17 +20,26 @@ interface Props {
   sites: readonly Site[]
   region: Region
   layer: MapLayer
+  polygonLayer: PolygonLayer
+  appliedRegion: AppliedRegion | null
+  config: AppConfig
+  search: string
+  scoreSpec: Meta['score']
+  settings: ScoreSettings
+  onSettingsApply: (settings: ScoreSettings) => void
   selecting: boolean
+  atLimit: boolean
   onFocus: (index: number) => void
   onPlace: (id: string) => void
   onRegionClose: () => void
-  onOpenAreas: (points: { site: string; name: string }[]) => void
+  onOpenAreas: (points: { site: string; name: string }[], region: AppliedRegion) => void
   /** The AI guide opened the region tool: it finds areas by itself and reports them. */
   guideRegion?: boolean
   onRanked?: (areas: RankedArea[], spacingKm: number) => void
 }
 
-export function SharedSiteMap({ tickets, active, sites, region, layer, selecting, onFocus, onPlace, onRegionClose, onOpenAreas, guideRegion = false, onRanked }: Props) {
+export function SharedSiteMap({ tickets, active, sites, region, layer, polygonLayer, appliedRegion, config, search,
+  scoreSpec, settings, onSettingsApply, selecting, atLimit, onFocus, onPlace, onRegionClose, onOpenAreas, guideRegion = false, onRanked }: Props) {
   const ticket = tickets[active]
   const labels = new Map<string, string[]>()
   const indexes = new Map<string, number>()
@@ -50,21 +63,26 @@ export function SharedSiteMap({ tickets, active, sites, region, layer, selecting
 
   return (
     <section className="panel shared-map" aria-label="Landing sites map">
-      {(selecting || !ticket.site) && <p className="panel-hint">{selecting
+      <p className="panel-hint">{selecting
         ? 'Click grid points to outline a region.'
-        : `Click the map to place site ${letter}, or choose a catalog site in the calculator.`}</p>}
+        : atLimit
+          ? 'Site limit reached. Delete a site to add another.'
+          : 'Click the map to add a site.'}</p>
       <div className="panel-body">
-        <PolarMap region={region} showRelief={layer === 'Relief'}>
-          {layer !== 'Relief' && <p role="status" className="map-layer-status">{layer} map data is not available yet.</p>}
-          <SitePins sites={pins} selectedId={ticket.site} labels={labels} activeLabel={letter} onSelect={onSelectPin}
+        <PolarMap region={region} showBoundary={selecting || polygonLayer === 'Planning boundary'} themed={layer !== 'Relief'}>
+          {!selecting && <RegionOverlay selection={appliedRegion} layer={polygonLayer} />}
+          <MapLegend layer={layer} overlay={selecting ? 'None' : polygonLayer} hasRegion={!!appliedRegion}
+            legendUrl={region.layers[0]?.legend_url} />
+          <SitePins layer={layer} config={config} search={search} ticket={ticket} sites={pins} selectedId={ticket.site} labels={labels} activeLabel={letter} onSelect={onSelectPin}
             onFocus={(l) => { if (!selecting) onFocus(indexes.get(l)!) }} />
           <CenterOn sites={targets} />
-          {!selecting && !ticket.site && <PlacePoint areaRadiusM={radius} onPlace={onPlace} />}
-          {selecting && <AreaTool areaRadiusM={radius} namePrefix={title} onClose={onRegionClose} onOpen={onOpenAreas} autoFind={guideRegion} onRanked={guideRegion ? onRanked : undefined} />}
+          {!selecting && <PlacePoint areaRadiusM={radius} onPlace={onPlace} />}
+          {selecting && <AreaTool areaRadiusM={radius} namePrefix={title} spec={scoreSpec} settings={settings} onSettingsApply={onSettingsApply} onClose={onRegionClose} onOpen={onOpenAreas}
+            autoFind={guideRegion} onRanked={guideRegion ? onRanked : undefined} />}
         </PolarMap>
       </div>
-      <div className="panel-foot"><span>{layer === 'Relief' ? 'LOLA south polar terrain' : layer}</span>
-        {layer === 'Relief' && <span className="mono">LRO / 240 m DEM</span>}</div>
+      <div className="panel-foot"><span>{layer === 'Relief' ? 'LOLA south polar terrain' : `${layer} · site markers`}</span>
+        <span className="mono">NASA Moon Trek / LOLA</span></div>
     </section>
   )
 }
