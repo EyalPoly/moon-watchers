@@ -6,13 +6,14 @@ import { describePlan, intentToPlan, type Plan, type PlanContext } from '../assi
 import { HEIGHT_RANGE } from '../api/heights'
 import { EMPTY_TICKET } from '../state/tickets'
 import { MISSION_RANGE } from '../state/urlState'
+import { GuideWindow } from './GuideWindow'
 
 // The AI guide: a panel on the right edge. The first time, the user adds their own Gemini
 // API key; after that they type a request and the guide opens the matching site cards.
 
 export interface AssistantPanelProps {
   open: boolean
-  onClose: () => void
+  onOpenChange: (open: boolean) => void
   ctx: PlanContext
   /** True while typed locations (custom points) use sample answers. */
   customIsSample: boolean
@@ -34,7 +35,7 @@ const EXAMPLES = [
 
 const KEY_PAGE = 'https://aistudio.google.com/apikey'
 
-export function AssistantPanel({ open, onClose, ctx, customIsSample, onOpen }: AssistantPanelProps) {
+export function AssistantPanel({ open, onOpenChange, ctx, customIsSample, onOpen }: AssistantPanelProps) {
   const [settings, setSettings] = useState<GuideSettings | null>(loadGuideSettings)
   const [setup, setSetup] = useState(false)
   const [messages, setMessages] = useState<Message[]>([])
@@ -43,15 +44,11 @@ export function AssistantPanel({ open, onClose, ctx, customIsSample, onOpen }: A
   const nextId = useRef(1)
   const abort = useRef<AbortController | null>(null)
   const logRef = useRef<HTMLDivElement>(null)
-  const inputRef = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => () => abort.current?.abort(), [])
   useEffect(() => {
     logRef.current?.scrollTo({ top: logRef.current.scrollHeight })
   }, [messages, pending])
-  useEffect(() => {
-    if (open && settings !== null && !setup) inputRef.current?.focus()
-  }, [open, settings, setup])
 
   const say = (from: Message['from'], text: string) =>
     setMessages((all) => [...all, { id: nextId.current++, from, text }])
@@ -95,25 +92,10 @@ export function AssistantPanel({ open, onClose, ctx, customIsSample, onOpen }: A
     }
   }
 
-  if (!open) return null
-
   const showSetup = settings === null || setup
   return (
-    <aside
-      className="guide"
-      aria-label="AI guide"
-      onKeyDown={(e) => {
-        if (e.key === 'Escape') onClose()
-      }}
-    >
-      <header className="guide-head">
-        <span className="guide-title"><span aria-hidden="true">✦</span> AI guide</span>
-        {settings !== null && !setup && (
-          <button type="button" className="link-button" onClick={() => setSetup(true)}>Key settings</button>
-        )}
-        <button type="button" className="guide-close" aria-label="Close the AI guide" onClick={() => onClose()}>×</button>
-      </header>
-
+    <GuideWindow open={open} setOpen={onOpenChange} settingsControl={!showSetup &&
+      <button type="button" className="link-button" onClick={() => setSetup(true)}>Key Settings</button>}>
       {showSetup ? (
         <KeySetup
           current={settings}
@@ -159,7 +141,7 @@ export function AssistantPanel({ open, onClose, ctx, customIsSample, onOpen }: A
             }}
           >
             <textarea
-              ref={inputRef}
+              autoFocus
               value={draft}
               rows={2}
               maxLength={1000}
@@ -178,7 +160,7 @@ export function AssistantPanel({ open, onClose, ctx, customIsSample, onOpen }: A
           <p className="guide-privacy muted">Your messages and the site list are sent to Google Gemini with your key.</p>
         </>
       )}
-    </aside>
+    </GuideWindow>
   )
 }
 

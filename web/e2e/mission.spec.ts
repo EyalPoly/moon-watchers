@@ -13,21 +13,21 @@ test('a point shows its status, live values, countdowns, verdict, and its ridge 
   await page.goto('/?site=sample_a')
   await expect(page.getByRole('heading', { name: /^Sample site A/ })).toBeVisible()
   const a = card(page, 'A')
-  for (const label of ['LIGHT', 'EARTH DTE', 'SLOPE', 'SUN ELEV.', 'EARTH ELEV.', 'LOCAL SLOPE']) {
+  for (const label of ['Light', 'Earth DTE', 'Slope', 'Sun elev.', 'Earth elev.', 'Local slope']) {
     await expect(a.getByText(label, { exact: true })).toBeVisible()
   }
   await expect(a.getByText('Gentle', { exact: true })).toBeVisible()
-  await page.getByRole('button', { name: 'Whole mission', exact: true }).click()
+  await page.locator('.score-details > summary').first().click()
   for (const chip of [/^Sun: \d+%/, /^Earth: \d+%/, /^Slope: 4\.2°/]) {
     await expect(page.getByLabel(chip)).toBeVisible()
   }
-  await page.getByRole('button', { name: 'Live conditions', exact: true }).click()
+  await expect(a.getByRole('button', { name: 'Play' })).toBeVisible()
   await expect(page.getByLabel('Live status')).toContainText(/Sun(set|rise) (in|not before)/)
   await expect(page.getByLabel('Live status')).toContainText(/Earth(set|rise) (in|not before)/)
 
-  await page.getByRole('button', { name: 'Ridge graph' }).click()
-  await expect(page.getByText('Local horizon', { exact: true })).toBeVisible()
-  await expect(page.getByText('FACING THE SUN')).toBeVisible()
+  await page.getByRole('button', { name: 'Ridge Graph' }).click()
+  await expect(page.getByText('Local Horizon', { exact: true })).toBeVisible()
+  await expect(page.getByText('SUN BEARING')).toBeVisible()
   await expect(page.getByRole('img', { name: /^Sky view at 2027-03-01T00:00Z/ })).toBeVisible()
   await expect(page).toHaveURL(/tk=sample_a[^&]*%7Eg/)
 })
@@ -35,14 +35,14 @@ test('a point shows its status, live values, countdowns, verdict, and its ridge 
 test('+29.5 d changes the landing only when the point is applied, and Back undoes it', async ({ page, context }) => {
   await stubTiles(context)
   await page.goto('/?site=sample_a')
-  await page.getByRole('button', { name: 'Edit input' }).click()
+  await page.getByRole('button', { name: 'Edit site A' }).click()
   await page.getByRole('button', { name: '+1 lunar day' }).click()
-  await expect(page.getByLabel('Landing date')).toHaveValue('2027-03-30')
+  await expect(page.getByLabel('Landing date', { exact: true })).toHaveValue('2027-03-30')
   await expect(page).not.toHaveURL(/2027-03-30/)
 
   await page.getByRole('button', { name: /Apply site A/ }).click()
   await expect(page).toHaveURL(/2027-03-30T12%3A40Z/)
-  await expect(page.getByRole('button', { name: 'Edit input' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Edit site A' })).toBeVisible()
   await page.goBack()
   await expect(page).not.toHaveURL(/2027-03-30/)
 })
@@ -67,7 +67,7 @@ test('a broken mission link opens on defaults without an error screen', async ({
   await page.goto('/?tk=sample_b~2027-02-30T00:00Z~-4~99&tau=abc&open=9')
   await expect(page.getByRole('heading', { name: /^Sample site B/ })).toBeVisible()
   await expect(page.getByText('Day 0, 00:00')).toBeVisible()
-  await expect(page.getByText(/error|unavailable/i)).toHaveCount(0)
+  await expect(page.getByText(/error|unavailable/i).filter({ visible: true })).toHaveCount(0)
 })
 
 test('new points open beside the first, compare side by side, and delete', async ({ page, context }) => {
@@ -88,7 +88,7 @@ test('new points open beside the first, compare side by side, and delete', async
   await b.getByRole('button', { name: /Apply site B/ }).click()
   await expect(page.getByRole('heading', { name: /^Sample site B/ })).toBeVisible()
   // Applying B leaves A's results visible for comparison.
-  await expect(card(page, 'A').getByText('LIGHT', { exact: true })).toBeVisible()
+  await expect(card(page, 'A').getByText('Light', { exact: true })).toBeVisible()
 
   await page.getByRole('button', { name: /Compare timelines/ }).click()
   await expect(page).toHaveURL(/view=compare/)
@@ -106,7 +106,7 @@ test('new points open beside the first, compare side by side, and delete', async
 test('the open card shows the illustrative score box and the warnings strip', async ({ page, context }) => {
   await stubTiles(context)
   await page.goto('/?site=sample_a')
-  await page.getByRole('button', { name: 'Whole mission', exact: true }).click()
+  await page.locator('.score-details > summary').first().click()
   const card = page.getByRole('region', { name: /^Site A(:|$)/ })
   await expect(card.getByText(/Illustrative weights and thresholds/)).toBeVisible()
   await expect(card.getByText(/predicted rather than observed/)).toBeVisible()

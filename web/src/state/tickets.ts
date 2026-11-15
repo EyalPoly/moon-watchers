@@ -17,7 +17,7 @@ import { z } from 'zod'
 import { HEIGHT_RANGE, roundCm } from '../api/heights'
 import { HOUSTON, sameStation, stationFromUrl, stationQuery, stationToUrl } from '../api/stations'
 import type { StationPoint } from '../api/types'
-import { parseIsoMinute } from '../time'
+import { LUNAR_DAY_MS, parseIsoMinute, STEP_MS } from '../time'
 import { MISSION_DEFAULTS, MISSION_RANGE, parseMission } from './urlState'
 
 /** No limit in the app; this only stops a hostile link from creating thousands. */
@@ -52,6 +52,8 @@ export interface Screen2State {
   open: number
   /** Mission elapsed time being viewed, in minutes, shared by every ticket (spec §9.2). */
   tau: number
+  /** A graph-only observation in whole lunar days relative to each site's landing. */
+  graphDay?: number
   compare: boolean
 }
 
@@ -145,6 +147,17 @@ export function maxTau(tickets: readonly Ticket[]): number {
   return Math.floor((longest * 1440) / 10) * 10
 }
 
+/** Monthly position data covers January 2026 through December 2031. */
+export function graphClock(ticket: Ticket, tau: number, graphDay?: number) {
+  const landing = parseIsoMinute(ticket.t0)!
+  const minDay = Math.ceil((Date.UTC(2026, 0, 1) - landing) / LUNAR_DAY_MS)
+  const maxDay = Math.floor((Date.UTC(2032, 0, 1) - STEP_MS - landing) / LUNAR_DAY_MS)
+  const elapsed = graphDay === undefined
+    ? Math.min(tau, maxTau([ticket])) * 60_000
+    : Math.max(minDay, Math.min(maxDay, graphDay)) * LUNAR_DAY_MS
+  return { minDay, maxDay, day: elapsed / LUNAR_DAY_MS, nowMs: landing + elapsed }
+}
+
 /** Tickets that can be compared: shown, with a site. */
 export function comparableCount(tickets: readonly Ticket[]): number {
   return tickets.filter((t) => t.shown && t.site !== null).length
@@ -171,7 +184,9 @@ export function parseScreen2(search: string): Screen2State {
   const open = Number(params.get('open') ?? 0)
   const tauRaw = Number(params.get('tau') ?? 0)
   const tau = Number.isFinite(tauRaw) && tauRaw > 0 ? Math.min(maxTau(tickets), Math.round(tauRaw / 10) * 10) : 0
+  const graphDay = params.has('graphDay') ? Number(params.get('graphDay')) : undefined
   return {
+    ...(Number.isSafeInteger(graphDay) ? { graphDay } : {}),
     tickets,
     open: Number.isInteger(open) && open >= -1 && open < tickets.length ? open : 0,
     tau,
@@ -179,7 +194,7 @@ export function parseScreen2(search: string): Screen2State {
   }
 }
 
-const OWN_KEYS = ['tk', 'open', 'tau', 'view', 'site', 't0', 'days', 'mast', 'panel', 'antenna']
+const OWN_KEYS = ['tk', 'open', 'tau', 'graphDay', 'view', 'site', 't0', 'days', 'mast', 'panel', 'antenna']
 
 /** Writes the state in a fixed order and leaves unrelated parameters (like data=sample) alone. */
 export function serializeScreen2(state: Screen2State, base = ''): string {
@@ -190,6 +205,7 @@ export function serializeScreen2(state: Screen2State, base = ''): string {
   if (!blank) for (const t of state.tickets) params.append('tk', ticketToUrl(t))
   if (state.open !== 0) params.set('open', String(state.open))
   if (state.tau !== 0) params.set('tau', String(state.tau))
+  if (state.graphDay !== undefined) params.set('graphDay', String(state.graphDay))
   if (state.compare) params.set('view', 'compare')
   const text = params.toString()
   return text === '' ? '' : `?${text}`
@@ -215,7 +231,7 @@ export function removeTicket(s: Screen2State, i: number): Screen2State {
   if (tickets.length === 0) return { tickets: [EMPTY_TICKET], open: 0, tau: 0, compare: false }
   const open = s.open > i ? s.open - 1 : Math.min(s.open, tickets.length - 1)
   const compare = s.compare && comparableCount(tickets) >= 2
-  return { tickets, open, tau: Math.min(s.tau, maxTau(tickets)), compare }
+  return { ...s, tickets, open, tau: Math.min(s.tau, maxTau(tickets)), compare }
 }
 
 export function showAll(s: Screen2State, shown: boolean): Screen2State {

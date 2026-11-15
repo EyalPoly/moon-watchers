@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 360" width="760" height="360">
+  <rect width="760" height="360" fill="white"/>
+  <text x="20" y="28" font-family="Arial" font-size="20" font-weight="bold">Earth elevation geometry</text>
+  <text x="20" y="50" font-family="Arial" font-size="12" fill="#555">The two small inclination angles that set the vertical Earth-elevation envelope</text>
+
+  <line x1="50" y1="250" x2="720" y2="250" stroke="#808080" stroke-width="1.5" stroke-dasharray="7 5"/>
+  <text x="718" y="270" font-family="Arial" font-size="12" text-anchor="end">Ecliptic plane</text>
+
+  <line x1="60" y1="267" x2="705" y2="107" stroke="#398ed0" stroke-width="2.5"/>
+  <text x="190" y="165" font-family="Arial" font-size="12" fill="#398ed0" transform="rotate(-14 190 165)">Lunar orbital plane</text>
+
+  <circle cx="150" cy="250" r="32" fill="#398ed0"/>
+  <text x="150" y="298" font-family="Arial" font-size="13" text-anchor="middle">Earth</text>
+
+  <line x1="510" y1="45" x2="510" y2="305" stroke="#8a8a8a" stroke-width="1.3" stroke-dasharray="6 4"/>
+  <text x="518" y="60" font-family="Arial" font-size="12" fill="#666">Ecliptic normal</text>
+
+  <circle cx="510" cy="165" r="28" fill="#b8b8b8" stroke="#8e8e8e"/>
+  <text x="560" y="170" font-family="Arial" font-size="13">Moon</text>
+
+  <line x1="487" y1="185" x2="533" y2="145" stroke="#9b73d0" stroke-width="2.8"/>
+  <text x="548" y="143" font-family="Arial" font-size="12" fill="#9b73d0">Moon’s spin axis</text>
+
+  <path d="M460 250 A72 72 0 0 0 457.5 218" fill="none" stroke="#398ed0" stroke-width="2"/>
+  <text x="438" y="228" font-family="Arial" font-size="13" fill="#398ed0">5.14°</text>
+
+  <path d="M510 98 A68 68 0 0 1 522 99.3" fill="none" stroke="#9b73d0" stroke-width="2"/>
+  <text x="530" y="102" font-family="Arial" font-size="13" fill="#9b73d0">1.54°</text>
+
+  <line x1="482" y1="160" x2="538" y2="160" stroke="#777" stroke-width="1.2"/>
+  <text x="540" y="156" font-family="Arial" font-size="11" fill="#666">lunar equator reference</text>
+
+  <text x="20" y="335" font-family="Arial" font-size="13">Approximate vertical envelope: 5.14° + 1.54° = 6.68°</text>
+</svg>

@@ -1,14 +1,11 @@
-import { useState } from 'react'
-import { isCustom, type ScoreSettings } from '../api/scoreSettings'
-import type { Meta } from '../api/types'
 import { SampleBanner } from './SampleBanner'
-import { ScoreSettingsPanel } from './ScoreSettingsPanel'
+import type { ScreenName } from '../globe/navigation'
 
 // Top strip (UI design, Moon_Watchers_UI.pdf): logo and team line on the left, screen
 // tabs on the right with a green underline on the active one.
 const TABS = [
-  { id: 'orbit', label: 'Orbit', ready: false },
-  { id: 'south_pole', label: 'South pole', ready: true },
+  { id: 'orbit', label: 'Orbit', ready: true },
+  { id: 'south_pole', label: 'Site Calculator', ready: true },
   { id: 'surface', label: 'Surface', ready: false },
   { id: 'timelines', label: 'Timelines', ready: false },
 ] as const
@@ -22,17 +19,11 @@ function Logo() {
   )
 }
 
-export interface TopBarProps {
+export function TopBar({ sample, current, onScreen }: {
   sample: boolean
-  /** Undefined until the server's score description arrives. */
-  scoreSpec: Meta['score'] | undefined
-  settings: ScoreSettings
-  onSettingsChange: (s: ScoreSettings) => void
-  onSettingsCommit: (s: ScoreSettings) => void
-}
-
-export function TopBar({ sample, scoreSpec, settings, onSettingsChange, onSettingsCommit }: TopBarProps) {
-  const [open, setOpen] = useState(false)
+  current: ScreenName
+  onScreen: (next: ScreenName) => void
+}) {
   return (
     <header className="topbar">
       <div className="brand">
@@ -48,8 +39,9 @@ export function TopBar({ sample, scoreSpec, settings, onSettingsChange, onSettin
           <button
             key={tab.id}
             type="button"
-            className={tab.id === 'south_pole' ? 'tab tab-active' : 'tab'}
-            aria-current={tab.id === 'south_pole' ? 'page' : undefined}
+            className={tab.id === current ? 'tab tab-active' : 'tab'}
+            aria-current={tab.id === current ? 'page' : undefined}
+            onClick={tab.ready ? () => onScreen(tab.id) : undefined}
             disabled={!tab.ready}
             title={tab.ready ? undefined : `${tab.label}: coming soon`}
           >
@@ -57,34 +49,6 @@ export function TopBar({ sample, scoreSpec, settings, onSettingsChange, onSettin
           </button>
         ))}
       </nav>
-      <div className="settings-anchor">
-        <button
-          type="button"
-          className="secondary"
-          aria-expanded={open && scoreSpec !== undefined}
-          aria-controls="score-settings"
-          disabled={scoreSpec === undefined}
-          onClick={() => setOpen((o) => !o)}
-        >
-          {isCustom(settings) ? 'Score settings (custom)' : 'Score settings'}
-        </button>
-        {open && scoreSpec && (
-          <section id="score-settings" className="settings-panel" role="dialog" aria-label="Score settings">
-            <div className="settings-panel-head">
-              <strong>Score settings</strong>
-              <button type="button" className="link-button" onClick={() => setOpen(false)}>
-                Close
-              </button>
-            </div>
-            <ScoreSettingsPanel
-              spec={scoreSpec}
-              value={settings}
-              onChange={onSettingsChange}
-              onCommit={onSettingsCommit}
-            />
-          </section>
-        )}
-      </div>
     </header>
   )
 }

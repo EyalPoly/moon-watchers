@@ -9,7 +9,7 @@ const SITES = ['sample_a', 'sample_b', 'sample_c']
 const many = (n: number) => '/?' + Array.from({ length: n }, (_, i) => `tk=${SITES[i % 3]}`).join('&')
 const graphs = (page: Page) => page.getByRole('region', { name: /^Site [A-Z]+ graph$/ })
 const key = (page: Page) => page.locator('.sky-key > summary')
-const edit = (page: Page) => page.getByRole('button', { name: 'Edit input' }).click()
+const edit = (page: Page) => page.getByRole('button', { name: 'Edit site A' }).click()
 const picker = (page: Page) => page.locator('.station-menu > summary')
 
 test('all sites share one map, and additional sites stay reachable in pages of three', async ({ page, context }) => {
@@ -20,7 +20,7 @@ test('all sites share one map, and additional sites stay reachable in pages of t
   await page.getByRole('button', { name: '+ Add site' }).click()
   await expect(page.getByRole('region', { name: 'Site F', exact: true })).toBeVisible()
   await page.getByRole('button', { name: 'Previous' }).click()
-  await page.getByRole('button', { name: 'Ridge graph' }).click()
+  await page.getByRole('button', { name: 'Ridge Graph' }).click()
   await expect(graphs(page)).toHaveCount(3)
   await page.getByRole('button', { name: 'Expand graph B' }).click()
   await expect(graphs(page)).toHaveCount(1)
@@ -32,10 +32,14 @@ test('all sites share one map, and additional sites stay reachable in pages of t
 test('the user picks which points show in the explorer', async ({ page, context }) => {
   await stubTiles(context)
   await page.goto(many(3))
+  await expect(page.getByRole('button', { name: 'Hide all', exact: true })).toHaveCount(0)
+  await expect(page.getByRole('checkbox', { name: 'Show site B in the explorer' })).toHaveCount(0)
+  await page.locator('.site-visibility > summary').click()
   await page.getByRole('checkbox', { name: 'Show site B in the explorer' }).uncheck()
   await expect(page.getByRole('button', { name: 'Focus site B' })).toHaveCount(0)
   await expect(page).toHaveURL(/sample_b[^&]*%7Eh/)
-  await page.getByRole('button', { name: 'Hide all' }).click()
+  // Older shared links can still open with all sites hidden.
+  await page.goto('/?tk=sample_a~2027-03-01T00:00Z~30~2~3~h&tk=sample_b~2027-03-01T00:00Z~30~2~3~h&tk=sample_c~2027-03-01T00:00Z~30~2~3~h')
   await expect(page.getByText('No sites are shown in the explorer.')).toBeVisible()
   await page.getByRole('button', { name: 'Show all sites' }).click()
   await expect(page.getByRole('button', { name: /^Focus site/ })).toHaveCount(3)
@@ -44,7 +48,7 @@ test('the user picks which points show in the explorer', async ({ page, context 
 test('each point gets a rank from the ranking function, and the best has green side lines', async ({ page, context }) => {
   await stubTiles(context)
   await page.goto(many(3))
-  await expect(page.getByLabel(/^Rank \d of 3, grade \d+$/)).toHaveCount(3)
+  await expect(page.getByLabel(/^Rank \d of 3$/)).toHaveCount(3)
   const best = page.locator('.point.point-best')
   await expect(best).toHaveCount(1)
   await expect(best.getByLabel(/^Rank 1 of 3/)).toBeVisible()
@@ -52,8 +56,8 @@ test('each point gets a rank from the ranking function, and the best has green s
   await expect(best).toHaveCSS('border-left-color', 'rgb(95, 212, 154)')
   await expect(page.getByText(/Ranking updated \d\d:\d\d:\d\d/)).toBeVisible()
 
-  await page.getByRole('button', { name: 'Sort by rank' }).click()
-  await expect(page.locator('.point').first().getByLabel(/^Rank 1 of 3/)).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Sort by rank' })).toHaveCount(0)
+  await expect(page.locator('.site-rating strong').first()).toHaveText(/^\d+$/)
 })
 
 test('a custom Earth station by lat/lon shows on the ridge graph once applied', async ({ page, context }) => {
@@ -111,31 +115,67 @@ test('panel and antenna heights are typed in centimetres and show a second skyli
   await expect(page.locator('.sky-terrain-edge-antenna')).toHaveCount(0)
 })
 
-test('the ridge graph runs from north through south back to north', async ({ page, context }) => {
+test('the ridge graph centres north, moves the selected site and shares the lunar-day time with the card', async ({ page, context }) => {
   await stubTiles(context)
-  await page.goto('/?tk=sample_a~2027-03-01T00:00Z~29.53~2~3~g')
+  await page.goto('/?tk=sample_a~2027-03-01T00:00Z~90~2~3~g')
   const degrees = page.locator('.sky-view .sky-degrees')
-  const compass = page.locator('.sky-view .sky-compass')
-  await expect(degrees.getByText('000°', { exact: true })).toHaveCount(2)
-  for (const label of ['090°', '180°', '270°']) {
-    await expect(degrees.getByText(label, { exact: true })).toHaveCount(1)
-  }
-  await expect(degrees.first()).toHaveText('000°')
-  await expect(degrees.last()).toHaveText('000°')
-  for (const label of ['E', 'S', 'W']) {
-    await expect(compass.getByText(label, { exact: true })).toBeAttached()
-  }
+  await expect(degrees).toHaveText(['180°', '225°', '270°', '315°', '000°', '045°', '090°', '135°', '180°'])
+  await expect(page.locator('.sky-compass').nth(4)).toHaveText('N')
+  await page.getByRole('button', { name: 'Move site west' }).click()
+  await expect(page).toHaveURL(/pt_s85500_e359900/)
+  await page.getByRole('button', { name: 'Move site north' }).click()
+  await expect(page).toHaveURL(/pt_s85400_e359900/)
+  await page.getByRole('slider', { name: 'Graph time in lunar days' }).press('ArrowRight')
+  await expect(page.getByRole('slider', { name: 'Mission time' })).toHaveValue('42520')
+  await expect(page.getByRole('img', { name: /^Sky view at 2027-03-30T12:40Z/ })).toBeVisible()
+  const time = page.getByRole('slider', { name: 'Graph time in lunar days' })
+  await time.press('Home')
+  await expect(page.getByRole('img', { name: /^Sky view at 2026-01/ })).toBeVisible()
+  await time.press('End')
+  await expect(page.getByRole('img', { name: /^Sky view at 2031-12/ })).toBeVisible()
+  await page.reload()
+  await expect(page.getByRole('img', { name: /^Sky view at 2031-12/ })).toBeVisible()
 })
 
+test('the coordinate info icon opens the illustrated guide without moving the site', async ({ page, context }) => {
+  await stubTiles(context)
+  await page.goto('/?tk=sample_a~2027-03-01T00:00Z~29.53~2~3~g&tk=sample_b~2027-03-01T00:00Z~29.53~2~3~g')
+  const site = page.getByRole('region', { name: 'Site B graph' })
+  const info = site.getByRole('button', { name: 'Help for moving site coordinates' })
+  const guide = page.getByRole('dialog', { name: 'Sun And Earth Elevation Angles At The Lunar South Pole' })
+  await expect(info).toBeVisible()
+  const url = page.url()
+  await info.click()
+  await expect(guide).toBeVisible()
+  await expect(guide.getByRole('table')).toHaveCount(2)
+  const diagrams = guide.getByRole('img')
+  await expect(diagrams).toHaveCount(3)
+  await expect.poll(() => diagrams.evaluateAll((images) =>
+    images.every((image) => image instanceof HTMLImageElement && image.naturalWidth > 0))).toBe(true)
+  await page.keyboard.press('Escape')
+  await expect(guide).toHaveCount(0)
+  await expect(info).toBeFocused()
+  await info.press('Enter')
+  await guide.getByRole('button', { name: 'Close coordinate help' }).click()
+  await expect(guide).toHaveCount(0)
+  await expect(info).toBeFocused()
+  await expect(page).toHaveURL(url)
+})
 
 test('station groups and layer radios keep their independent selection rules', async ({ page, context }) => {
   await stubTiles(context)
   await page.goto('/?site=sample_a')
-  const layers = page.getByRole('radiogroup', { name: 'VISIBLE LAYERS' })
+  const layers = page.getByRole('radiogroup', { name: 'Maps Layers' })
   await expect(layers.getByRole('radio')).toHaveCount(5)
   await layers.getByRole('radio', { name: 'Dust' }).check()
   await expect(layers.getByRole('radio', { checked: true })).toHaveCount(1)
-  await expect(page.getByText('Dust map data is not available yet.')).toBeVisible()
+  const overlays = page.getByRole('radiogroup', { name: 'Polygons Layers' })
+  await overlays.getByRole('radio', { name: 'None' }).check()
+  await expect(overlays.getByRole('radio', { checked: true })).toHaveCount(1)
+  await expect(layers.getByRole('radio', { name: 'Dust' })).toBeChecked()
+  await expect(page.getByText('Simulated Dust Index · At Sites')).toBeVisible()
+  await expect(page.locator('.site-map-reading').first()).toHaveText(/^\d/)
+  await expect(layers.getByRole('radio', { name: 'PSR', exact: true })).toBeVisible()
   await layers.getByRole('radio', { name: 'Relief' }).check()
   await edit(page)
   await picker(page).click()
@@ -159,14 +199,14 @@ test('three result cards and ridge plots fit a laptop and reflow on a phone', as
   await stubTiles(context)
   await page.setViewportSize({ width: 1280, height: 720 })
   await page.goto(many(3))
-  await page.getByRole('button', { name: 'Ridge graph' }).click()
+  await page.getByRole('button', { name: 'Ridge Graph' }).click()
   await expect(page.getByRole('img', { name: /^Sky view at/ })).toHaveCount(3)
-  await page.getByRole('button', { name: 'Live conditions', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Whole mission', exact: true })).toHaveCount(0)
   await expect.poll(() => page.locator('.tickets').evaluate((el) =>
     el.scrollWidth <= el.clientWidth + 1 && el.scrollHeight <= el.clientHeight + 1)).toBe(true)
   // The whole-mission results (score box, warnings, metrics) are taller than the live view:
   // the cards may scroll down, but never sideways.
-  await page.getByRole('button', { name: 'Whole mission', exact: true }).click()
+  await page.locator('.score-details > summary').first().click()
   await expect.poll(() => page.locator('.tickets').evaluate((el) => el.scrollWidth <= el.clientWidth + 1)).toBe(true)
   for (const plot of await page.locator('.panel-graph').all()) {
     expect(await plot.evaluate((el) => el.scrollHeight <= el.clientHeight + 1)).toBe(true)

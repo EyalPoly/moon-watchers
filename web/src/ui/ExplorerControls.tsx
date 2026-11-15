@@ -37,12 +37,12 @@ export function ExplorerControls({ view, selecting, onView, onRegion }: Props) {
     <div className="explorer-controls">
       <div className="view-tabs" role="group" aria-label="Explorer view">
         <button type="button" className={view === 'map' ? 'view-tab view-tab-active' : 'view-tab'}
-          aria-pressed={view === 'map'} onClick={() => onView('map')}><MapIcon /> Map view</button>
+          aria-pressed={view === 'map'} onClick={() => onView('map')}><MapIcon /> Map View</button>
         <button type="button" className={view === 'graph' ? 'view-tab view-tab-active' : 'view-tab'}
-          aria-pressed={view === 'graph'} onClick={() => onView('graph')}><GraphIcon /> Ridge graph</button>
+          aria-pressed={view === 'graph'} onClick={() => onView('graph')}><GraphIcon /> Ridge Graph</button>
       </div>
       <button type="button" className={selecting ? 'freehand freehand-on' : 'freehand'}
-        aria-pressed={selecting} onClick={onRegion}><LassoIcon /> Select region</button>
+        aria-pressed={selecting} onClick={onRegion}><LassoIcon /> Manual Selection</button>
     </div>
   )
 }

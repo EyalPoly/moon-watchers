@@ -16,7 +16,7 @@ test('pins select a site, update the URL and history, and are labeled as sample'
   await expect(page).toHaveURL(/tk=sample_b/)
   await expect(page.getByTestId('sample-tag')).toHaveCount(0)
   await page.getByRole('button', { name: 'Apply site A' }).click()
-  await page.getByRole('button', { name: 'Whole mission', exact: true }).click()
+  await page.locator('.score-details > summary').first().click()
   await expect(page.getByTestId('sample-tag')).toBeVisible()
   await expect(page.getByText('Sample data', { exact: true }).first()).toBeVisible()
 
@@ -79,7 +79,7 @@ test('with a real catalog the banner shows only once a card uses sample horizon 
   await expect(page.getByRole('heading', { name: /^Sample site B/ })).toBeVisible()
   await expect(page.getByTestId('sample-tag')).toHaveCount(0)
   await page.getByRole('button', { name: 'Apply site A' }).click()
-  await page.getByRole('button', { name: 'Whole mission', exact: true }).click()
+  await page.locator('.score-details > summary').first().click()
   await expect(page.getByTestId('sample-tag')).toBeVisible()
   await expect(page.getByRole('status').filter({ hasText: 'Sample data' })).toBeVisible()
 })
