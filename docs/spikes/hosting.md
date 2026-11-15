@@ -26,15 +26,20 @@ The bundle is 8 MB (masks 0.4 MB, ephemeris and Earth-rotation tables 7.6 MB), s
 
 ## Load and memory (15 Nov, the 20 m bundle `20261114-43266f39`, 3 placeholder sites)
 
-`python -m build.api_load` replays what the web app asks for three cards: two 30-day missions at `sample_a`, one lunar day apart, and a 365-day mission at `sample_b`. That is 24 requests, 6 at a time. Run against the API image started with `docker run --memory 512m`:
+`python -m build.api_load` replays what the web app asks for three cards, all requests at once like the browser: two 30-day missions at `sample_a`, one lunar day apart, and a 365-day mission at `sample_b`. That is 24 requests. Run against the API image started with `docker run --memory 512m --cpus 1`, which is what Cloud Run gives this service:
 
 | | Result |
 |---|---|
-| Warm round (second), all 24 requests | 1.45 s wall; slowest request 0.63 s |
-| Cold round (first) | 3.44 s wall; slowest request 2.0 s (the first summary) |
-| Peak memory | about 229 MiB of 512 MiB (sampled with `docker stats`); idle 62 MiB |
+| Peak memory | about 155 MiB of 512 MiB (`docker stats`, sampled); idle 62 MiB; no OOM |
+| First round, 24 requests at once | 6.4 s until the last answer |
+| Second round (the same requests again) | 4.0 s; summaries answer in 0.12 s (cached), series about 0.25 s of CPU each |
 
-Before the fix in `engine/series.py` a single 365-day summary was enough to kill the container (OOM), because the series maths built about 10 KiB of temporaries per 10-minute step (533 MiB for a year). Windows are now computed in 30-day pieces.
+Two things were fixed on the way:
+
+- **A year-long window needed 533 MiB in one piece** (about 10 KiB of temporaries per 10-minute step), so one 365-day summary killed the container. `engine/series.py` now computes windows in 30-day pieces.
+- **Many requests at once multiplied that.** The browser sends every month and every card together, and the server ran them all in parallel threads, so three cards killed the container even with pieces (the reviewer's run: OOM at 24 requests at once). `MAX_HEAVY_REQUESTS = 2` in `api/main.py` queues the heavy series and summary work, two at a time.
+
+The time bars in the plan (3 s for a warm page, 1 s per request) are **not met at 1 vCPU**: a series month costs about 0.25 s of CPU, and a 365-day card needs 13 of them. The browser keeps each month cached, so only the first load pays. Decide whether that is acceptable, or whether the series computation should be made faster.
 
 ## Frontend
 
@@ -43,6 +48,6 @@ Before the fix in `engine/series.py` a single 365-day summary was enough to kill
 
 ## Open
 
-- API memory is not measured yet. `create_app()` imports no torch; torch is only imported inside `build/gpu_spike.py`.
+- Memory is measured in the image (see "Load and memory"); the deployed service itself has not been measured. `create_app()` imports no torch; torch is only imported inside `build/gpu_spike.py`.
 - Credit runs out 90 days after signup: confirm the end date in the billing console and decide the judging-period host before then.
 - A budget alert on the billing account has not been confirmed.

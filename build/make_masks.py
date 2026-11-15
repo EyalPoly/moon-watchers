@@ -155,6 +155,7 @@ def build_bundle(
     ephemeris: Ephemeris,
     kernel_hashes: dict[str, str] | None = None,
     terrain: str = DEFAULT_TERRAIN,
+    require_finest: bool = False,
 ) -> Path:
     if terrain not in TERRAINS:
         raise ValueError(f"unknown terrain {terrain!r}; choose from {', '.join(TERRAINS)}")
@@ -162,6 +163,11 @@ def build_bundle(
     missing = [layer.dem for layer in chosen.required if not (sources / layer.dem).is_file()]
     if missing:
         raise FileNotFoundError(f"terrain {terrain} is missing {', '.join(missing)} under {sources}")
+    if require_finest and not (sources / chosen.layers[0].dem).is_file():
+        raise FileNotFoundError(
+            f"terrain {terrain} needs {chosen.layers[0].dem} under {sources}; "
+            "without it the build would quietly use coarser terrain"
+        )
     present = [layer for layer in chosen.layers if (sources / layer.dem).is_file()]
     if not present:
         raise FileNotFoundError(f"no LOLA DEM found under {sources}")
@@ -274,7 +280,9 @@ def main(argv: list[str] | None = None) -> None:
         return
     catalog = load_catalog(Path("catalog/sites.yaml"))
     for name in names:
-        path = build_bundle(catalog, Path("data/sources"), Path("bundle"), ephemeris, spice_hash, terrain=name)
+        path = build_bundle(
+            catalog, Path("data/sources"), Path("bundle"), ephemeris, spice_hash, terrain=name, require_finest=True
+        )
         print(f"{name}: {path}", flush=True)
 
 

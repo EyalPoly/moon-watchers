@@ -1,4 +1,5 @@
 import os
+import threading
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal
@@ -37,6 +38,9 @@ SHORT_CACHE = "public, max-age=60"
 IMMUTABLE_CACHE = "public, max-age=31536000, immutable"
 FAR_ROW = 10
 FAR_MAST_M = 2.0
+# One year-long series needs tens of MiB of temporaries per piece; the browser sends every month
+# and every card at once, so the heavy work is queued rather than run all together.
+MAX_HEAVY_REQUESTS = 2
 ENGINE_PENDING = "the engine for this endpoint is not built yet; the web app uses sample answers"
 
 
@@ -54,6 +58,7 @@ def create_app(
     if bundle_dir is None and os.environ.get("BUNDLE_DIR"):
         bundle_dir = Path(os.environ["BUNDLE_DIR"])
     bundle: Bundle | None = load_bundle(bundle_dir, catalog) if bundle_dir else None
+    heavy = threading.BoundedSemaphore(MAX_HEAVY_REQUESTS)
     app = FastAPI(title="CLPS Lunar Mission Browser API", version=__version__, redirect_slashes=False)
     install_error_handlers(app)
     app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["GET"])
@@ -147,7 +152,10 @@ def create_app(
         if bundle is None:
             raise ApiError(503, "FEATURE_DISABLED", "no horizon bundle is configured")
         try:
-            arrays, start, n = site_series(bundle, entry, month, scenario.panel, scenario.antenna, scenario.station)
+            with heavy:
+                arrays, start, n = site_series(
+                    bundle, entry, month, scenario.panel, scenario.antenna, scenario.station
+                )
         except (OutOfRange, ValueError, OverflowError) as error:
             raise ApiError(422, "OUT_OF_TIME_RANGE", f"no ephemeris for month {month}") from error
         if v:
@@ -170,8 +178,9 @@ def create_app(
             station=StationPoint(lat_deg=station[0], lon_deg=station[1], alt_m=station[2], min_el_deg=station[3]),
         )
         assert bundle is not None
-        arrays, window = mission_series(bundle, catalog[site_id], keyed)
-        return window, compute_metrics(arrays, window.landing)
+        with heavy:
+            arrays, window = mission_series(bundle, catalog[site_id], keyed)
+            return window, compute_metrics(arrays, window.landing)
 
     @app.get("/api/v1/scenario/summary")
     def get_summary(response: Response, scenario: ScenarioParams, v: str = "") -> SummaryResponse:

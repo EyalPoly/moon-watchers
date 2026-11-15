@@ -175,3 +175,10 @@ def test_build_refuses_site_outside_finest_terrain(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match=r"edge_site.*does not cover"):
         build_bundle(catalog, sources, out, default_ephemeris())
     assert not list(out.glob(".building-*"))
+
+
+def test_require_finest_refuses_a_build_without_the_20m_file(tmp_path: Path) -> None:
+    sources = make_sources(tmp_path, with_20m=False)
+    with pytest.raises(FileNotFoundError, match="20m"):
+        build_bundle(CATALOG, sources, tmp_path / "bundle", default_ephemeris(), require_finest=True)
+    assert not (tmp_path / "bundle").exists() or not list((tmp_path / "bundle").glob("*"))

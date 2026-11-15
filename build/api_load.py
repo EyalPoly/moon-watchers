@@ -138,6 +138,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--base", required=True, help="API origin, e.g. http://localhost:8000")
     parser.add_argument("--card", type=_card, action="append", required=True, metavar="SITE,T0,DAYS[,PANEL,ANTENNA]")
     parser.add_argument("--rounds", type=int, default=2)
+    parser.add_argument("--workers", type=int, default=0, help="requests in flight (default: all at once, like the browser)")
     args = parser.parse_args(argv)
     if len(args.card) > MAX_CARDS:
         parser.error(f"at most {MAX_CARDS} cards")
@@ -146,7 +147,7 @@ def main(argv: list[str] | None = None) -> int:
     failed = False
     last: list[str] = []
     for round_no in range(1, args.rounds + 1):
-        results, wall = run(paths, fetch)
+        results, wall = run(paths, fetch, workers=args.workers or len(paths))
         print(f"round {round_no}: {len(results)} requests")
         _report(results, wall)
         failed = failed or any(r.status != 200 for r in results)

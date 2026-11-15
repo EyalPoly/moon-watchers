@@ -5,7 +5,7 @@ import pytest
 
 from engine.geometry import EARTH_RADIUS_KM, HOUSTON, SUN_RADIUS_KM, angular_radius_deg
 from engine.horizons import mask_at_height
-from engine.series import STEP_S, SeriesArrays, compute_series, month_times
+from engine.series import CHUNK_STEPS, STEP_S, SeriesArrays, _compute_chunk, compute_series, month_times
 from tests.ephemeris_helpers import synthetic_ephemeris
 
 START = datetime(2027, 3, 1, tzinfo=UTC)
@@ -162,3 +162,15 @@ def test_series_over_a_long_window_equals_the_same_steps_in_pieces() -> None:
     for name in SeriesArrays.__dataclass_fields__:
         np.testing.assert_array_equal(getattr(whole, name)[:cut], getattr(first, name), err_msg=name)
     assert all(len(getattr(whole, name)) == YEAR_STEPS for name in SeriesArrays.__dataclass_fields__)
+
+
+@pytest.mark.parametrize("n", [CHUNK_STEPS - 1, CHUNK_STEPS, CHUNK_STEPS + 1, 2 * CHUNK_STEPS + 7])
+def test_chunked_series_matches_one_piece_at_chunk_edges(n: int) -> None:
+    chunked = run_long(BUMPY, n=n)
+    whole = _compute_chunk(LONG_EPH, LAT, LON, 0.0, BUMPY, BUMPY, 2.0, 3.0, HOUSTON, START, n)
+    for name in SeriesArrays.__dataclass_fields__:
+        # A one-step last piece takes another NumPy code path and may differ by a last digit.
+        np.testing.assert_allclose(
+            getattr(chunked, name).astype(float), getattr(whole, name).astype(float),
+            rtol=1e-12, atol=1e-12, equal_nan=True, err_msg=name,
+        )

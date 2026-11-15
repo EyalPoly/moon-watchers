@@ -1,5 +1,5 @@
 import json
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -9,6 +9,7 @@ import numpy as np
 from numpy.typing import NDArray
 from pydantic import BaseModel, ConfigDict, ValidationError
 
+from api.models import Site
 from engine.geometry import Ephemeris
 from engine.horizons import HORIZON_ALGO_VERSION
 
@@ -71,7 +72,24 @@ def _load_table(path: Path, shape: tuple[int, ...]) -> NDArray[np.float64]:
     return _load_raw(path, shape, "float64")
 
 
+def _check_positions(manifest: Manifest, catalog: Mapping[str, Site], manifest_path: Path) -> None:
+    built = manifest.model_extra.get("parameters", {}).get("sites") if manifest.model_extra else None
+    if not isinstance(built, dict):
+        return
+    moved = [
+        site_id
+        for site_id, site in catalog.items()
+        if site_id in built
+        and not (abs(built[site_id][0] - site.lat_deg) < 1e-9 and abs(built[site_id][1] - site.lon_deg) < 1e-9)
+    ]
+    if moved:
+        raise BundleError(
+            f"{manifest_path}: site(s) {', '.join(moved)} moved since the bundle was built: rebuild the bundle"
+        )
+
+
 def load_bundle(bundle_dir: Path, site_ids: Iterable[str]) -> Bundle:
+    """Pass the catalog (id -> Site) to also refuse sites that moved since the bundle was built."""
     manifest_path = bundle_dir / "manifest.json"
     try:
         manifest = Manifest.model_validate_json(manifest_path.read_text())
@@ -89,6 +107,8 @@ def load_bundle(bundle_dir: Path, site_ids: Iterable[str]) -> Bundle:
     absent = [site_id for site_id in site_ids if site_id not in manifest.sites]
     if absent:
         raise BundleError(f"{manifest_path} has no entry for site(s) {', '.join(absent)}")
+    if isinstance(site_ids, Mapping):
+        _check_positions(manifest, site_ids, manifest_path)
     masks: dict[str, NDArray[np.float32]] = {}
     blocking: dict[str, NDArray[np.float32]] = {}
     for site_id in site_ids:

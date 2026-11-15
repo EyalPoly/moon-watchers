@@ -128,3 +128,35 @@ def test_series_matches_engine(client: TestClient, bundle_dir: Path) -> None:  #
     np.testing.assert_allclose(fraction[~slivers], expected.sun_lit_frac[~slivers], atol=6e-5)
     assert body["contact"] == [int(v) for v in expected.contact]
     assert body["earth_station_up"] == expected.earth_station_up.tolist()
+
+
+def test_heavy_series_work_runs_at_most_two_at_a_time(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import threading
+    import time
+
+    import api.main as main
+
+    real = main.site_series
+    lock = threading.Lock()
+    state = {"now": 0, "peak": 0}
+
+    def slow(*args, **kwargs):  # type: ignore[no-untyped-def]
+        with lock:
+            state["now"] += 1
+            state["peak"] = max(state["peak"], state["now"])
+        time.sleep(0.05)
+        try:
+            return real(*args, **kwargs)
+        finally:
+            with lock:
+                state["now"] -= 1
+
+    monkeypatch.setattr(main, "site_series", slow)
+    threads = [threading.Thread(target=client.get, args=(SERIES,)) for _ in range(8)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    assert 1 <= state["peak"] <= 2
