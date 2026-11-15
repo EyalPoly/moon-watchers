@@ -12,10 +12,14 @@ from api.catalog import load_catalog
 from api.errors import ApiError
 from api.models import Scenario, SeriesResponse
 from api.scenario import (
+    DAYS_RANGE,
     DEFAULT_COLORS,
     DEFAULT_SLOPE,
     DEFAULT_STATION,
     DEFAULT_W,
+    MARGIN_RANGE,
+    PSR_RANGE,
+    SUN_REQ_RANGE,
     check_height,
     check_sun_req,
     parse_station,
@@ -103,9 +107,9 @@ def _in_range(value: float, name: str, low: float, high: float) -> float:
 
 
 def _summary_scenario(args: argparse.Namespace) -> Scenario:
-    _in_range(args.days, "days", 1, 365)
-    _in_range(args.psr, "psr", 0, 1)
-    _in_range(args.margin, "margin", 0, 48)
+    _in_range(args.days, "days", *DAYS_RANGE)
+    _in_range(args.psr, "psr", *PSR_RANGE)
+    _in_range(args.margin, "margin", *MARGIN_RANGE)
     return scenario_params(
         site=args.site,
         t0=args.t0,
@@ -114,7 +118,7 @@ def _summary_scenario(args: argparse.Namespace) -> Scenario:
         antenna=check_height(args.antenna, "antenna"),
         station=args.station,
         w=args.w,
-        sun_req=check_sun_req(_in_range(args.sun_req, "sun_req", 0, 72)),
+        sun_req=check_sun_req(_in_range(args.sun_req, "sun_req", *SUN_REQ_RANGE)),
         slope=args.slope,
         psr=args.psr,
         margin=args.margin,

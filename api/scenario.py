@@ -1,4 +1,5 @@
 import math
+import re
 from datetime import UTC, datetime
 from typing import Annotated
 
@@ -45,7 +46,11 @@ Panel = Annotated[float, Query(ge=1, le=10), _height("panel")]
 Antenna = Annotated[float, Query(ge=1, le=10), _height("antenna")]
 Mast = Annotated[float, Query(ge=1, le=10), _height("mast")]
 StationParam = Annotated[str, Query()]
-Days = Annotated[float, Query(ge=1, le=365)]
+DAYS_RANGE = (1, 365)
+PSR_RANGE = (0, 1)
+MARGIN_RANGE = (0, 48)
+SUN_REQ_RANGE = (0, 72)
+Days = Annotated[float, Query(ge=DAYS_RANGE[0], le=DAYS_RANGE[1])]
 MonthParam = Annotated[str, Query(pattern=r"^\d{4}-(0[1-9]|1[0-2])$")]
 DEFAULT_STATION = station_text(HOUSTON)
 
@@ -53,7 +58,8 @@ DEFAULT_W = "0.25,0.25,0.15,0.15,0.1,0.1,0"
 DEFAULT_SLOPE = "0,15,15"
 DEFAULT_COLORS = "70,40"
 
-T0Param = Annotated[str, Query(pattern=r"^\d{4}-\d{2}-\d{2}T\d{2}:\d0Z$")]
+T0_PATTERN = r"^\d{4}-\d{2}-\d{2}T\d{2}:\d0Z$"
+T0Param = Annotated[str, Query(pattern=T0_PATTERN)]
 FIRST_T0 = datetime(2026, 1, 1, tzinfo=UTC)
 LAST_T0 = datetime(2030, 12, 31, 23, 50, tzinfo=UTC)
 
@@ -100,6 +106,8 @@ def parse_colors(text: str) -> tuple[int, int]:
 
 
 def parse_t0(text: str) -> datetime:
+    if not re.fullmatch(T0_PATTERN[1:-1], text):
+        raise ApiError(422, "INVALID_PARAM", "t0 must be YYYY-MM-DDTHH:MMZ on the 10-minute grid")
     try:
         moment = datetime.strptime(text, "%Y-%m-%dT%H:%MZ").replace(tzinfo=UTC)
     except ValueError as error:
@@ -123,10 +131,10 @@ def scenario_params(
     antenna: Antenna = 3,
     station: StationParam = DEFAULT_STATION,
     w: Annotated[str, Query()] = DEFAULT_W,
-    sun_req: Annotated[float, Query(ge=0, le=72), AfterValidator(check_sun_req)] = 6,
+    sun_req: Annotated[float, Query(ge=SUN_REQ_RANGE[0], le=SUN_REQ_RANGE[1]), AfterValidator(check_sun_req)] = 6,
     slope: Annotated[str, Query()] = DEFAULT_SLOPE,
-    psr: Annotated[int, Query(ge=0, le=1)] = 1,
-    margin: Annotated[int, Query(ge=0, le=48)] = 12,
+    psr: Annotated[int, Query(ge=PSR_RANGE[0], le=PSR_RANGE[1])] = 1,
+    margin: Annotated[int, Query(ge=MARGIN_RANGE[0], le=MARGIN_RANGE[1])] = 12,
     colors: Annotated[str, Query()] = DEFAULT_COLORS,
 ) -> Scenario:
     parse_t0(t0)

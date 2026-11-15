@@ -185,7 +185,7 @@ def test_summary_cli_matches_api(bundle_dir: Path, catalog_file: Path, tmp_path:
 
 @pytest.mark.parametrize(
     ("extra", "word"),
-    [(["--w", "1,1,1,0"], "w"), (["--slope", "20,10,15"], "slope"), (["--days", "400"], "days")],
+    [(["--w", "1,1,1,0"], "w"), (["--slope", "20,10,15"], "slope"), (["--days", "400"], "days"), (["--t0", "2027-03-01T00:07Z"], "t0")],
 )
 def test_summary_cli_bad_setting_exits_nonzero(
     bundle_dir: Path, catalog_file: Path, tmp_path: Path, extra: list[str], word: str
@@ -194,3 +194,9 @@ def test_summary_cli_bad_setting_exits_nonzero(
         run_summary(bundle_dir, catalog_file, tmp_path / "m.csv", *extra)
     assert word in str(error.value.code)
     assert not (tmp_path / "m.csv").exists()
+
+
+def test_summary_api_rejects_off_grid_t0(bundle_dir: Path, catalog_file: Path) -> None:
+    api = TestClient(create_app(catalog_path=catalog_file, bundle_dir=bundle_dir))
+    response = api.get("/api/v1/scenario/summary?site=s1&t0=2027-03-01T00:07Z")
+    assert response.status_code == 422 and response.json()["code"] == "INVALID_PARAM"
