@@ -132,3 +132,33 @@ def test_out_of_table_raises() -> None:
 def test_radii_are_apparent() -> None:
     assert angular_radius_deg(SUN_RADIUS_KM, np.array([[149.6e6, 0, 0]]))[0] == pytest.approx(SUN_R, abs=1e-3)
     assert angular_radius_deg(EARTH_RADIUS_KM, np.array([[384_400.0, 0, 0]]))[0] == pytest.approx(0.9507, abs=1e-3)
+
+
+LONG_EPH = synthetic_ephemeris(datetime(2027, 2, 27, tzinfo=UTC), 400)
+YEAR_STEPS = 365 * 144 + 72
+# A hand-made skyline with a bump, so the lit fraction takes values between 0 and 1.
+BUMPY = 0.5 + 0.4 * np.sin(np.linspace(0, 12 * np.pi, 720))
+
+
+def test_series_memory_does_not_grow_with_the_window() -> None:
+    import tracemalloc
+
+    tracemalloc.start()
+    run_long(BUMPY, n=YEAR_STEPS)
+    _, peak = tracemalloc.get_traced_memory()
+    tracemalloc.stop()
+    # A year of results is about 10 MB; the Cloud Run instance has 512 MiB in all.
+    assert peak < 150 * 2**20
+
+
+def run_long(panel: np.ndarray, n: int) -> SeriesArrays:
+    return compute_series(LONG_EPH, LAT, LON, 0.0, panel, panel, 2.0, 3.0, HOUSTON, START, n)
+
+
+def test_series_over_a_long_window_equals_the_same_steps_in_pieces() -> None:
+    whole = run_long(BUMPY, n=YEAR_STEPS)
+    cut = 4464
+    first = run_long(BUMPY, n=cut)
+    for name in SeriesArrays.__dataclass_fields__:
+        np.testing.assert_array_equal(getattr(whole, name)[:cut], getattr(first, name), err_msg=name)
+    assert all(len(getattr(whole, name)) == YEAR_STEPS for name in SeriesArrays.__dataclass_fields__)

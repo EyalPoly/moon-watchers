@@ -1,6 +1,6 @@
 import calendar
 from dataclasses import dataclass, fields
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import numpy as np
 from numpy.typing import NDArray
@@ -60,7 +60,7 @@ def month_times(month: str) -> tuple[datetime, int]:
     return datetime(year, number, 1, tzinfo=UTC), days * STEPS_PER_DAY
 
 
-def compute_series(
+def _compute_chunk(
     eph: Ephemeris,
     lat_deg: float,
     lon_deg: float,
@@ -115,3 +115,33 @@ def compute_series(
         earth_station_up=up,
         station_moon_el=station_view.moon_el_deg,
     )
+
+
+# The disk-fraction and occultation maths builds temporaries of about 10 KiB per time step, so a
+# year-long window in one piece needs over 500 MiB; 30-day pieces stay near 45 MiB.
+CHUNK_STEPS = 30 * STEPS_PER_DAY
+
+
+def compute_series(
+    eph: Ephemeris,
+    lat_deg: float,
+    lon_deg: float,
+    ground_m: float,
+    panel_mask: F64,
+    antenna_mask: F64,
+    panel_m: float,
+    antenna_m: float,
+    station: Station,
+    start: datetime,
+    n: int,
+) -> SeriesArrays:
+    pieces = [
+        _compute_chunk(
+            eph, lat_deg, lon_deg, ground_m, panel_mask, antenna_mask, panel_m, antenna_m, station,
+            start + timedelta(seconds=STEP_S * first), min(CHUNK_STEPS, n - first),
+        )
+        for first in range(0, max(n, 1), CHUNK_STEPS)
+    ]
+    if len(pieces) == 1:
+        return pieces[0]
+    return SeriesArrays(**{name: np.concatenate([getattr(p, name) for p in pieces]) for name in SERIES_FIELDS})
