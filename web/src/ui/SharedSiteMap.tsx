@@ -77,7 +77,7 @@ export function SharedSiteMap({ tickets, active, sites, region, layer, polygonLa
             onFocus={(l) => { if (!selecting) onFocus(indexes.get(l)!) }} />
           <CenterOn sites={targets} />
           {!selecting && <PlacePoint areaRadiusM={radius} onPlace={onPlace} />}
-          {selecting && <AreaTool areaRadiusM={radius} namePrefix={title} spec={scoreSpec} settings={settings} onSettingsApply={onSettingsApply} onClose={onRegionClose} onOpen={onOpenAreas}
+          {selecting && <AreaTool areaRadiusM={radius} namePrefix={title} config={config} search={search} ticket={ticket} spec={scoreSpec} settings={settings} onSettingsApply={onSettingsApply} onClose={onRegionClose} onOpen={onOpenAreas}
             autoFind={guideRegion} onRanked={guideRegion ? onRanked : undefined} />}
         </PolarMap>
       </div>
