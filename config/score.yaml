@@ -1,0 +1,20 @@
+status: illustrative
+formula: "score = 100 × Σ w·grade / Σ w"
+grades:
+  - {id: L,  name: light,            label: sunlight,             raw_label: average daily visible Sun-disk fraction, raw_unit: ""}
+  - {id: C,  name: communication,    label: station contact,      raw_label: average daily contact-time fraction,     raw_unit: ""}
+  - {id: DK, name: dark_time,        label: longest darkness,     raw_label: longest dark period,                      raw_unit: " h"}
+  - {id: OT, name: outage_time,      label: longest outage,       raw_label: longest period without contact,           raw_unit: " h"}
+  - {id: LS, name: landing_sunlight, label: sunlight at landing,  raw_label: hours of sunlight from the window start,  raw_unit: " h"}
+  - {id: S,  name: slope,            label: slope,                raw_label: slope,                                    raw_unit: "°"}
+  - {id: D,  name: dust,             label: dust (simulated),     raw_label: simulated dust index,                     raw_unit: ""}
+settings:
+  - {key: w,       label: Weights,                                    unit: "",  default: [0.25, 0.25, 0.15, 0.15, 0.1, 0.1, 0], min: 0, max: 1,   step: 0.05}
+  - {key: sun_req, label: Required sunlight at landing,               unit: h,   default: [6],      min: 0, max: 72,  step: 0.5}
+  - {key: slope,   label: "Slope: fully good at, fully bad at, maximum", unit: "°", default: [0, 15, 15], min: 0, max: 90, step: 0.5}
+  - {key: psr,     label: Reject sites inside a PSR,                  unit: "",  default: [1],      min: 0, max: 1,   step: 1}
+  - {key: margin,  label: Landing margin before landing,              unit: h,   default: [12],     min: 0, max: 48,  step: 1}
+  - {key: colors,  label: "Colors: green from, amber from",           unit: "",  default: [70, 40], min: 0, max: 100, step: 1}
+presets:
+  - {id: default,        name: Default,        weights: [0.25, 0.25, 0.15, 0.15, 0.1, 0.1, 0]}
+  - {id: sunlight_first, name: Sunlight first, weights: [0.6, 0.2, 0, 0, 0, 0.1, 0.1]}

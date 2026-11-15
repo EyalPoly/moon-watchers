@@ -83,6 +83,66 @@ class EarthStation(StationPoint):
     name: str
 
 
+Severity = Literal["info", "caution", "blocking"]
+Affects = Literal["score", "sun", "contact", "skyline", "slope", "all"]
+GradeId = Literal["L", "C", "DK", "OT", "LS", "S", "D"]
+
+
+class Grade(BaseModel):
+    id: GradeId
+    name: str
+    label: str
+    raw_label: str
+    raw_unit: str
+
+
+class SettingSpec(BaseModel):
+    key: str
+    label: str
+    unit: str
+    default: list[float]
+    min: float
+    max: float
+    step: float = Field(gt=0)
+
+
+class WeightPreset(BaseModel):
+    id: str
+    name: str
+    weights: list[float] = Field(min_length=7, max_length=7)
+
+
+class ScoreConfig(BaseModel):
+    status: Literal["illustrative"]
+    formula: str
+    grades: list[Grade]
+    settings: list[SettingSpec]
+    presets: list[WeightPreset]
+
+
+class PctThresholds(BaseModel):
+    green_from: float
+    amber_from: float
+
+
+class SlopeThresholds(BaseModel):
+    green_max: float
+    amber_max: float
+
+
+class RagThresholds(BaseModel):
+    pct: PctThresholds
+    slope_deg: SlopeThresholds
+
+
+class WarningEntry(BaseModel):
+    code: str
+    severity: Severity
+    affects: Affects
+    text: str
+    standing: bool
+
+
 class Meta(BaseModel):
     version: str
     bundle_id: str
@@ -92,6 +152,9 @@ class Meta(BaseModel):
     limits: Limits
     stations: list[EarthStation]
     default_station: str
+    score: ScoreConfig
+    rag: RagThresholds
+    warning_catalog: list[WarningEntry]
 
     @model_validator(mode="after")
     def _default_station_is_a_preset(self) -> "Meta":
@@ -113,6 +176,7 @@ class Site(BaseModel):
     slope_baseline_m: float
     source_url: str
     is_placeholder: bool
+    in_psr: bool | None = None
 
 
 class CustomPointRequest(BaseModel):
@@ -136,17 +200,19 @@ class Problem(BaseModel):
 
 # --- Scenario (spec §8.1) -------------------------------------------------------------
 
-RagColor = Literal["green", "amber", "red"]
-
-
 class Scenario(BaseModel):
     site: str
     t0: str
     days: float = Field(ge=1, le=365)
     panel: float = Field(ge=1, le=10)
     antenna: float = Field(ge=1, le=10)
-    w: tuple[float, float, float, float]
     station: StationPoint
+    w: tuple[float, float, float, float, float, float, float]
+    sun_req: float = Field(ge=0, le=72)
+    slope: tuple[float, float, float]
+    psr: bool
+    margin: int = Field(ge=0, le=48)
+    colors: tuple[int, int]
 
 
 # --- Horizon (spec §8.2, §9.3 sky view) -----------------------------------------------
@@ -208,18 +274,37 @@ class SeriesResponse(BaseModel):
 # --- Summary (spec §7.4, §7.5, §8.3) --------------------------------------------------
 
 
+class Warning(BaseModel):
+    code: str
+    text: str
+    severity: Severity
+    affects: Affects
+
+
 class Metrics(BaseModel):
-    sun_pct: float
-    dte_pct: float
-    both_pct: float
+    sun_pct: float | None
+    dte_pct: float | None
+    both_pct: float | None
+    sun_disk_mean: float | None
+    contact_mean: float | None
+    earth_any_pct: float | None
+    earth_whole_pct: float | None
     longest_dark_h: float
     longest_no_contact_h: float
-    first_dark_after_landing_h: float
+    longest_dark_at_edge: bool
+    longest_no_contact_at_edge: bool
+    first_sun_h: float | None
+    first_dark_after_landing_h: float | None
+    window: tuple[str, str]
     earth_el_range: tuple[float, float]
+    unknown_h: float
+
+
+ChipColor = Literal["green", "amber", "red", "unknown"]
 
 
 class RagChip(BaseModel):
-    color: RagColor
+    color: ChipColor
     reason: str
 
 
@@ -229,44 +314,59 @@ class Rag(BaseModel):
     slope: RagChip
 
 
-class ScoreWeights(BaseModel):
-    sun: float
-    dte: float
-    slope: float
-    dust: float
-
-
 class ScoreFactor(BaseModel):
-    name: str
+    name: GradeId
     weight: float
-    points: float
-    reason: str
+    weight_share: float
+    raw: float | None
+    grade: float
+    points_lost: float
+
+
+class ScoreWeights(BaseModel):
+    L: float
+    C: float
+    DK: float
+    OT: float
+    LS: float
+    S: float
+    D: float
+
+
+class ScoreSettings(BaseModel):
+    sun_req_h: float
+    slope_deg: tuple[float, float, float]
+    reject_psr: bool
+    margin_h: int
+    colors: tuple[int, int]
+    custom: bool
 
 
 class Score(BaseModel):
     value: float = Field(ge=0, le=100)
-    base: float
+    category: Literal["green", "amber", "red", "excluded"]
+    status: Literal["illustrative"]
     weights: ScoreWeights
-    factors: list[ScoreFactor]
-    deciding: str
+    factors: list[ScoreFactor] = Field(min_length=7, max_length=7)
+    deciding: list[GradeId]
+    excluded_reason: Literal["psr", "slope"] | None
+    settings: ScoreSettings
+    warnings: list[Warning]
+    explanation: str
     formula: str
-    color: RagColor
 
 
 class Windows(BaseModel):
     sun: list[tuple[str, str]]
     dte: list[tuple[str, str]]
     both: list[tuple[str, str]]
+    unknown: list[tuple[str, str]]
 
 
 class Daily(BaseModel):
-    sun_pct: list[float]
-    dte_pct: list[float]
-
-
-class Warning(BaseModel):
-    code: str
-    text: str
+    sun_pct: list[float | None]
+    dte_pct: list[float | None]
+    sun_disk_mean: list[float | None]
 
 
 class SummaryResponse(BaseModel):
@@ -277,4 +377,4 @@ class SummaryResponse(BaseModel):
     score: Score
     windows: Windows
     daily: Daily
-    warnings: list[Warning] = []
+    warnings: list[Warning]

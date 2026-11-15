@@ -109,14 +109,42 @@
         "properties": {
           "dte_pct": {
             "items": {
-              "type": "number"
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
             },
             "title": "Dte Pct",
             "type": "array"
           },
+          "sun_disk_mean": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Sun Disk Mean",
+            "type": "array"
+          },
           "sun_pct": {
             "items": {
-              "type": "number"
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
             },
             "title": "Sun Pct",
             "type": "array"
@@ -124,7 +152,8 @@
         },
         "required": [
           "sun_pct",
-          "dte_pct"
+          "dte_pct",
+          "sun_disk_mean"
         ],
         "title": "Daily",
         "type": "object"
@@ -175,6 +204,48 @@
           "name"
         ],
         "title": "EarthStation",
+        "type": "object"
+      },
+      "Grade": {
+        "properties": {
+          "id": {
+            "enum": [
+              "L",
+              "C",
+              "DK",
+              "OT",
+              "LS",
+              "S",
+              "D"
+            ],
+            "title": "Id",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "raw_label": {
+            "title": "Raw Label",
+            "type": "string"
+          },
+          "raw_unit": {
+            "title": "Raw Unit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "label",
+          "raw_label",
+          "raw_unit"
+        ],
+        "title": "Grade",
         "type": "object"
       },
       "HTTPValidationError": {
@@ -449,12 +520,18 @@
             "title": "Mode",
             "type": "string"
           },
+          "rag": {
+            "$ref": "#/components/schemas/RagThresholds"
+          },
           "regions": {
             "items": {
               "$ref": "#/components/schemas/Region"
             },
             "title": "Regions",
             "type": "array"
+          },
+          "score": {
+            "$ref": "#/components/schemas/ScoreConfig"
           },
           "stations": {
             "items": {
@@ -466,6 +543,13 @@
           "version": {
             "title": "Version",
             "type": "string"
+          },
+          "warning_catalog": {
+            "items": {
+              "$ref": "#/components/schemas/WarningEntry"
+            },
+            "title": "Warning Catalog",
+            "type": "array"
           }
         },
         "required": [
@@ -476,7 +560,10 @@
           "capabilities",
           "limits",
           "stations",
-          "default_station"
+          "default_station",
+          "score",
+          "rag",
+          "warning_catalog"
         ],
         "title": "Meta",
         "type": "object"
@@ -484,12 +571,48 @@
       "Metrics": {
         "properties": {
           "both_pct": {
-            "title": "Both Pct",
-            "type": "number"
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Both Pct"
+          },
+          "contact_mean": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contact Mean"
           },
           "dte_pct": {
-            "title": "Dte Pct",
-            "type": "number"
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dte Pct"
+          },
+          "earth_any_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Earth Any Pct"
           },
           "earth_el_range": {
             "maxItems": 2,
@@ -505,33 +628,133 @@
             "title": "Earth El Range",
             "type": "array"
           },
+          "earth_whole_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Earth Whole Pct"
+          },
           "first_dark_after_landing_h": {
-            "title": "First Dark After Landing H",
-            "type": "number"
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Dark After Landing H"
+          },
+          "first_sun_h": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Sun H"
+          },
+          "longest_dark_at_edge": {
+            "title": "Longest Dark At Edge",
+            "type": "boolean"
           },
           "longest_dark_h": {
             "title": "Longest Dark H",
             "type": "number"
           },
+          "longest_no_contact_at_edge": {
+            "title": "Longest No Contact At Edge",
+            "type": "boolean"
+          },
           "longest_no_contact_h": {
             "title": "Longest No Contact H",
             "type": "number"
           },
+          "sun_disk_mean": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sun Disk Mean"
+          },
           "sun_pct": {
-            "title": "Sun Pct",
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sun Pct"
+          },
+          "unknown_h": {
+            "title": "Unknown H",
             "type": "number"
+          },
+          "window": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Window",
+            "type": "array"
           }
         },
         "required": [
           "sun_pct",
           "dte_pct",
           "both_pct",
+          "sun_disk_mean",
+          "contact_mean",
+          "earth_any_pct",
+          "earth_whole_pct",
           "longest_dark_h",
           "longest_no_contact_h",
+          "longest_dark_at_edge",
+          "longest_no_contact_at_edge",
+          "first_sun_h",
           "first_dark_after_landing_h",
-          "earth_el_range"
+          "window",
+          "earth_el_range",
+          "unknown_h"
         ],
         "title": "Metrics",
+        "type": "object"
+      },
+      "PctThresholds": {
+        "properties": {
+          "amber_from": {
+            "title": "Amber From",
+            "type": "number"
+          },
+          "green_from": {
+            "title": "Green From",
+            "type": "number"
+          }
+        },
+        "required": [
+          "green_from",
+          "amber_from"
+        ],
+        "title": "PctThresholds",
         "type": "object"
       },
       "Rag": {
@@ -560,7 +783,8 @@
             "enum": [
               "green",
               "amber",
-              "red"
+              "red",
+              "unknown"
             ],
             "title": "Color",
             "type": "string"
@@ -575,6 +799,22 @@
           "reason"
         ],
         "title": "RagChip",
+        "type": "object"
+      },
+      "RagThresholds": {
+        "properties": {
+          "pct": {
+            "$ref": "#/components/schemas/PctThresholds"
+          },
+          "slope_deg": {
+            "$ref": "#/components/schemas/SlopeThresholds"
+          }
+        },
+        "required": [
+          "pct",
+          "slope_deg"
+        ],
+        "title": "RagThresholds",
         "type": "object"
       },
       "Region": {
@@ -645,11 +885,31 @@
             "title": "Antenna",
             "type": "number"
           },
+          "colors": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "title": "Colors",
+            "type": "array"
+          },
           "days": {
             "maximum": 365.0,
             "minimum": 1.0,
             "title": "Days",
             "type": "number"
+          },
+          "margin": {
+            "maximum": 48.0,
+            "minimum": 0.0,
+            "title": "Margin",
+            "type": "integer"
           },
           "panel": {
             "maximum": 10.0,
@@ -657,21 +917,57 @@
             "title": "Panel",
             "type": "number"
           },
+          "psr": {
+            "title": "Psr",
+            "type": "boolean"
+          },
           "site": {
             "title": "Site",
             "type": "string"
           },
+          "slope": {
+            "maxItems": 3,
+            "minItems": 3,
+            "prefixItems": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "title": "Slope",
+            "type": "array"
+          },
           "station": {
             "$ref": "#/components/schemas/StationPoint"
+          },
+          "sun_req": {
+            "maximum": 72.0,
+            "minimum": 0.0,
+            "title": "Sun Req",
+            "type": "number"
           },
           "t0": {
             "title": "T0",
             "type": "string"
           },
           "w": {
-            "maxItems": 4,
-            "minItems": 4,
+            "maxItems": 7,
+            "minItems": 7,
             "prefixItems": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              },
               {
                 "type": "number"
               },
@@ -695,40 +991,83 @@
           "days",
           "panel",
           "antenna",
+          "station",
           "w",
-          "station"
+          "sun_req",
+          "slope",
+          "psr",
+          "margin",
+          "colors"
         ],
         "title": "Scenario",
         "type": "object"
       },
       "Score": {
         "properties": {
-          "base": {
-            "title": "Base",
-            "type": "number"
-          },
-          "color": {
+          "category": {
             "enum": [
               "green",
               "amber",
-              "red"
+              "red",
+              "excluded"
             ],
-            "title": "Color",
+            "title": "Category",
             "type": "string"
           },
           "deciding": {
+            "items": {
+              "enum": [
+                "L",
+                "C",
+                "DK",
+                "OT",
+                "LS",
+                "S",
+                "D"
+              ],
+              "type": "string"
+            },
             "title": "Deciding",
+            "type": "array"
+          },
+          "excluded_reason": {
+            "anyOf": [
+              {
+                "enum": [
+                  "psr",
+                  "slope"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Excluded Reason"
+          },
+          "explanation": {
+            "title": "Explanation",
             "type": "string"
           },
           "factors": {
             "items": {
               "$ref": "#/components/schemas/ScoreFactor"
             },
+            "maxItems": 7,
+            "minItems": 7,
             "title": "Factors",
             "type": "array"
           },
           "formula": {
             "title": "Formula",
+            "type": "string"
+          },
+          "settings": {
+            "$ref": "#/components/schemas/ScoreSettings"
+          },
+          "status": {
+            "const": "illustrative",
+            "title": "Status",
             "type": "string"
           },
           "value": {
@@ -737,74 +1076,230 @@
             "title": "Value",
             "type": "number"
           },
+          "warnings": {
+            "items": {
+              "$ref": "#/components/schemas/Warning"
+            },
+            "title": "Warnings",
+            "type": "array"
+          },
           "weights": {
             "$ref": "#/components/schemas/ScoreWeights"
           }
         },
         "required": [
           "value",
-          "base",
+          "category",
+          "status",
           "weights",
           "factors",
           "deciding",
-          "formula",
-          "color"
+          "excluded_reason",
+          "settings",
+          "warnings",
+          "explanation",
+          "formula"
         ],
         "title": "Score",
         "type": "object"
       },
+      "ScoreConfig": {
+        "properties": {
+          "formula": {
+            "title": "Formula",
+            "type": "string"
+          },
+          "grades": {
+            "items": {
+              "$ref": "#/components/schemas/Grade"
+            },
+            "title": "Grades",
+            "type": "array"
+          },
+          "presets": {
+            "items": {
+              "$ref": "#/components/schemas/WeightPreset"
+            },
+            "title": "Presets",
+            "type": "array"
+          },
+          "settings": {
+            "items": {
+              "$ref": "#/components/schemas/SettingSpec"
+            },
+            "title": "Settings",
+            "type": "array"
+          },
+          "status": {
+            "const": "illustrative",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "formula",
+          "grades",
+          "settings",
+          "presets"
+        ],
+        "title": "ScoreConfig",
+        "type": "object"
+      },
       "ScoreFactor": {
         "properties": {
+          "grade": {
+            "title": "Grade",
+            "type": "number"
+          },
           "name": {
+            "enum": [
+              "L",
+              "C",
+              "DK",
+              "OT",
+              "LS",
+              "S",
+              "D"
+            ],
             "title": "Name",
             "type": "string"
           },
-          "points": {
-            "title": "Points",
+          "points_lost": {
+            "title": "Points Lost",
             "type": "number"
           },
-          "reason": {
-            "title": "Reason",
-            "type": "string"
+          "raw": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Raw"
           },
           "weight": {
             "title": "Weight",
+            "type": "number"
+          },
+          "weight_share": {
+            "title": "Weight Share",
             "type": "number"
           }
         },
         "required": [
           "name",
           "weight",
-          "points",
-          "reason"
+          "weight_share",
+          "raw",
+          "grade",
+          "points_lost"
         ],
         "title": "ScoreFactor",
         "type": "object"
       },
-      "ScoreWeights": {
+      "ScoreSettings": {
         "properties": {
-          "dte": {
-            "title": "Dte",
-            "type": "number"
+          "colors": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "title": "Colors",
+            "type": "array"
           },
-          "dust": {
-            "title": "Dust",
-            "type": "number"
+          "custom": {
+            "title": "Custom",
+            "type": "boolean"
           },
-          "slope": {
-            "title": "Slope",
-            "type": "number"
+          "margin_h": {
+            "title": "Margin H",
+            "type": "integer"
           },
-          "sun": {
-            "title": "Sun",
+          "reject_psr": {
+            "title": "Reject Psr",
+            "type": "boolean"
+          },
+          "slope_deg": {
+            "maxItems": 3,
+            "minItems": 3,
+            "prefixItems": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "title": "Slope Deg",
+            "type": "array"
+          },
+          "sun_req_h": {
+            "title": "Sun Req H",
             "type": "number"
           }
         },
         "required": [
-          "sun",
-          "dte",
-          "slope",
-          "dust"
+          "sun_req_h",
+          "slope_deg",
+          "reject_psr",
+          "margin_h",
+          "colors",
+          "custom"
+        ],
+        "title": "ScoreSettings",
+        "type": "object"
+      },
+      "ScoreWeights": {
+        "properties": {
+          "C": {
+            "title": "C",
+            "type": "number"
+          },
+          "D": {
+            "title": "D",
+            "type": "number"
+          },
+          "DK": {
+            "title": "Dk",
+            "type": "number"
+          },
+          "L": {
+            "title": "L",
+            "type": "number"
+          },
+          "LS": {
+            "title": "Ls",
+            "type": "number"
+          },
+          "OT": {
+            "title": "Ot",
+            "type": "number"
+          },
+          "S": {
+            "title": "S",
+            "type": "number"
+          }
+        },
+        "required": [
+          "L",
+          "C",
+          "DK",
+          "OT",
+          "LS",
+          "S",
+          "D"
         ],
         "title": "ScoreWeights",
         "type": "object"
@@ -1057,6 +1552,53 @@
         "title": "SeriesResponse",
         "type": "object"
       },
+      "SettingSpec": {
+        "properties": {
+          "default": {
+            "items": {
+              "type": "number"
+            },
+            "title": "Default",
+            "type": "array"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "max": {
+            "title": "Max",
+            "type": "number"
+          },
+          "min": {
+            "title": "Min",
+            "type": "number"
+          },
+          "step": {
+            "exclusiveMinimum": 0.0,
+            "title": "Step",
+            "type": "number"
+          },
+          "unit": {
+            "title": "Unit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "unit",
+          "default",
+          "min",
+          "max",
+          "step"
+        ],
+        "title": "SettingSpec",
+        "type": "object"
+      },
       "Site": {
         "properties": {
           "category": {
@@ -1071,6 +1613,17 @@
             "pattern": "^[a-z0-9_]{1,64}$",
             "title": "Id",
             "type": "string"
+          },
+          "in_psr": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "In Psr"
           },
           "is_placeholder": {
             "title": "Is Placeholder",
@@ -1150,6 +1703,24 @@
         "title": "SitesResponse",
         "type": "object"
       },
+      "SlopeThresholds": {
+        "properties": {
+          "amber_max": {
+            "title": "Amber Max",
+            "type": "number"
+          },
+          "green_max": {
+            "title": "Green Max",
+            "type": "number"
+          }
+        },
+        "required": [
+          "green_max",
+          "amber_max"
+        ],
+        "title": "SlopeThresholds",
+        "type": "object"
+      },
       "StationPoint": {
         "properties": {
           "alt_m": {
@@ -1208,7 +1779,6 @@
             "type": "string"
           },
           "warnings": {
-            "default": [],
             "items": {
               "$ref": "#/components/schemas/Warning"
             },
@@ -1226,7 +1796,8 @@
           "rag",
           "score",
           "windows",
-          "daily"
+          "daily",
+          "warnings"
         ],
         "title": "SummaryResponse",
         "type": "object"
@@ -1309,8 +1880,29 @@
       },
       "Warning": {
         "properties": {
+          "affects": {
+            "enum": [
+              "score",
+              "sun",
+              "contact",
+              "skyline",
+              "slope",
+              "all"
+            ],
+            "title": "Affects",
+            "type": "string"
+          },
           "code": {
             "title": "Code",
+            "type": "string"
+          },
+          "severity": {
+            "enum": [
+              "info",
+              "caution",
+              "blocking"
+            ],
+            "title": "Severity",
             "type": "string"
           },
           "text": {
@@ -1320,9 +1912,85 @@
         },
         "required": [
           "code",
-          "text"
+          "text",
+          "severity",
+          "affects"
         ],
         "title": "Warning",
+        "type": "object"
+      },
+      "WarningEntry": {
+        "properties": {
+          "affects": {
+            "enum": [
+              "score",
+              "sun",
+              "contact",
+              "skyline",
+              "slope",
+              "all"
+            ],
+            "title": "Affects",
+            "type": "string"
+          },
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "severity": {
+            "enum": [
+              "info",
+              "caution",
+              "blocking"
+            ],
+            "title": "Severity",
+            "type": "string"
+          },
+          "standing": {
+            "title": "Standing",
+            "type": "boolean"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "severity",
+          "affects",
+          "text",
+          "standing"
+        ],
+        "title": "WarningEntry",
+        "type": "object"
+      },
+      "WeightPreset": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "weights": {
+            "items": {
+              "type": "number"
+            },
+            "maxItems": 7,
+            "minItems": 7,
+            "title": "Weights",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "weights"
+        ],
+        "title": "WeightPreset",
         "type": "object"
       },
       "Windows": {
@@ -1377,12 +2045,30 @@
             },
             "title": "Sun",
             "type": "array"
+          },
+          "unknown": {
+            "items": {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "string"
+                }
+              ],
+              "type": "array"
+            },
+            "title": "Unknown",
+            "type": "array"
           }
         },
         "required": [
           "sun",
           "dte",
-          "both"
+          "both",
+          "unknown"
         ],
         "title": "Windows",
         "type": "object"
@@ -1437,6 +2123,26 @@
         "parameters": [
           {
             "in": "query",
+            "name": "month",
+            "required": true,
+            "schema": {
+              "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+              "title": "Month",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "v",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "V",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
             "name": "site",
             "required": true,
             "schema": {
@@ -1451,16 +2157,6 @@
             "schema": {
               "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d0Z$",
               "title": "T0",
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "month",
-            "required": true,
-            "schema": {
-              "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
-              "title": "Month",
               "type": "string"
             }
           },
@@ -1502,17 +2198,6 @@
           },
           {
             "in": "query",
-            "name": "w",
-            "required": false,
-            "schema": {
-              "default": "1,1,1,0",
-              "pattern": "^(0(\\.\\d)?|1(\\.0)?)(,(0(\\.\\d)?|1(\\.0)?)){3}$",
-              "title": "W",
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
             "name": "station",
             "required": false,
             "schema": {
@@ -1523,11 +2208,67 @@
           },
           {
             "in": "query",
-            "name": "v",
+            "name": "w",
             "required": false,
             "schema": {
-              "default": "",
-              "title": "V",
+              "default": "0.25,0.25,0.15,0.15,0.1,0.1,0",
+              "title": "W",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sun_req",
+            "required": false,
+            "schema": {
+              "default": 6,
+              "maximum": 72,
+              "minimum": 0,
+              "title": "Sun Req",
+              "type": "number"
+            }
+          },
+          {
+            "in": "query",
+            "name": "slope",
+            "required": false,
+            "schema": {
+              "default": "0,15,15",
+              "title": "Slope",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "psr",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "maximum": 1,
+              "minimum": 0,
+              "title": "Psr",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "margin",
+            "required": false,
+            "schema": {
+              "default": 12,
+              "maximum": 48,
+              "minimum": 0,
+              "title": "Margin",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "colors",
+            "required": false,
+            "schema": {
+              "default": "70,40",
+              "title": "Colors",
               "type": "string"
             }
           }
@@ -1563,6 +2304,16 @@
         "parameters": [
           {
             "in": "query",
+            "name": "v",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "V",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
             "name": "site",
             "required": true,
             "schema": {
@@ -1618,17 +2369,6 @@
           },
           {
             "in": "query",
-            "name": "w",
-            "required": false,
-            "schema": {
-              "default": "1,1,1,0",
-              "pattern": "^(0(\\.\\d)?|1(\\.0)?)(,(0(\\.\\d)?|1(\\.0)?)){3}$",
-              "title": "W",
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
             "name": "station",
             "required": false,
             "schema": {
@@ -1639,11 +2379,67 @@
           },
           {
             "in": "query",
-            "name": "v",
+            "name": "w",
             "required": false,
             "schema": {
-              "default": "",
-              "title": "V",
+              "default": "0.25,0.25,0.15,0.15,0.1,0.1,0",
+              "title": "W",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sun_req",
+            "required": false,
+            "schema": {
+              "default": 6,
+              "maximum": 72,
+              "minimum": 0,
+              "title": "Sun Req",
+              "type": "number"
+            }
+          },
+          {
+            "in": "query",
+            "name": "slope",
+            "required": false,
+            "schema": {
+              "default": "0,15,15",
+              "title": "Slope",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "psr",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "maximum": 1,
+              "minimum": 0,
+              "title": "Psr",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "margin",
+            "required": false,
+            "schema": {
+              "default": 12,
+              "maximum": 48,
+              "minimum": 0,
+              "title": "Margin",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "colors",
+            "required": false,
+            "schema": {
+              "default": "70,40",
+              "title": "Colors",
               "type": "string"
             }
           }

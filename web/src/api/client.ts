@@ -1,6 +1,7 @@
 import createClient from 'openapi-fetch'
 import { resolveSource, type AppConfig, type SourceName } from './config'
 import { roundCm } from './heights'
+import { settingsQuery } from './scoreSettings'
 import type { paths } from './schema'
 import { stationQuery } from './stations'
 import type { Horizon, Meta, Scenario, Series, Site, SitesResponse, Summary } from './types'
@@ -15,8 +16,8 @@ export function scenarioQuery(s: Scenario) {
     days: Math.round(s.days * 100) / 100,
     panel: roundCm(s.panel),
     antenna: roundCm(s.antenna),
-    w: s.w.map((x) => x.toFixed(1)).join(','),
     station: stationQuery(s.station),
+    ...settingsQuery(s),
   }
 }
 

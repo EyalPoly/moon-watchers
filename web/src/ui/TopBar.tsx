@@ -1,4 +1,8 @@
+import { useState } from 'react'
+import { isCustom, type ScoreSettings } from '../api/scoreSettings'
+import type { Meta } from '../api/types'
 import { SampleBanner } from './SampleBanner'
+import { ScoreSettingsPanel } from './ScoreSettingsPanel'
 
 // Top strip (UI design, Moon_Watchers_UI.pdf): logo and team line on the left, screen
 // tabs on the right with a green underline on the active one.
@@ -18,7 +22,17 @@ function Logo() {
   )
 }
 
-export function TopBar({ sample }: { sample: boolean }) {
+export interface TopBarProps {
+  sample: boolean
+  /** Undefined until the server's score description arrives. */
+  scoreSpec: Meta['score'] | undefined
+  settings: ScoreSettings
+  onSettingsChange: (s: ScoreSettings) => void
+  onSettingsCommit: (s: ScoreSettings) => void
+}
+
+export function TopBar({ sample, scoreSpec, settings, onSettingsChange, onSettingsCommit }: TopBarProps) {
+  const [open, setOpen] = useState(false)
   return (
     <header className="topbar">
       <div className="brand">
@@ -43,6 +57,34 @@ export function TopBar({ sample }: { sample: boolean }) {
           </button>
         ))}
       </nav>
+      <div className="settings-anchor">
+        <button
+          type="button"
+          className="secondary"
+          aria-expanded={open && scoreSpec !== undefined}
+          aria-controls="score-settings"
+          disabled={scoreSpec === undefined}
+          onClick={() => setOpen((o) => !o)}
+        >
+          {isCustom(settings) ? 'Score settings (custom)' : 'Score settings'}
+        </button>
+        {open && scoreSpec && (
+          <section id="score-settings" className="settings-panel" role="dialog" aria-label="Score settings">
+            <div className="settings-panel-head">
+              <strong>Score settings</strong>
+              <button type="button" className="link-button" onClick={() => setOpen(false)}>
+                Close
+              </button>
+            </div>
+            <ScoreSettingsPanel
+              spec={scoreSpec}
+              value={settings}
+              onChange={onSettingsChange}
+              onCommit={onSettingsCommit}
+            />
+          </section>
+        )}
+      </div>
     </header>
   )
 }

@@ -505,7 +505,7 @@ The physics team defines these rules (**P2**, **P3**). They come from their prot
 
 - **Mission window:** [landing − 12 h, landing + mission length].
   - The 12 h before landing is the physics team's landing margin: the actual landing can come a few hours before the planned time, so the window starts early enough to cover it.
-  - The margin is `landing_margin_h` in `config/score.yaml` (default 12; 0 gives the old forward-only window). It is not a URL parameter.
+  - The margin defaults to 12 h in `config/score.yaml` and is user-configurable as the `margin` URL parameter (0–48 h); 0 gives the old forward-only window.
   - In their prototype the margin is `delta_t_before_s` and the mission length is `delta_t_after_s`.
 - **Mission metrics:** computed over the mission window: sunlight at panel height, contact at antenna height. The physics team's default mission length is **30 Earth days** (**P4**); users can set 1–365.
 

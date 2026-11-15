@@ -6,9 +6,11 @@
 // the mock layer: the real numbers come from the engine. Every screen that shows them
 // carries the "Sample data" label.
 
-import type { Horizon, Scenario, Series, StationPoint, Summary } from '../types'
+import meta from '@samples/meta.json'
+import type { ApiWarning, Horizon, Scenario, Series, Site, StationPoint, Summary } from '../types'
 import { DAY_MS, STEP_MS, formatIsoMinute, monthEndMs, monthStartMs } from '../../time'
 import { HOUSTON } from '../stations'
+import { general, makeWarning, mockScore, sortWarnings } from './score'
 
 export const SUN_RADIUS_DEG = 0.267
 export const EARTH_RADIUS_DEG = 0.95
@@ -156,25 +158,30 @@ export function monthSeries(site: SiteLike, horizon: Horizon, month: string, opt
 
 // --- Summary ---------------------------------------------------------------------------
 
-function pctColor(pct: number) {
-  return pct >= 60 ? 'green' : pct >= 30 ? 'amber' : 'red'
+const HOUR_MS = 3_600_000
+const STEPS_PER_DAY = 144
+const ORIENTATION_OBSERVED_UNTIL = Date.UTC(2026, 7, 6)
+
+type State = 0 | 1 | null
+
+const round = (v: number, decimals: number) => Math.round(v * 10 ** decimals) / 10 ** decimals
+const hours = (steps: number) => round((steps * STEP_MS) / HOUR_MS, 2)
+
+/** The mean of the values, or null when any is unknown. */
+function mean(values: readonly (number | null)[]): number | null {
+  let sum = 0
+  for (const v of values) {
+    if (v === null) return null
+    sum += v
+  }
+  return values.length === 0 ? null : sum / values.length
 }
 
-function slopeColor(deg: number) {
-  return deg <= 5 ? 'green' : deg <= 10 ? 'amber' : 'red'
-}
-
-function slopePenalty(deg: number): number {
-  if (deg <= 5) return 0
-  if (deg <= 10) return ((deg - 5) / 5) * 30
-  return 30
-}
-
-function windowsOf(flags: boolean[], startMs: number): [string, string][] {
+function windowsOf(states: readonly State[], startMs: number, match: (s: State) => boolean): [string, string][] {
   const out: [string, string][] = []
   let open = -1
-  for (let i = 0; i <= flags.length; i++) {
-    const on = i < flags.length && flags[i]
+  for (let i = 0; i <= states.length; i++) {
+    const on = i < states.length && match(states[i])
     if (on && open < 0) open = i
     if (!on && open >= 0) {
       out.push([formatIsoMinute(startMs + open * STEP_MS), formatIsoMinute(startMs + i * STEP_MS)])
@@ -184,105 +191,171 @@ function windowsOf(flags: boolean[], startMs: number): [string, string][] {
   return out
 }
 
-function longestOff(flags: boolean[]): number {
-  let best = 0
+/** The longest run of 0 steps and whether it touches either end; unknown steps break a run. */
+function longestRun(states: readonly State[]): { steps: number; atEdge: boolean } {
+  let best = { steps: 0, atEdge: false }
   let run = 0
-  for (const f of flags) {
-    run = f ? 0 : run + 1
-    best = Math.max(best, run)
+  for (let i = 0; i < states.length; i++) {
+    run = states[i] === 0 ? run + 1 : 0
+    if (run > best.steps) best = { steps: run, atEdge: i + 1 - run === 0 || i === states.length - 1 }
   }
   return best
 }
 
-const pct = (flags: boolean[]) => (flags.length ? (100 * flags.filter(Boolean).length) / flags.length : 0)
-const r1 = (v: number) => Math.round(v * 10) / 10
-const hours = (steps: number) => r1((steps * STEP_MS) / 3_600_000)
+/** Steps from the start while the Sun is up; null when the run ends in unknown terrain. */
+function firstSunSteps(sun: readonly State[]): number | null {
+  const end = sun.findIndex((s) => s !== 1)
+  if (end < 0) return sun.length
+  return sun[end] === null ? null : end
+}
+
+/** Steps from landing to the first dark one; null when unknown terrain comes first. */
+function firstDarkSteps(sun: readonly State[], landing: number): number | null {
+  for (let i = landing; i < sun.length; i++) {
+    if (sun[i] === 0) return i - landing
+    if (sun[i] === null) return null
+  }
+  return sun.length - landing
+}
+
+// Stands in for the engine's dust index: smooth, in [0, 1] and fixed per place, but not
+// the same waves, so it is only ever shown as simulated.
+const DUST_WAVES = [0.3, 1.7, 2.9, 4.1, 5.3, 0.9].map((a, k) => ({ a, p: 1 + 0.8 * k }))
+function dustIndex(lat: number, lon: number): number {
+  const rho = 2 * 1_737_400 * Math.tan((rad(90 + lat)) / 2)
+  const [x, y] = [rho * Math.sin(rad(lon)), rho * Math.cos(rad(lon))]
+  const waves = DUST_WAVES.reduce((sum, { a, p }) => sum + Math.sin((x * Math.cos(a) + y * Math.sin(a)) / 5000 + p), 0)
+  return round(Math.min(1, Math.max(0, 0.5 + waves / DUST_WAVES.length / 2)), 2)
+}
+
+const RAG = meta.rag
+type Color = 'green' | 'amber' | 'red'
+const pctColor = (pct: number): Color => (pct >= RAG.pct.green_from ? 'green' : pct >= RAG.pct.amber_from ? 'amber' : 'red')
+const slopeColor = (deg: number): Color => (deg <= RAG.slope_deg.green_max ? 'green' : deg <= RAG.slope_deg.amber_max ? 'amber' : 'red')
+
+export function pctChip(name: string, unavailable: string, pct: number | null, unknownH: number): Summary['rag']['sun'] {
+  if (pct === null) {
+    return { color: 'unknown', reason: `${unavailable} unavailable: terrain unknown for ${unknownH.toFixed(1)} h of the mission` }
+  }
+  const shown = pct.toFixed(1)
+  return {
+    color: pctColor(Number(shown)),
+    reason: `${name} ${shown}% of the mission (green ≥ ${RAG.pct.green_from}%, red < ${RAG.pct.amber_from}%)`,
+  }
+}
 
 /** `horizon` is the site's skyline at any height; the panel's and the antenna's are derived from it. */
 export function syntheticSummary(
   scenario: Scenario,
-  site: SiteLike & { slope_deg: number },
+  site: SiteLike & Pick<Site, 'slope_deg'> & { in_psr?: boolean | null },
   horizon: Horizon,
-  t0Ms: number,
+  landingMs: number,
 ): Summary {
-  const n = Math.round((scenario.days * DAY_MS) / STEP_MS)
-  const s = syntheticSeries(site, horizonAtMast(horizon, scenario.panel), t0Ms, n, {
+  const margin = scenario.margin
+  const n = margin * 6 + Math.floor(scenario.days * STEPS_PER_DAY + 0.5)
+  const startMs = landingMs - margin * HOUR_MS
+  const s = syntheticSeries(site, horizonAtMast(horizon, scenario.panel), startMs, n, {
     station: scenario.station,
     antennaHorizon: horizonAtMast(horizon, scenario.antenna),
   })
-  // Unknown terrain counts as not visible: the summary has no third state yet.
-  const sun = s.sun_lit_frac.map((f) => f !== null && f > 0)
-  const dte = s.contact.map((c) => c === 1)
-  const both = sun.map((v, i) => v && dte[i])
-  const S = pct(sun)
-  const D = pct(dte)
-  const B = pct(both)
-  const firstDark = sun.indexOf(false)
-
-  const [wSun, wDte, wSlope, wDust] = scenario.w
-  const base =
-    100 *
-    ((1 - wSun) * (1 - wDte) +
-      (wSun * (1 - wDte) * S) / 100 +
-      ((1 - wSun) * wDte * D) / 100 +
-      (wSun * wDte * B) / 100)
-  const slopePts = wSlope * slopePenalty(site.slope_deg)
-  const value = Math.min(100, Math.max(0, base - slopePts))
-  // Split the points lost below 100 between Sun and Earth by how often each was missing.
-  const lost = 100 - base
-  const missSun = wSun * (100 - S)
-  const missDte = wDte * (100 - D)
-  const share = missSun + missDte > 0 ? missSun / (missSun + missDte) : 0.5
-  const factors = [
-    { name: 'sun', weight: wSun, points: r1(-lost * share), reason: `Sun visible ${r1(S)}% of the mission` },
-    { name: 'dte', weight: wDte, points: r1(-lost * (1 - share)), reason: `Earth in contact ${r1(D)}% of the mission` },
-    { name: 'slope', weight: wSlope, points: r1(-slopePts), reason: `Slope ${site.slope_deg.toFixed(1)}°` },
-  ]
-  const deciding = factors.reduce((a, b) => (b.points < a.points ? b : a)).name
-
-  const days = Math.ceil(scenario.days)
-  const perDay = 144
-  const daily = { sun_pct: [] as number[], dte_pct: [] as number[] }
-  for (let d = 0; d < days; d++) {
-    daily.sun_pct.push(r1(pct(sun.slice(d * perDay, (d + 1) * perDay))))
-    daily.dte_pct.push(r1(pct(dte.slice(d * perDay, (d + 1) * perDay))))
+  const sun = s.sun_lit_frac.map((f): State => (f === null ? null : f > 0 ? 1 : 0))
+  const contact = s.contact.map((c): State => (c === null ? null : c === 1 ? 1 : 0))
+  const both = sun.map((v, i): State => (v === 1 && contact[i] === 1 ? 1 : v === 0 || contact[i] === 0 ? 0 : null))
+  const pct = (states: readonly State[]) => {
+    const m = mean(states)
+    return m === null ? null : round(100 * m, 2)
   }
+  const mean4 = (values: readonly (number | null)[]) => {
+    const m = mean(values)
+    return m === null ? null : round(m, 4)
+  }
+
+  const dark = longestRun(sun)
+  const outage = longestRun(contact)
+  const firstSun = firstSunSteps(sun)
+  const firstDark = firstDarkSteps(sun, margin * 6)
+  const unknownSteps = sun.filter((v, i) => v === null || contact[i] === null).length
+  const unknownH = hours(unknownSteps)
   const earthEl = s.earth_el
+  const sunDiskMean = mean4(s.sun_lit_frac)
+  const contactMean = mean4(contact)
+
+  const metrics: Summary['metrics'] = {
+    sun_pct: pct(sun),
+    dte_pct: pct(contact),
+    both_pct: pct(both),
+    sun_disk_mean: sunDiskMean,
+    contact_mean: contactMean,
+    earth_any_pct: pct(s.earth_any as State[]),
+    earth_whole_pct: pct(s.earth_whole as State[]),
+    longest_dark_h: hours(dark.steps),
+    longest_no_contact_h: hours(outage.steps),
+    longest_dark_at_edge: dark.atEdge,
+    longest_no_contact_at_edge: outage.atEdge,
+    first_sun_h: firstSun === null ? null : hours(firstSun),
+    first_dark_after_landing_h: firstDark === null ? null : hours(firstDark),
+    window: [formatIsoMinute(startMs), formatIsoMinute(startMs + n * STEP_MS)],
+    earth_el_range: [round(Math.min(...earthEl), 2), round(Math.max(...earthEl), 2)],
+    unknown_h: unknownH,
+  }
+
+  const windowH = (n * STEP_MS) / HOUR_MS
+  const score = mockScore(
+    {
+      L: metrics.sun_disk_mean,
+      C: metrics.contact_mean,
+      DK: metrics.longest_dark_h,
+      OT: metrics.longest_no_contact_h,
+      LS: metrics.first_sun_h,
+      S: site.slope_deg,
+      D: dustIndex(site.lat_deg, site.lon_deg),
+    },
+    site.slope_deg,
+    site.in_psr ?? null,
+    scenario,
+    windowH,
+  )
+
+  const bins = Math.ceil(n / STEPS_PER_DAY)
+  const perBin = <T,>(values: readonly T[], reduce: (bin: T[]) => number | null) =>
+    Array.from({ length: bins }, (_, d) => reduce(values.slice(d * STEPS_PER_DAY, (d + 1) * STEPS_PER_DAY)))
+  const daily: Summary['daily'] = {
+    sun_pct: perBin(sun, (bin) => pct(bin)),
+    dte_pct: perBin(contact, (bin) => pct(bin)),
+    sun_disk_mean: perBin(s.sun_lit_frac, (bin) => mean4(bin)),
+  }
+
+  const data: ApiWarning[] = [
+    ...(horizon.warnings ?? []).flatMap((code) => {
+      try {
+        return [makeWarning(code)]
+      } catch {
+        return []
+      }
+    }),
+    ...(startMs + n * STEP_MS > ORIENTATION_OBSERVED_UNTIL ? [makeWarning('EARTH_ORIENTATION_PREDICTED')] : []),
+  ]
+
   return {
     scenario,
     version: 'sample',
-    metrics: {
-      sun_pct: r1(S),
-      dte_pct: r1(D),
-      both_pct: r1(B),
-      longest_dark_h: hours(longestOff(sun)),
-      longest_no_contact_h: hours(longestOff(dte)),
-      first_dark_after_landing_h: firstDark < 0 ? hours(n) : hours(firstDark),
-      earth_el_range: [r1(Math.min(...earthEl)), r1(Math.max(...earthEl))],
-    },
+    metrics,
     rag: {
-      sun: { color: pctColor(S), reason: `Sun visible ${r1(S)}% of the mission (green ≥ 60%, red < 30%)` },
-      dte: { color: pctColor(D), reason: `Earth in contact ${r1(D)}% of the mission (green ≥ 60%, red < 30%)` },
+      sun: pctChip('Sun visible', 'Sun visibility', metrics.sun_pct, unknownH),
+      dte: pctChip('Earth contact', 'Earth contact', metrics.dte_pct, unknownH),
       slope: {
         color: slopeColor(site.slope_deg),
-        reason: `Slope ${site.slope_deg.toFixed(1)}° (green ≤ 5°, red > 10°)`,
+        reason: `Slope ${general(round(site.slope_deg, 1))}° (green ≤ ${RAG.slope_deg.green_max}°, red > ${RAG.slope_deg.amber_max}°)`,
       },
     },
-    score: {
-      value: r1(value),
-      base: r1(base),
-      weights: { sun: wSun, dte: wDte, slope: wSlope, dust: wDust },
-      factors,
-      deciding,
-      formula: 'interim: base = share of time with every weighted body visible; score = base − slope penalty',
-      color: value >= 70 ? 'green' : value >= 40 ? 'amber' : 'red',
-    },
+    score,
     windows: {
-      sun: windowsOf(sun, t0Ms),
-      dte: windowsOf(dte, t0Ms),
-      both: windowsOf(both, t0Ms),
+      sun: windowsOf(sun, startMs, (v) => v === 1),
+      dte: windowsOf(contact, startMs, (v) => v === 1),
+      both: windowsOf(both, startMs, (v) => v === 1),
+      unknown: windowsOf(sun.map((v, i): State => (v === null || contact[i] === null ? null : 1)), startMs, (v) => v === null),
     },
     daily,
-    warnings: [],
+    warnings: sortWarnings([...data, ...score.warnings]),
   }
 }

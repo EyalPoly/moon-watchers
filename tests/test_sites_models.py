@@ -151,3 +151,7 @@ def test_meta_default_station_must_be_a_preset() -> None:
 def test_station_preset_ranges() -> None:
     with pytest.raises(ValidationError):
         EarthStation(id="x", name="x", lat_deg=0, lon_deg=0, alt_m=0, min_el_deg=50)
+
+
+def test_in_psr_optional() -> None:
+    assert Site.model_validate(site_data()).in_psr is None

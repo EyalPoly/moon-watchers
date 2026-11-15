@@ -10,6 +10,7 @@ RUN uv sync --frozen --no-dev --no-install-project
 COPY api ./api
 COPY engine ./engine
 COPY catalog ./catalog
+COPY config ./config
 COPY contract/samples ./contract/samples
 
 ENV PATH="/opt/venv/bin:$PATH"
