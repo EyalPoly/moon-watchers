@@ -23,6 +23,14 @@ test('four warnings show two in full, the blocking one first, and "+2 more"', ()
   expect(screen.getByRole('button', { name: '+2 more' })).toBeTruthy()
 })
 
+test('a strip limited to one shows the blocking warning in full and counts the rest', () => {
+  render(<WarningsStrip warnings={[w('A'), w('EXCLUDED_PSR', 'blocking'), w('C')]} catalog={catalog} visible={1} />)
+  const items = screen.getAllByRole('listitem')
+  expect(items).toHaveLength(1)
+  expect(items[0].textContent).toContain('text of EXCLUDED_PSR')
+  expect(screen.getByRole('button', { name: '+2 more' })).toBeTruthy()
+})
+
 test('"+2 more" opens the full list', () => {
   render(<WarningsStrip warnings={[w('A'), w('B', 'caution'), w('C'), w('D')]} catalog={catalog} />)
   fireEvent.click(screen.getByRole('button', { name: '+2 more' }))

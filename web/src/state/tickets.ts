@@ -15,7 +15,7 @@
 
 import { z } from 'zod'
 import { HEIGHT_RANGE, roundCm } from '../api/heights'
-import { HOUSTON, stationFromUrl, stationToUrl } from '../api/stations'
+import { HOUSTON, sameStation, stationFromUrl, stationQuery, stationToUrl } from '../api/stations'
 import type { StationPoint } from '../api/types'
 import { parseIsoMinute } from '../time'
 import { MISSION_DEFAULTS, MISSION_RANGE, parseMission } from './urlState'
@@ -35,6 +35,10 @@ export interface Ticket {
   antenna: number
   /** The Earth station the antenna talks to. */
   station: StationPoint
+  /** Chosen stations in the picker. The existing calculator uses the displayed station above. */
+  stationChoices?: StationPoint[]
+  editing?: boolean
+  collapsed?: boolean
   view: PanelView
   /** Shown in the main area (the user picks which tickets show there). */
   shown: boolean
@@ -84,7 +88,7 @@ export function cleanName(name: string): string {
 /** New tickets for points (e.g. areas picked on the map), copying a ticket's settings. */
 export function addTicketsFor(s: Screen2State, from: number, points: { site: string; name: string }[]): Screen2State {
   const base = s.tickets[from] ?? EMPTY_TICKET
-  const added = points.map((p) => ({ ...base, site: p.site, name: cleanName(p.name), view: 'map' as const, shown: true }))
+  const added = points.map((p) => ({ ...base, site: p.site, editing: undefined, collapsed: undefined, name: cleanName(p.name), view: 'map' as const, shown: true }))
   const tickets = [...s.tickets, ...added]
   return { ...s, tickets, open: added.length > 0 ? s.tickets.length : s.open, compare: false }
 }
@@ -104,13 +108,19 @@ function parseTicket(raw: string): Ticket {
     .filter((f) => f.startsWith('s:'))
     .map((f) => stationFromUrl(f.slice(2)))
     .find((s) => s !== null)
+  const choicesToken = flags.find((f) => f.startsWith('stations:'))?.slice(9)
+  const choices = (choicesToken?.split('|').slice(0, 6) ?? []).flatMap((token) => stationFromUrl(token) ?? [])
+  const active = station ?? HOUSTON
   return {
+    ...(choices.length > 1 && choices.some((s) => sameStation(s, active)) ? { stationChoices: choices } : {}),
+    ...(flags.includes('edit') ? { editing: true } : {}),
+    ...(flags.includes('fold') ? { collapsed: true } : {}),
     site: pick(siteId, site, null),
     t0: pick(t0Field, t0, EMPTY_TICKET.t0),
     days: round2(pick(daysField, days, EMPTY_TICKET.days)),
     panel: roundCm(pick(heightField, panel, EMPTY_TICKET.panel)),
     antenna: roundCm(pick(heightField, antenna, EMPTY_TICKET.antenna)),
-    station: station ?? HOUSTON,
+    station: active,
     view: flags.includes('g') ? 'graph' : 'map',
     shown: !flags.includes('h'),
     name: cleanName(flags.find((f) => f.startsWith('n:'))?.slice(2) ?? ''),
@@ -119,6 +129,9 @@ function parseTicket(raw: string): Ticket {
 
 function ticketToUrl(t: Ticket): string {
   const parts: (string | number)[] = [t.site ?? '', t.t0, t.days, t.panel, t.antenna]
+  if (t.stationChoices && t.stationChoices.length > 1) parts.push(`stations:${t.stationChoices.map(stationQuery).join('|')}`)
+  if (t.editing) parts.push('edit')
+  if (t.collapsed) parts.push('fold')
   if (t.view === 'graph') parts.push('g')
   if (!t.shown) parts.push('h')
   if (t.name !== '') parts.push(`n:${cleanName(t.name)}`)
@@ -193,7 +206,7 @@ export function updateTicket(s: Screen2State, i: number, patch: Partial<Ticket>)
 /** A new ticket starts from the open one's dates, heights and station, with no site yet, and opens. */
 export function addTicket(s: Screen2State): Screen2State {
   const from = s.tickets[s.open] ?? EMPTY_TICKET
-  const tickets = [...s.tickets, { ...from, site: null, view: 'map' as const, shown: true, name: '' }]
+  const tickets = [...s.tickets, { ...from, site: null, editing: undefined, collapsed: undefined, view: 'map' as const, shown: true, name: '' }]
   return { ...s, tickets, open: tickets.length - 1, compare: false }
 }
 

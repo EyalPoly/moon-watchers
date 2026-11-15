@@ -3,17 +3,19 @@ import { transform } from 'ol/proj'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { Site } from '../api/types'
+import { siteDisplayName } from '../ui/points'
 import { useMap } from './PolarMap'
 
 export interface SitePinsProps {
   sites: readonly Site[]
   selectedId: string | null
-  /** Tag shown beside the selected pin, e.g. the point's letter "A". */
-  selectedLabel?: string
+  labels: ReadonlyMap<string, string[]>
+  activeLabel: string
+  onFocus: (label: string) => void
   onSelect: (id: string) => void
 }
 
-export function SitePins({ sites, selectedId, selectedLabel, onSelect }: SitePinsProps) {
+export function SitePins({ sites, selectedId, labels, activeLabel, onFocus, onSelect }: SitePinsProps) {
   const map = useMap()
   const [targets, setTargets] = useState<{ site: Site; element: HTMLElement }[]>([])
   // Overlays are rebuilt only when the set of sites or their positions change, not each
@@ -52,20 +54,23 @@ export function SitePins({ sites, selectedId, selectedLabel, onSelect }: SitePin
             <button
               type="button"
               data-testid={`pin-${site.id}`}
-              aria-label={site.name}
+              aria-label={siteDisplayName(site)}
               aria-pressed={site.id === selectedId}
               className={[
                 'pin',
-                site.id === selectedId && 'pin-selected',
+                labels.has(site.id) && 'pin-selected',
                 site.source === 'custom' && 'pin-custom',
               ]
                 .filter(Boolean)
                 .join(' ')}
               onClick={() => onSelect(site.id)}
             />
-            {site.id === selectedId && selectedLabel && (
-              <span className="pin-tag mono" aria-hidden="true">
-                {selectedLabel}
+            {labels.has(site.id) && (
+              <span className="pin-tags">
+                {labels.get(site.id)?.map((label) => (
+                  <button key={label} type="button" className="pin-tag mono" aria-label={`Focus site ${label}`}
+                    aria-pressed={label === activeLabel} onClick={() => onFocus(label)}>{label}</button>
+                ))}
               </span>
             )}
           </span>,

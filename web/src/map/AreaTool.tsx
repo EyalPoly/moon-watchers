@@ -184,9 +184,9 @@ export function AreaTool({ areaRadiusM, onOpen, onClose, namePrefix }: AreaToolP
   const chosen = (areas ?? []).filter((a) => selected.has(a.id))
 
   return (
-    <div className="area-tool" role="dialog" aria-label="Select an area">
+    <div className="area-tool" role="dialog" aria-label="Select region">
       <div className="area-tool-head">
-        <strong>Select an area</strong>
+        <strong>Select region</strong>
         <button type="button" className="icon-plain" onClick={onClose} aria-label="Close area tool" title="Close">
           ✕
         </button>
@@ -270,7 +270,7 @@ export function AreaTool({ areaRadiusM, onOpen, onClose, namePrefix }: AreaToolP
               )
             }
           >
-            Open {chosen.length} {chosen.length === 1 ? 'ticket' : 'tickets'}
+            Open {chosen.length} {chosen.length === 1 ? 'site' : 'sites'}
           </button>
           <p className="area-hint">Sample grades from a stand-in function, best first.</p>
         </>
