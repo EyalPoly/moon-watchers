@@ -38,6 +38,42 @@ sites:
   slope_resolution_m: 20
   source_url: https://planetarynames.wr.usgs.gov/Feature/16394
   is_placeholder: false
+- id: connecting_ridge_site
+  name: Connecting Ridge candidate site
+  source: catalog
+  category: ridge
+  region: south_pole
+  lat_deg: -89.53432
+  lon_deg: 209.94767
+  elevation_m: 1653.3
+  slope_deg: 0.49
+  slope_resolution_m: 20
+  source_url: https://www.hou.usra.edu/meetings/lpsc2024/pdf/1695.pdf
+  is_placeholder: false
+- id: peak_near_shackleton_site
+  name: Peak Near Shackleton candidate site
+  source: catalog
+  category: ridge
+  region: south_pole
+  lat_deg: -89.01701
+  lon_deg: 126.27302
+  elevation_m: 1168.0
+  slope_deg: 0.81
+  slope_resolution_m: 20
+  source_url: https://www.hou.usra.edu/meetings/lpsc2024/pdf/1695.pdf
+  is_placeholder: false
+- id: im2_mons_mouton_landing
+  name: IM-2 Athena landing, Mons Mouton
+  source: catalog
+  category: massif
+  region: south_pole
+  lat_deg: -84.7906
+  lon_deg: 29.1957
+  elevation_m: 5321.9
+  slope_deg: 3.02
+  slope_resolution_m: 20
+  source_url: https://en.wikipedia.org/wiki/IM-2
+  is_placeholder: false
 - id: amundsen
   name: Amundsen
   source: catalog
@@ -313,42 +349,6 @@ sites:
   slope_deg: 3.66
   slope_resolution_m: 20
   source_url: https://planetarynames.wr.usgs.gov/Feature/14534
-  is_placeholder: false
-- id: connecting_ridge_site
-  name: Connecting Ridge candidate site
-  source: catalog
-  category: ridge
-  region: south_pole
-  lat_deg: -89.53432
-  lon_deg: 209.94767
-  elevation_m: 1653.3
-  slope_deg: 0.49
-  slope_resolution_m: 20
-  source_url: https://www.hou.usra.edu/meetings/lpsc2024/pdf/1695.pdf
-  is_placeholder: false
-- id: peak_near_shackleton_site
-  name: Peak Near Shackleton candidate site
-  source: catalog
-  category: ridge
-  region: south_pole
-  lat_deg: -89.01701
-  lon_deg: 126.27302
-  elevation_m: 1168.0
-  slope_deg: 0.81
-  slope_resolution_m: 20
-  source_url: https://www.hou.usra.edu/meetings/lpsc2024/pdf/1695.pdf
-  is_placeholder: false
-- id: im2_mons_mouton_landing
-  name: IM-2 Athena landing, Mons Mouton
-  source: catalog
-  category: massif
-  region: south_pole
-  lat_deg: -84.7906
-  lon_deg: 29.1957
-  elevation_m: 5321.9
-  slope_deg: 3.02
-  slope_resolution_m: 20
-  source_url: https://en.wikipedia.org/wiki/IM-2
   is_placeholder: false
 - id: lcross_impact_cabeus
   name: LCROSS Centaur impact, Cabeus
