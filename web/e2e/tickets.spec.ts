@@ -222,3 +222,21 @@ test('three result cards and ridge plots fit a laptop and reflow on a phone', as
   const bottom = await page.getByRole('region', { name: 'Site C', exact: true }).boundingBox()
   expect(bottom!.y).toBeGreaterThan(top!.y + top!.height)
 })
+
+test('Sort by grade orders the cards from the highest weighted score down, and Back undoes it', async ({ page, context }) => {
+  await stubTiles(context)
+  await page.goto(many(3))
+  const scores = page.locator('.site-rating .num')
+  await expect(scores).toHaveCount(3)
+  await expect(scores).not.toContainText(['—'])
+  const before = page.url()
+  const read = async () => (await scores.allTextContents()).map(Number)
+  const unsorted = await read()
+
+  await page.getByRole('button', { name: 'Sort by grade' }).click()
+  await expect(page).not.toHaveURL(before)
+  await expect.poll(read).toEqual([...unsorted].sort((a, b) => b - a))
+
+  await page.goBack()
+  await expect.poll(read).toEqual(unsorted)
+})

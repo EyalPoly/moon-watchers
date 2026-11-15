@@ -32,7 +32,7 @@ The score is the physics team's illustrative formula, computed by `engine/score.
 - **A missing grade** with a weight above 0 counts as 0, with the warning `NULL_GRADE:<grade>`: missing data can only lower the score.
 - **Colors**: green ≥ 70, amber ≥ 40, red below 40 (settable).
 
-## Every setting (Manual Selection → Grading Weights)
+## Every setting (the Grading Weights button)
 | Setting | Default | Range |
 |---|---|---|
 | Weights L, C, DK, OT, LS, S, D | 0.25, 0.25, 0.15, 0.15, 0.10, 0.10, 0 | 0–1, step 0.05 |

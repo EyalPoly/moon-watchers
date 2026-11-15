@@ -7,10 +7,7 @@ test.beforeEach(async ({ page, context }) => {
 })
 
 async function openSettings(page: import('@playwright/test').Page) {
-  if (!(await page.getByRole('dialog', { name: 'Manual Selection' }).isVisible())) {
-    await page.getByRole('button', { name: 'Manual Selection' }).click()
-  }
-  await page.getByRole('dialog', { name: 'Manual Selection' }).getByRole('button', { name: /Grading Weights/ }).click()
+  await page.getByRole('button', { name: /^Grading Weights/ }).click()
 }
 
 const apply = (page: import('@playwright/test').Page) => page.getByRole('dialog', { name: 'Grading Weights' }).getByRole('button', { name: 'Apply', exact: true }).click()
@@ -69,7 +66,6 @@ test('an unrelated URL change after such a drag survives the next drag', async (
   await openSettings(page)
   await dragContact(page, ['0.5', '0.25'])
   await page.getByRole('button', { name: 'Cancel' }).click()
-  await page.getByRole('button', { name: 'Close area tool' }).click()
   await page.getByRole('button', { name: '+ Add site' }).click()
   const tickets = await page.evaluate(() => new URLSearchParams(location.search).get('tk'))
   expect(tickets).not.toBeNull()

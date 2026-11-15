@@ -1,5 +1,5 @@
-import { useMemo } from 'react'
-import { keepPreviousData, useQueries, useQuery, type UseQueryResult } from '@tanstack/react-query'
+import { useCallback, useMemo } from 'react'
+import { keepPreviousData, useQueries, useQuery, useQueryClient, type UseQueryResult } from '@tanstack/react-query'
 import { createApi } from '../api/client'
 import { resolveSource, type AppConfig } from '../api/config'
 import type { Scenario, Series } from '../api/types'
@@ -48,10 +48,14 @@ export function useHorizon(config: AppConfig, search: string, id: string | null,
   })
 }
 
-export function useSummary(config: AppConfig, search: string, scenario: Scenario | null) {
+function summaryKey(config: AppConfig, search: string, scenario: Scenario | null) {
   const mode = resolveSource(config, 'summary', search)
+  return ['summary', mode, mode === 'real' ? config.api_base : '', scenario]
+}
+
+export function useSummary(config: AppConfig, search: string, scenario: Scenario | null) {
   return useQuery({
-    queryKey: ['summary', mode, mode === 'real' ? config.api_base : '', scenario],
+    queryKey: summaryKey(config, search, scenario),
     queryFn: () => createApi(config, search).getSummary(scenario as Scenario),
     enabled: scenario !== null,
     placeholderData: keepPreviousData,
@@ -102,14 +106,26 @@ function combineSeries(results: UseQueryResult<Series>[]) {
 
 /** One summary per scenario, for the compare view. Entries stay in scenario order. */
 export function useSummaries(config: AppConfig, search: string, scenarios: Scenario[]) {
-  const mode = resolveSource(config, 'summary', search)
   return useQueries({
     queries: scenarios.map((scenario) => ({
-      queryKey: ['summary', mode, mode === 'real' ? config.api_base : '', scenario],
+      queryKey: summaryKey(config, search, scenario),
       queryFn: () => createApi(config, search).getSummary(scenario),
       retry: false,
     })),
   })
+}
+
+/** Fetches one summary on demand, sharing the cache with the cards' summaries. */
+export function useFetchSummary(config: AppConfig, search: string) {
+  const client = useQueryClient()
+  return useCallback(
+    (scenario: Scenario) => client.fetchQuery({
+      queryKey: summaryKey(config, search, scenario),
+      queryFn: () => createApi(config, search).getSummary(scenario),
+      retry: false,
+    }),
+    [client, config, search],
+  )
 }
 
 /** The site for each custom point id (ids encode the point, so this is a stable lookup). */

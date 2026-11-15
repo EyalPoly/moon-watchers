@@ -3,7 +3,7 @@ import type { AppConfig } from '../api/config'
 import type { ScoreSettings } from '../api/scoreSettings'
 import { RegionOverlay, type AppliedRegion } from '../map/RegionOverlay'
 import { MapLegend } from './MapLegend'
-import type { Meta, Region, Site } from '../api/types'
+import type { Region, Site } from '../api/types'
 import { AreaTool } from '../map/AreaTool'
 import { CenterOn } from '../map/CenterOn'
 import { PlacePoint } from '../map/PlacePoint'
@@ -26,9 +26,7 @@ interface Props {
   appliedRegion: AppliedRegion | null
   config: AppConfig
   search: string
-  scoreSpec: Meta['score']
   settings: ScoreSettings
-  onSettingsApply: (settings: ScoreSettings) => void
   selecting: boolean
   atLimit: boolean
   onFocus: (index: number) => void
@@ -41,7 +39,7 @@ interface Props {
 }
 
 export function SharedSiteMap({ tickets, active, sites, region, layer, polygonLayer, appliedRegion, config, search,
-  scoreSpec, settings, onSettingsApply, selecting, atLimit, onFocus, onPlace, onRegionClose, onOpenAreas, guideRegion = false, onRanked }: Props) {
+  settings, selecting, atLimit, onFocus, onPlace, onRegionClose, onOpenAreas, guideRegion = false, onRanked }: Props) {
   const ticket = tickets[active]
   const labels = new Map<string, string[]>()
   const indexes = new Map<string, number>()
@@ -81,7 +79,7 @@ export function SharedSiteMap({ tickets, active, sites, region, layer, polygonLa
             onFocus={(l) => { if (!selecting) onFocus(indexes.get(l)!) }} />
           <CenterOn sites={targets} />
           {!selecting && <PlacePoint areaRadiusM={radius} onPlace={onPlace} />}
-          {selecting && <AreaTool areaRadiusM={radius} namePrefix={title} config={config} search={search} ticket={ticket} spec={scoreSpec} settings={settings} onSettingsApply={onSettingsApply} onClose={onRegionClose} onOpen={onOpenAreas}
+          {selecting && <AreaTool areaRadiusM={radius} namePrefix={title} config={config} search={search} ticket={ticket} settings={settings} onClose={onRegionClose} onOpen={onOpenAreas}
             autoFind={guideRegion} onRanked={guideRegion ? onRanked : undefined} />}
         </PolarMap>
       </div>

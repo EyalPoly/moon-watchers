@@ -1,4 +1,7 @@
+import type { ScoreSettings } from '../api/scoreSettings'
+import type { Meta } from '../api/types'
 import type { PanelView } from '../state/tickets'
+import { GradingWeights } from './GradingWeights'
 
 function MapIcon() {
   return (
@@ -30,9 +33,12 @@ interface Props {
   selecting: boolean
   onView: (view: PanelView) => void
   onRegion: () => void
+  scoreSpec: Meta['score']
+  settings: ScoreSettings
+  onSettingsApply: (settings: ScoreSettings) => void
 }
 
-export function ExplorerControls({ view, selecting, onView, onRegion }: Props) {
+export function ExplorerControls({ view, selecting, onView, onRegion, scoreSpec, settings, onSettingsApply }: Props) {
   return (
     <div className="explorer-controls">
       <div className="view-tabs" role="group" aria-label="Explorer view">
@@ -41,8 +47,11 @@ export function ExplorerControls({ view, selecting, onView, onRegion }: Props) {
         <button type="button" className={view === 'graph' ? 'view-tab view-tab-active' : 'view-tab'}
           aria-pressed={view === 'graph'} onClick={() => onView('graph')}><GraphIcon /> Ridge Graph</button>
       </div>
-      <button type="button" className={selecting ? 'freehand freehand-on' : 'freehand'}
-        aria-pressed={selecting} onClick={onRegion}><LassoIcon /> Manual Selection</button>
+      <div className="explorer-actions">
+        <GradingWeights spec={scoreSpec} settings={settings} onApply={onSettingsApply} />
+        <button type="button" className={selecting ? 'freehand freehand-on' : 'freehand'}
+          aria-pressed={selecting} onClick={onRegion}><LassoIcon /> Manual Selection</button>
+      </div>
     </div>
   )
 }

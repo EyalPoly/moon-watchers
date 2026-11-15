@@ -530,6 +530,7 @@ body {
   padding: 2px 16px 8px 10px;
   border-bottom: 0;
 }
+.tickets-toolbar .sort-grade { margin-inline-start: auto; padding: 3px 10px; font-size: 12px; }
 
 .tickets {
   padding: 4px 16px 4px 10px;
@@ -1004,6 +1005,13 @@ body {
 }
 .explorer-controls .view-tabs { margin: 0; }
 .explorer-controls .freehand { margin: 0; }
+.explorer-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 6px; margin-inline-start: auto; }
+.explorer-controls { position: relative; }
+.explorer-controls .weights-panel {
+  top: calc(100% + 6px); right: 0; z-index: 20;
+  max-width: 100%; max-height: min(70vh, 620px);
+  background: rgb(13, 16, 21);
+}
 .shared-map { flex: 1 1 0; min-height: 130px; }
 .shared-map .panel-hint { font-size: 12px; }
 .shared-map .area-tool { box-sizing: border-box; max-width: calc(100% - 16px); }
@@ -1025,6 +1033,7 @@ body {
 }
 .tickets[data-columns="2"] { --columns: 2; }
 .tickets[data-columns="3"] { --columns: 3; }
+.tickets[data-columns="4"] { --columns: 4; }
 .site-pages { padding: 2px 16px 6px 10px; font-size: 12px; color: var(--muted); }
 .point { min-width: 0; margin: 0; container-type: inline-size; }
 .point[data-active="true"] { border-top-color: var(--primary-line); }
@@ -1109,7 +1118,7 @@ body {
 .ridge-panel .graph-head h3 { font-size: 15px; }
 .ridge-panel .facing { gap: 4px 8px; padding: 3px 6px; font-size: 11px; flex-wrap: wrap; }
 .ridge-panels:not([data-count="1"]) .graph-head { display: none; }
-.ridge-panels[data-count="3"] .facing { display: none; }
+.ridge-panels:is([data-count="3"], [data-count="4"]) .facing { display: none; }
 .ridge-panel .sky-view { display: flex; flex: 1 1 0; flex-direction: column; min-height: 0; max-height: none; }
 .ridge-panel .sky-view > svg { flex: 1 1 0; min-height: 0; height: 100%; width: 100%; }
 .sky-axis-title { fill: var(--text); font: 600 10px system-ui, sans-serif; }
@@ -1320,11 +1329,6 @@ body {
 .region-instruction { padding: 6px 8px; margin: 0; display: grid; gap: 3px; border-left: 2px solid var(--primary); background: var(--primary-tint); }
 .region-instruction strong { font-size: 12px; }
 .region-instruction span { color: var(--primary); font-size: 11px; }
-.area-tool .region-score {
-  flex: 1 0 100%; min-height: 29px; border: 1px solid var(--primary-line);
-  background: transparent; color: var(--primary); font-size: 12px;
-}
-.area-tool .region-score:hover { border-color: var(--primary); }
 .region-drawing-actions { gap: 4px 8px; }
 .region-drawing-actions select { min-height: 24px; padding: 1px 4px; }
 .region-drawing-actions .area-find { margin-inline-start: 0; flex: 1 0 100%; }

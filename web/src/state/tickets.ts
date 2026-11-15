@@ -249,11 +249,11 @@ export function showAll(s: Screen2State, shown: boolean): Screen2State {
   return { ...s, tickets, compare: s.compare && comparableCount(tickets) >= 2 }
 }
 
-/** Reorders the tickets by rank (best first); unranked tickets keep their order at the end. */
-export function sortByRank(s: Screen2State, rankOf: (i: number) => number | undefined): Screen2State {
+/** Reorders the tickets by grade (highest first); ungraded tickets keep their order at the end. */
+export function sortByGrade(s: Screen2State, gradeOf: (t: Ticket) => number | undefined): Screen2State {
   const order = s.tickets
-    .map((t, i) => ({ t, i, rank: rankOf(i) ?? Number.POSITIVE_INFINITY }))
-    .sort((a, b) => a.rank - b.rank || a.i - b.i)
+    .map((t, i) => ({ t, i, grade: gradeOf(t) ?? Number.NEGATIVE_INFINITY }))
+    .sort((a, b) => b.grade - a.grade || a.i - b.i)
   return {
     ...s,
     tickets: order.map((o) => o.t),
