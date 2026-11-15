@@ -1,5 +1,8 @@
 import { expect, test, type Page } from '@playwright/test'
-import { clickMapAvoidingPins, pinSampleConfig, stubTiles } from './helpers'
+import { clickMapAvoidingPins, drawOutline, pinSampleConfig, stubTiles } from './helpers'
+
+// The map is cropped to the planning circle, so a short viewport leaves too little room around the tool panel to draw.
+test.use({ viewport: { width: 1400, height: 900 } })
 
 test.beforeEach(async ({ page }) => {
   await pinSampleConfig(page)
@@ -127,13 +130,7 @@ test('Freehand Select outlines an area on the grid and opens the best spots as p
   await expect(tool.getByRole('button', { name: 'Choose On Map' })).toBeDisabled()
   // The coarse grid keeps the outline under the 16-cell grading cap.
   await tool.getByLabel('Grid spacing').selectOption('10')
-  // With no site the map is centered on the pole, well inside the custom-point area.
-  const map = (await page.locator('.panel .polar-map').first().boundingBox())!
-  // Draw below the region controls and inside the circle at the pole.
-  const cx = map.x + map.width / 2
-  const dialog = (await tool.boundingBox())!
-  const cy = (dialog.y + dialog.height + map.y + map.height) / 2
-  for (const [dx, dy] of [[-19, -11], [19, -11], [19, 11], [-19, 11]]) await page.mouse.click(cx + dx, cy + dy)
+  await drawOutline(page, 19, 11)
   await expect(tool.getByText(/4 selected/)).toBeVisible()
 
   await tool.getByRole('button', { name: 'Choose On Map' }).click()
@@ -169,13 +166,7 @@ test('Choose On Map refuses an outline with more grid cells than can be graded',
   await expect(tool.getByText('Select at least 3 different grid points')).toBeVisible()
   await expect(tool.getByRole('button', { name: 'Choose On Map' })).toBeDisabled()
   await tool.getByLabel('Grid spacing').selectOption('2')
-  // With no site the map is centered on the pole, well inside the custom-point area.
-  const map = (await page.locator('.panel .polar-map').first().boundingBox())!
-  // Draw below the region controls and inside the circle at the pole.
-  const cx = map.x + map.width / 2
-  const dialog = (await tool.boundingBox())!
-  const cy = (dialog.y + dialog.height + map.y + map.height) / 2
-  for (const [dx, dy] of [[-50, -28], [50, -28], [50, 28], [-50, 28]]) await page.mouse.click(cx + dx, cy + dy)
+  await drawOutline(page, 24, 14)
   await expect(tool.getByText(/4 selected/)).toBeVisible()
   await tool.getByRole('button', { name: 'Choose On Map' }).click()
   await expect(tool.getByRole('alert')).toContainText('Draw a smaller outline')
@@ -206,19 +197,14 @@ async function openToolAndDraw(page: import('@playwright/test').Page, grid: stri
   const tool = page.getByRole('dialog', { name: 'Manual Selection' })
   await expect(tool).toBeVisible()
   await tool.getByLabel('Grid spacing').selectOption(grid)
-  const map = (await page.locator('.panel .polar-map').first().boundingBox())!
-  const cx = map.x + map.width / 2
-  const dialog = (await tool.boundingBox())!
-  const cy = (dialog.y + dialog.height + map.y + map.height) / 2
-  const [hx, hy] = half
-  for (const [dx, dy] of [[-hx, -hy], [hx, -hy], [hx, hy], [-hx, hy]]) await page.mouse.click(cx + dx, cy + dy)
+  await drawOutline(page, half[0], half[1])
   await expect(tool.getByText(/4 selected/)).toBeVisible()
   return tool
 }
 
 test('the over-cap message goes away when the grid is changed', async ({ page, context }) => {
   await stubTiles(context)
-  const tool = await openToolAndDraw(page, '2', [50, 28])
+  const tool = await openToolAndDraw(page, '2', [24, 14])
   await tool.getByRole('button', { name: 'Choose On Map' }).click()
   await expect(tool.getByRole('alert')).toContainText('Draw a smaller outline')
   await tool.getByLabel('Grid spacing').selectOption('10')

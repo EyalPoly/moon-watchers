@@ -76,3 +76,33 @@ export async function clickMapAvoidingPins(page: Page, x: number, y: number) {
   }
   throw new Error('no map spot clear of site pins')
 }
+
+/** Click the corners of a rectangle centered on a spot of the map that is inside the
+ *  planning circle and clear of the tool dialog, legend, map buttons and site pins. */
+export async function drawOutline(page: Page, halfWidth: number, halfHeight: number) {
+  const map = (await page.locator('.panel .polar-map').first().boundingBox())!
+  const obstacles = await page
+    .locator('.panel .polar-map [role="dialog"], .panel .polar-map aside, .panel .polar-map button, [data-testid^="pin-"]')
+    .evaluateAll((els) => els.map((el) => {
+      const r = el.getBoundingClientRect()
+      return [r.left, r.top, r.right, r.bottom]
+    }))
+  const pad = 14
+  const blocked = (x: number, y: number) =>
+    obstacles.some(([l, t, r, b]) => x > l - pad && x < r + pad && y > t - pad && y < b + pad)
+  const mx = map.x + map.width / 2
+  const my = map.y + map.height / 2
+  const reach = (Math.min(map.width, map.height) / 2) * 0.8
+  const corners = [[-1, -1], [1, -1], [1, 1], [-1, 1]]
+  let best: [number, number] | null = null
+  for (let y = map.y; y < map.y + map.height && !best; y += 8) {
+    for (let x = map.x; x < map.x + map.width; x += 8) {
+      const points = corners.map(([sx, sy]) => [x + sx * halfWidth, y + sy * halfHeight])
+      if (points.every(([px, py]) => Math.hypot(px - mx, py - my) < reach && !blocked(px, py))) {
+        if (!best || Math.hypot(x - mx, y - my) < Math.hypot(best[0] - mx, best[1] - my)) best = [x, y]
+      }
+    }
+  }
+  if (!best) throw new Error('no clear spot on the map for the outline')
+  for (const [sx, sy] of corners) await page.mouse.click(best[0] + sx * halfWidth, best[1] + sy * halfHeight)
+}
