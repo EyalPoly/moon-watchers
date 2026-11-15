@@ -1,6 +1,15 @@
 # Catalog format (`catalog/sites.yaml`)
 
-The physics team owns this file. The API refuses to start if it is invalid, so check it with `uv run pytest tests/test_catalog.py` or `uv run python -c "from pathlib import Path; from api.catalog import load_catalog; print(len(load_catalog(Path('catalog/sites.yaml'))))"`.
+The physics team owns this file. The API refuses to start if it is invalid. Check it with:
+
+```
+uv run python -m api.catalog            # the format: prints "N sites OK" or each problem
+uv run python -m api.catalog --final    # also refuses placeholders and a source_url that is not a web link
+```
+
+The committed catalog must pass `--final` before the G3 gate.
+
+Every site must lie inside the finest terrain file, the 20 m DEM for the served bundle, with room for its 12 km near zone on every side. `make masks` stops and names any site that doesn't, instead of building it on coarser terrain.
 
 Top level is a mapping with one key, `sites`, a list of entries. Every field is required.
 
@@ -37,4 +46,4 @@ sites:
     is_placeholder: false
 ```
 
-The three sample answers in `contract/samples/sites/` must equal the matching catalog entries while those ids exist; `tests/test_catalog.py` checks this, so update both when replacing the placeholders.
+The three sample answers in `contract/samples/sites/` keep the placeholder ids and match `tests/fixtures/catalog.yaml`, which the tests read instead of this file. Replacing the placeholders here changes no test. If a real site reuses a sample id, `tests/test_catalog.py` checks that the two agree.

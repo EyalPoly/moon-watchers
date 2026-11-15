@@ -162,3 +162,16 @@ def test_map_half_width_follows_the_polar_scale() -> None:
     assert map_half_width_m(-90.0, 1.0) == pytest.approx(1.0, rel=1e-6)
     assert map_half_width_m(-60.0, 1.0) == pytest.approx(2 / (1 + np.cos(np.radians(30.0))), rel=1e-6)
     assert map_half_width_m(-85.5, 300_000.0) > 302_200.0
+
+
+def test_build_refuses_site_outside_finest_terrain(tmp_path: Path) -> None:
+    sources = tmp_path / "sources"
+    write_dem(sources, DEM_20, 50_000, 100)
+    write_dem(sources, DEM_80, 80_000, 200)
+    write_dem(sources, DEM_240, 80_000, 500)
+    # About 45 km from the pole: the 12 km near window reaches past the 50 km edge of the 20 m file.
+    catalog = {**CATALOG, "edge_site": site("edge_site", -88.516, 0.0)}
+    out = tmp_path / "bundle"
+    with pytest.raises(ValueError, match=r"edge_site.*does not cover"):
+        build_bundle(catalog, sources, out, default_ephemeris())
+    assert not list(out.glob(".building-*"))

@@ -91,6 +91,13 @@ def _is_moon_south_polar(proj4: str) -> bool:
     )
 
 
+def dem_bounds(path: Path) -> tuple[float, float, float, float]:
+    """x_min, y_min, x_max, y_max of the file on the polar map, in metres."""
+    with rasterio.open(path) as ds:
+        b = ds.bounds
+    return float(b.left), float(b.bottom), float(b.right), float(b.top)
+
+
 def load_dem(
     path: Path,
     dem_id: str,

@@ -5,7 +5,8 @@ from typing import Any
 import pytest
 import yaml
 
-from api.catalog import CatalogError, load_catalog
+from api.catalog import CatalogError, catalog_problems, load_catalog
+from api.catalog import main as catalog_main
 from api.models import Site
 from tests.catalog_fixture import FIXTURE_CATALOG
 
@@ -80,3 +81,26 @@ def test_non_mapping_file_rejected(tmp_path: Path) -> None:
     with pytest.raises(CatalogError):
         load_catalog(write(tmp_path, ["not", "a", "mapping"]))
 
+
+def test_final_check_names_placeholders_and_bad_urls() -> None:
+    sites = {
+        "a_one": Site.model_validate(entry(id="a_one", is_placeholder=True)),
+        "b_two": Site.model_validate(entry(id="b_two", source_url="placeholder: x")),
+        "c_three": Site.model_validate(entry(id="c_three")),
+    }
+    problems = catalog_problems(sites, final=True)
+    assert len(problems) == 2
+    assert any("a_one" in p for p in problems)
+    assert any("b_two" in p for p in problems)
+    assert catalog_problems(sites, final=False) == []
+
+
+def test_check_command_exit_codes(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    good = write(tmp_path, {"sites": [entry()]})
+    assert catalog_main([str(good)]) == 0
+    assert "1 sites OK" in capsys.readouterr().out
+    assert catalog_main(["--final", str(FIXTURE_CATALOG)]) == 1
+    assert "sample_a" in capsys.readouterr().out
+    duplicate = tmp_path / "dup.yaml"
+    duplicate.write_text(yaml.safe_dump({"sites": [entry(), entry()]}))
+    assert catalog_main([str(duplicate)]) == 1
