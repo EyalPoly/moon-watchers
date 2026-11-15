@@ -5,7 +5,6 @@ import type { Site } from '../api/types'
 interface Props {
   directions?: Directions
   sites: readonly Site[]
-  showPole: boolean
   selected: Site | undefined
   onSelect: (site: Site | null) => void
   scrubbing: boolean
@@ -14,7 +13,7 @@ interface Props {
 const OPENING_VIEW = { longitude: -156, latitude: -23 }
 const moduleUrl = `${import.meta.env.BASE_URL}orbit/moon-orbit/moon-orbit.js`
 
-export function OrbitGlobe({ directions, sites, selected, onSelect, showPole, scrubbing }: Props) {
+export function OrbitGlobe({ directions, sites, selected, onSelect, scrubbing }: Props) {
   const host = useRef<HTMLDivElement>(null)
   const pins = useRef<HTMLDivElement>(null)
   const viewer = useRef<MoonOrbit | null>(null)
@@ -84,8 +83,8 @@ export function OrbitGlobe({ directions, sites, selected, onSelect, showPole, sc
     <div className="orbit-world" style={{ visibility: ready ? 'visible' : 'hidden' }}>
       <div ref={host} className="orbit-host" />
       <div ref={pins} className="orbit-pins" aria-label="Lunar landmarks">
-        {showPole && <button type="button" className="orbit-pole" data-lon="0" data-lat="-90" hidden
-          onClick={focusPole} title="Center the south pole">South pole</button>}
+        <button type="button" className="orbit-pole" data-lon="0" data-lat="-90" hidden
+          onClick={focusPole} title="Center the south pole">South pole</button>
         {sites.map(site => <button type="button" key={site.id} data-lon={site.lon_deg} data-lat={site.lat_deg}
           className="orbit-site-pin" hidden aria-label={site.name} title={site.name} aria-pressed={site.id === selected?.id}
           onClick={() => onSelect(site)} />)}

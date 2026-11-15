@@ -16,14 +16,11 @@ interface Props {
   onExplore: (site: string | null, utc: string) => void
 }
 
-const NO_SITES: readonly Site[] = []
 const FIRST = Date.parse(MISSION_RANGE.first), LAST = Date.parse(MISSION_RANGE.last)
 
 export function OrbitScreen({ utc, onUtc, sites, onExplore }: Props) {
   const [scrub, setScrub] = useState<number | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [showSites, setShowSites] = useState(true)
-  const [showPole, setShowPole] = useState(true)
   const selected = sites.find(site => site.id === selectedId)
   const time = scrub ?? Date.parse(utc)
   const iso = formatIsoMinute(time)
@@ -68,8 +65,7 @@ export function OrbitScreen({ utc, onUtc, sites, onExplore }: Props) {
       </div>
     </section>
     <div className="orbit-stage">
-      <OrbitGlobe directions={directions} sites={showSites ? sites : NO_SITES} showPole={showPole}
-        selected={selected} onSelect={site => setSelectedId(site?.id ?? null)} scrubbing={scrub !== null} />
+      <OrbitGlobe directions={directions} sites={sites} selected={selected} onSelect={site => setSelectedId(site?.id ?? null)} scrubbing={scrub !== null} />
       <header className="orbit-heading">
         <p className="eyebrow mono">01 &nbsp;/&nbsp; ORBIT</p>
         <div><h1>Lunar overview</h1><FieldHelp field="Lunar overview" symbol="i">Drag or use the arrow keys to rotate the Moon. Scroll or use the zoom buttons to see more detail.</FieldHelp></div>
@@ -78,20 +74,6 @@ export function OrbitScreen({ utc, onUtc, sites, onExplore }: Props) {
       </header>
       {table.isError ? <div className="orbit-notice" role="alert">Sky positions could not load. <button type="button" onClick={() => void table.refetch()}>Retry</button></div>
         : table.isPending && <div className="orbit-notice" role="status">Loading sky positions…</div>}
-      <details className="orbit-key">
-        <summary>Layers &amp; map key</summary>
-        <div className="orbit-key-body">
-          <label><input type="checkbox" checked={showSites} onChange={e => { setShowSites(e.target.checked); if (!e.target.checked) setSelectedId(null) }} />
-            <i className="site-symbol" aria-hidden="true" /> Landing sites</label>
-          <label><input type="checkbox" checked={showPole} onChange={e => setShowPole(e.target.checked)} />
-            <i className="pole-symbol" aria-hidden="true" /> South pole</label>
-          {showSites && sites.length > 0 && <select aria-label="Locate a landing site" value={selectedId ?? ''}
-            onChange={e => setSelectedId(e.target.value || null)}>
-            <option value="">Locate a landing site…</option>
-            {sites.map(site => <option key={site.id} value={site.id}>{site.name}</option>)}
-          </select>}
-        </div>
-      </details>
       <button type="button" className="orbit-explore" onClick={() => onExplore(selected?.id ?? null, iso)}>
         Explore South Pole <span aria-hidden="true">→</span>
       </button>
