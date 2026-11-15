@@ -104,3 +104,10 @@ def test_check_command_exit_codes(tmp_path: Path, capsys: pytest.CaptureFixture[
     duplicate = tmp_path / "dup.yaml"
     duplicate.write_text(yaml.safe_dump({"sites": [entry(), entry()]}))
     assert catalog_main([str(duplicate)]) == 1
+
+
+def test_draft_catalog_is_ready_to_swap_in() -> None:
+    sites = load_catalog(Path("catalog/sites.draft.yaml"))
+    assert len(sites) >= 25
+    assert catalog_problems(sites, final=True) == []
+    assert all(site.source_url.startswith("https://") for site in sites.values())
