@@ -416,8 +416,8 @@
     {
       "code": "CUSTOM_COARSE_TERRAIN",
       "severity": "caution",
-      "affects": "skyline",
-      "text": "This point uses 80 m terrain; catalog sites use 20 m. Near-horizon angles can differ by up to about 0.7 degrees.",
+      "affects": "all",
+      "text": "This point uses 80 m terrain and the 80 m slope map; catalog sites use 20 m. Near-horizon angles can differ by up to about 0.7 degrees, and the slope is usually smoother.",
       "standing": false
     }
   ]

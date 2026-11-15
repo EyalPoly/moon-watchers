@@ -309,3 +309,34 @@ def test_without_a_forwarded_header_the_peer_address_is_the_client(world: dict[s
     client = make_client(world)
     assert client.post("/api/v1/sites/custom", json={"lat_deg": -89.5, "lon_deg": 10}).status_code == 200
     assert client.post("/api/v1/sites/custom", json={"lat_deg": -89.5, "lon_deg": 20}).status_code == 429
+
+
+def test_rejected_points_leave_no_locks_behind(world: dict[str, Path]) -> None:
+    store = CustomPoints(world["terrain"], contextlib.nullcontext(), AREA, new_per_minute=1)
+    store.get("pt_s89500_e010000")
+    for lon in range(20, 220):
+        with pytest.raises(ApiError):
+            store.get(f"pt_s89500_e{lon:03d}000")
+    assert store._id_locks == {}
+
+
+def test_a_broken_terrain_file_does_not_leak_server_paths(world: dict[str, Path], tmp_path: Path) -> None:
+    terrain = make_terrain(tmp_path)
+    (terrain / NEAR).write_bytes(b"not a raster")
+    response = make_client(world, terrain).post("/api/v1/sites/custom", json=BODY)
+    assert response.status_code == 503 and response.json()["code"] == "TERRAIN_READ_FAILED"
+    assert str(tmp_path) not in response.text and "LDEM_80S" not in response.text
+
+
+def test_a_missing_terrain_file_does_not_leak_server_paths(world: dict[str, Path], tmp_path: Path) -> None:
+    terrain = make_terrain(tmp_path)
+    (terrain / FAR).unlink()
+    response = make_client(world, terrain).post("/api/v1/sites/custom", json=BODY)
+    assert response.status_code == 503
+    assert str(tmp_path) not in response.text and "LDEM_60S" not in response.text
+
+
+def test_the_warning_says_slope_too(world: dict[str, Path]) -> None:
+    catalog = make_client(world).get("/api/v1/meta").json()["warning_catalog"]
+    entry = next(w for w in catalog if w["code"] == "CUSTOM_COARSE_TERRAIN")
+    assert entry["affects"] == "all" and "slope" in entry["text"]

@@ -12,6 +12,8 @@ NEAR = "lola/LDEM_80S_80MPP_ADJ.TIF"
 FAR = "lola/LDEM_60S_240MPP_ADJ.TIF"
 SLOPE = "layers/slope/LDSM_80S_80MPP_ADJ.TIF"
 SLOPE_RESOLUTION_M: float = 80.0
+NO_ELEVATION = "no terrain elevation at the site"
+NO_SLOPE = "no slope data at the site"
 TERRAIN_FILES: tuple[str, ...] = (NEAR, NEAR.replace(".TIF", "_ERR.TIF"), FAR, FAR.replace(".TIF", "_ERR.TIF"), SLOPE)
 
 # Two cells either side of the point are enough for a bilinear slope; this is the ground reach.
@@ -70,12 +72,12 @@ def compute_custom_point(lat_deg: float, lon_deg: float, terrain_dir: Path) -> C
     x, y = project(lat_deg, lon_deg)
     elevation = float(sample_stack(terrain, np.atleast_1d(x), np.atleast_1d(y))[0]) if terrain else float("nan")
     if not np.isfinite(elevation):
-        raise ValueError("no terrain elevation at the site")
+        raise ValueError(NO_ELEVATION)
 
     slope_dem = _window(terrain_dir, SLOPE, window_around(lat_deg, lon_deg, _SLOPE_HALF_WIDTH_M))
     slope = float(sample(slope_dem, np.atleast_1d(x), np.atleast_1d(y))[0]) if slope_dem is not None else float("nan")
     if not np.isfinite(slope):
-        raise ValueError("no slope data at the site")
+        raise ValueError(NO_SLOPE)
 
     masks = compute_site_masks(lat_deg, lon_deg, terrain, errors)
     return CustomPoint(lat_deg, lon_deg, elevation, slope, masks.masks_deg, masks.blocking_km, masks.warnings)
