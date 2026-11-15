@@ -5,8 +5,9 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from build.fetch_horizons import CHECK_SITES, EVENT_SITE, FIXTURES, parse_answer
+from build.fetch_horizons import CHECK_SITES, EVENT_SITE, EVENT_SPAN, FIXTURES, flat_events, parse_answer
 from build.make_ephemeris import KERNELS, build_ephemeris
+from engine.series import STEPS_PER_DAY
 from engine.geometry import EARTH_RADIUS_KM, SUN_RADIUS_KM, angular_radius_deg, interpolate, observer_km
 
 SPICE_DIR = Path("data/sources/spice")
@@ -22,7 +23,11 @@ def test_window_edges_match_horizons(capsys: pytest.CaptureFixture[str]) -> None
     pytest.importorskip("spiceypy")
     lat, lon = CHECK_SITES[EVENT_SITE]
     events = json.loads((EVENTS / "events.json").read_text())
-    eph = build_ephemeris(SPICE_DIR, datetime(2027, 2, 27, tzinfo=UTC), datetime(2027, 5, 3, tzinfo=UTC))
+    span_start = datetime.fromisoformat(EVENT_SPAN[0]).replace(tzinfo=UTC)
+    span_stop = datetime.fromisoformat(EVENT_SPAN[1]).replace(tzinfo=UTC)
+    eph = build_ephemeris(SPICE_DIR, span_start - timedelta(days=2), span_stop + timedelta(days=2))
+    live = flat_events(eph, lat, lon, span_start, (span_stop - span_start).days * STEPS_PER_DAY)
+    assert [(e["body"], e["kind"], datetime.fromisoformat(e["engine_utc"])) for e in events] == live
     differences: list[tuple[str, str, str, float]] = []
     for event in events:
         body, kind = event["body"], event["kind"]
