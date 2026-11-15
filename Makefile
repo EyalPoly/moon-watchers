@@ -17,7 +17,7 @@ test:
 	pnpm --dir web test
 
 typecheck:
-	uv run mypy api engine build
+	uv run mypy api engine build deploy
 	pnpm --dir web exec tsc -p tsconfig.app.json --noEmit
 
 check: test typecheck

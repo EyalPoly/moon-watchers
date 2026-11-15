@@ -37,7 +37,7 @@ pythonpath = ["."]
 
 [tool.mypy]
 strict = true
-files = ["api", "engine", "build"]
+files = ["api", "engine", "build", "deploy"]
 
 [[tool.mypy.overrides]]
 module = ["torch", "rasterio", "rasterio.*"]

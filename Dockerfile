@@ -16,5 +16,10 @@ COPY engine ./engine
 COPY catalog ./catalog
 COPY contract/samples ./contract/samples
 
+# The horizon bundle is a GitHub Release asset pinned by checksum, not part of the repo.
+COPY deploy ./deploy
+RUN python deploy/fetch_bundle.py --out /app/bundle
+ENV BUNDLE_DIR=/app/bundle
+
 ENV PATH="/opt/venv/bin:$PATH"
 CMD ["sh", "-c", "exec uvicorn api.main:create_app --factory --host 0.0.0.0 --port ${PORT:-8080}"]
