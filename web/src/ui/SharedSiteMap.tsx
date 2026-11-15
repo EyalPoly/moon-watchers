@@ -1,3 +1,4 @@
+import type { RankedArea } from '../api/areas'
 import type { Region, Site } from '../api/types'
 import { AreaTool } from '../map/AreaTool'
 import { CenterOn } from '../map/CenterOn'
@@ -20,9 +21,12 @@ interface Props {
   onPlace: (id: string) => void
   onRegionClose: () => void
   onOpenAreas: (points: { site: string; name: string }[]) => void
+  /** The AI guide opened the region tool: it finds areas by itself and reports them. */
+  guideRegion?: boolean
+  onRanked?: (areas: RankedArea[], spacingKm: number) => void
 }
 
-export function SharedSiteMap({ tickets, active, sites, region, layer, selecting, onFocus, onPlace, onRegionClose, onOpenAreas }: Props) {
+export function SharedSiteMap({ tickets, active, sites, region, layer, selecting, onFocus, onPlace, onRegionClose, onOpenAreas, guideRegion = false, onRanked }: Props) {
   const ticket = tickets[active]
   const labels = new Map<string, string[]>()
   const indexes = new Map<string, number>()
@@ -56,7 +60,7 @@ export function SharedSiteMap({ tickets, active, sites, region, layer, selecting
             onFocus={(l) => { if (!selecting) onFocus(indexes.get(l)!) }} />
           <CenterOn sites={targets} />
           {!selecting && !ticket.site && <PlacePoint areaRadiusM={radius} onPlace={onPlace} />}
-          {selecting && <AreaTool areaRadiusM={radius} namePrefix={title} onClose={onRegionClose} onOpen={onOpenAreas} />}
+          {selecting && <AreaTool areaRadiusM={radius} namePrefix={title} onClose={onRegionClose} onOpen={onOpenAreas} autoFind={guideRegion} onRanked={guideRegion ? onRanked : undefined} />}
         </PolarMap>
       </div>
       <div className="panel-foot"><span>{layer === 'Relief' ? 'LOLA south polar terrain' : layer}</span>

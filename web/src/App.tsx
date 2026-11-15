@@ -33,6 +33,8 @@ import { PointCard } from './ui/PointCard'
 import { TicketGraph } from './ui/TicketPanel'
 import { ExplorerControls } from './ui/ExplorerControls'
 import { SharedSiteMap } from './ui/SharedSiteMap'
+import { formatLatLon } from './api/points'
+import type { RankedArea } from './api/areas'
 import { displayPresets } from './ui/stationNetworks'
 import { pointLetter, siteDisplayName } from './ui/points'
 import { panelId, ticketVars } from './ui/ticketStyle'
@@ -175,6 +177,22 @@ export default function App({ config }: { config: AppConfig }) {
   const [expanded, setExpanded] = useState<number | null>(null)
   // The point whose map has Freehand Select on, if any.
   const [freehand, setFreehand] = useState<number | null>(null)
+  // The AI guide opened Select region: the tool finds the best areas and reports them.
+  const [guideRegion, setGuideRegion] = useState(false)
+  const [regionResult, setRegionResult] = useState<{ id: number; text: string } | null>(null)
+  const regionCount = useRef(0)
+  const onAreasRanked = useCallback((areas: RankedArea[], spacingKm: number) => {
+    const top = areas.slice(0, 5).map((a) => `#${a.rank} ${formatLatLon(a.center.lat, a.center.lon)}, grade ${a.grade.toFixed(0)}`)
+    const text = areas.length === 0
+      ? 'No grid cell fits inside that outline. Try a larger outline or a finer grid.'
+      : `Best areas in your outline (${spacingKm} km grid, best first): ${top.join('; ')}${areas.length > 5 ? `; and ${areas.length - 5} more` : ''}. The best one is ticked: press "Open 1 site", or tick more first.`
+    setRegionResult({ id: ++regionCount.current, text })
+  }, [])
+  /** Score settings from the AI guide: one history step, so Back undoes it. */
+  const setScoreFromGuide = useCallback((next: ScoreSettings) => {
+    writeUrl(serializeScoreSettings(next, window.location.search), 'push')
+    setSearch(window.location.search)
+  }, [])
 
   // Sizes the user dragged: each panel's height (until the tickets are reordered) and the
   // ticket column's width (remembered in this browser).
@@ -218,10 +236,21 @@ export default function App({ config }: { config: AppConfig }) {
   const selecting = freehand === active && view === 'map' && !screen.compare
   const openRegion = () => {
     if (selecting) { setFreehand(null); return }
+    setGuideRegion(false)
     setExpanded(null)
     apply((s) => ({ ...s, compare: false, open: active, tickets: s.tickets.map((t, i) =>
       ({ ...t, view: 'map', shown: t.shown || i === active })) }))
     setFreehand(active)
+  }
+
+  /** Select region for the AI guide: on the South pole map, finding areas by itself. */
+  const openRegionForGuide = () => {
+    if (parseScreen(window.location.search) === 'timelines') writeUrl(withScreen(window.location.search, 'south_pole'), 'push')
+    setExpanded(null)
+    apply((s) => ({ ...s, compare: false, open: active, tickets: s.tickets.map((t, i) =>
+      ({ ...t, view: 'map', shown: t.shown || i === active })) }))
+    setFreehand(active)
+    setGuideRegion(true)
   }
 
   /** The AI guide's sites: added as one step, so Back undoes them together. */
@@ -306,7 +335,8 @@ export default function App({ config }: { config: AppConfig }) {
             <SharedSiteMap tickets={screen.tickets} active={active} sites={allSites} region={region} layer={selectedLayer}
               selecting={selecting} onFocus={focusTicket}
               onPlace={(site) => apply((s) => ({ ...updateTicket(s, active, { site, editing: true, collapsed: undefined }), open: active }))}
-              onRegionClose={() => setFreehand(null)}
+              onRegionClose={() => { setFreehand(null); setGuideRegion(false) }}
+              guideRegion={guideRegion} onRanked={onAreasRanked}
               onOpenAreas={(points) => { setFreehand(null); apply((s) => addTicketsFor(s, active, points)) }} />
             <LayersBox selected={selectedLayer} onSelect={setSelectedLayer} />
           </>
@@ -490,6 +520,18 @@ export default function App({ config }: { config: AppConfig }) {
         ctx={{ catalog: sites, stations: presets }}
         customIsSample={resolveSource(config, 'custom', search) === 'sample'}
         onOpen={openFromGuide}
+        tickets={screen.tickets}
+        sitesById={sitesById}
+        settings={settings}
+        config={config}
+        search={search}
+        screen={appScreen}
+        explorer={view}
+        regionToolOpen={selecting}
+        activeIndex={active}
+        onSetScore={setScoreFromGuide}
+        onOpenRegion={openRegionForGuide}
+        regionResult={regionResult}
       />
     </div>
   )

@@ -57,7 +57,7 @@ function findSite(id: string, catalog: readonly Site[]): Site | undefined {
 /** Checks the model's answer and turns it into the sites to open. */
 export function intentToPlan(intent: Intent, ctx: PlanContext): Plan {
   const notes: string[] = []
-  if (intent.action === 'none') return { kind: 'none', notes }
+  if (intent.action !== 'open' && intent.action !== 'explore') return { kind: 'none', notes }
 
   const points: PlannedPoint[] = []
   const add = (p: PlannedPoint) => {
