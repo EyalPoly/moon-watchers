@@ -1,28 +1,19 @@
-import type { Site, Summary } from '../api/types'
+import type { Site } from '../api/types'
 import { gradeColor } from '../map/RegionOverlay'
 import type { MapLayer, PolygonLayer } from './LayersBox'
 
 const UNKNOWN = '#89959c'
-const SCALES = {
-  'Earth DTE': { hue: 198, max: 100, unit: '%', label: 'Earth Contact · Active Mission', low: '0%', high: '100%' },
-  Slope: { hue: 32, max: 30, unit: '°', label: 'Local Slope', low: '0° · level', high: '30°+ · steep' },
-  'Lunar regolith': { hue: 282, max: 1, unit: '', label: 'Simulated Lunar Regolith Index', low: '0 · low', high: '1 · high' },
-} as const
+const SLOPE_SCALE = { hue: 32, max: 30, unit: '°', label: 'Local Slope', low: '0° · level', high: '30°+ · steep' }
 
-type Scale = typeof SCALES[keyof typeof SCALES]
-const shade = (scale: Scale, value: number) =>
+const shade = (scale: typeof SLOPE_SCALE, value: number) =>
   `hsl(${scale.hue}, 76%, ${26 + 52 * Math.max(0, Math.min(1, value / scale.max))}%)`
 
-export function mapReading(layer: MapLayer, site: Site, summary?: Summary) {
+export function mapReading(layer: MapLayer, site: Site) {
   const unknown = { color: UNKNOWN, text: 'Unknown' }
   if (layer === 'PSR') return site.in_psr == null ? unknown : site.in_psr
     ? { color: '#81b7ff', text: 'Inside PSR' } : { color: '#839778', text: 'Outside PSR' }
-  if (layer === 'Relief') return unknown
-  const value = layer === 'Slope' ? site.slope_deg : layer === 'Earth DTE' ? summary?.metrics.dte_pct
-    : summary?.score.factors.find((factor) => factor.name === 'D')?.raw
-  if (value == null) return unknown
-  const scale = SCALES[layer]
-  return { color: shade(scale, value), text: `${Number(value.toFixed(layer === 'Lunar regolith' ? 2 : 1))}${scale.unit}` }
+  if (layer !== 'TerrainSlope') return null
+  return { color: shade(SLOPE_SCALE, site.slope_deg), text: `${Number(site.slope_deg.toFixed(1))}${SLOPE_SCALE.unit}` }
 }
 
 // Relative height colours in the LOLA colour hillshade. Light and dark within a hue
@@ -45,7 +36,7 @@ export function AreaGradeLegend() {
 export function MapLegend({ layer, overlay, hasRegion, legendUrl }: {
   layer: MapLayer; overlay: PolygonLayer; hasRegion: boolean; legendUrl?: string | null
 }) {
-  const scale = layer === 'Relief' || layer === 'PSR' ? null : SCALES[layer]
+  const scale = layer === 'TerrainSlope' ? SLOPE_SCALE : null
   return (
     <aside className="on-map-legend" aria-label="Map colour scale">
       {layer === 'Relief' && <>

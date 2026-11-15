@@ -8,8 +8,8 @@ import { AreaTool } from '../map/AreaTool'
 import { CenterOn } from '../map/CenterOn'
 import { PlacePoint } from '../map/PlacePoint'
 import { PolarMap } from '../map/PolarMap'
-import { DataLayerLegend } from './DataLayerLegend'
-import { QuickmapLayers, type DataLayerId } from '../map/QuickmapLayers'
+import { QuickmapLegend } from './QuickmapLegend'
+import { QuickmapLayer } from '../map/QuickmapLayer'
 import { parallelRadiusM } from '../map/projection'
 import { SitePins } from '../map/SitePins'
 import type { Ticket } from '../state/tickets'
@@ -23,7 +23,6 @@ interface Props {
   region: Region
   layer: MapLayer
   polygonLayer: PolygonLayer
-  dataLayers: readonly DataLayerId[]
   appliedRegion: AppliedRegion | null
   config: AppConfig
   search: string
@@ -41,7 +40,7 @@ interface Props {
   onRanked?: (areas: RankedArea[], spacingKm: number) => void
 }
 
-export function SharedSiteMap({ tickets, active, sites, region, layer, polygonLayer, dataLayers, appliedRegion, config, search,
+export function SharedSiteMap({ tickets, active, sites, region, layer, polygonLayer, appliedRegion, config, search,
   scoreSpec, settings, onSettingsApply, selecting, atLimit, onFocus, onPlace, onRegionClose, onOpenAreas, guideRegion = false, onRanked }: Props) {
   const ticket = tickets[active]
   const labels = new Map<string, string[]>()
@@ -72,13 +71,13 @@ export function SharedSiteMap({ tickets, active, sites, region, layer, polygonLa
           ? 'Site limit reached. Delete a site to add another.'
           : 'Click the map to add a site.'}</p>
       <div className="panel-body">
-        <PolarMap region={region} showBoundary={selecting || polygonLayer === 'Planning boundary'} themed={layer !== 'Relief'}>
-          <QuickmapLayers enabled={dataLayers} />
-          <DataLayerLegend enabled={dataLayers} />
+        <PolarMap region={region} showBoundary={selecting} themed={layer !== 'Relief'}>
+          <QuickmapLayer layer={layer} />
+          <QuickmapLegend layer={layer} />
           {!selecting && <RegionOverlay selection={appliedRegion} layer={polygonLayer} />}
           <MapLegend layer={layer} overlay={selecting ? 'None' : polygonLayer} hasRegion={!!appliedRegion}
             legendUrl={region.layers[0]?.legend_url} />
-          <SitePins layer={layer} config={config} search={search} ticket={ticket} sites={pins} selectedId={ticket.site} labels={labels} activeLabel={letter} onSelect={onSelectPin}
+          <SitePins layer={layer} sites={pins} selectedId={ticket.site} labels={labels} activeLabel={letter} onSelect={onSelectPin}
             onFocus={(l) => { if (!selecting) onFocus(indexes.get(l)!) }} />
           <CenterOn sites={targets} />
           {!selecting && <PlacePoint areaRadiusM={radius} onPlace={onPlace} />}
