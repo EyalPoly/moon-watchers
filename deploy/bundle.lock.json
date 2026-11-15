@@ -1,7 +1,7 @@
 {
-  "bundle_id": "20261114-43266f39",
-  "url": "https://github.com/EyalPoly/moon-watchers/releases/download/bundle-20261114-43266f39/20261114-43266f39.zip",
-  "sha256": "2322eb7a798d6a1b0512d2b57fe347a0ab58c7d988d550a527029f358c6cfd82",
-  "bytes": 7314293,
-  "note": "20m terrain horizon bundle for the 3 placeholder sites, with the S3 ephemeris tables; built 14 Nov, see docs/spikes/horizon-check.md"
+  "bundle_id": "20261115-4364386f",
+  "url": "https://github.com/EyalPoly/moon-watchers/releases/download/bundle-20261115-4364386f/20261115-4364386f.zip",
+  "sha256": "6e2d47bcd8ff51c2579594e8f9777b42d63205c5dadbd287a6f241843eda0adb",
+  "bytes": 9259947,
+  "note": "20m terrain horizon bundle for the 30-site catalog, algorithm version 2; built 15 Nov from catalog/sites.yaml"
 }
