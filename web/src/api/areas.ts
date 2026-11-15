@@ -105,9 +105,11 @@ export interface AreaRequest {
   spacingKm: number
   grade: (center: LatLon) => Promise<number>
   onProgress?: (done: number, total: number) => void
+  /** Stops taking new cells once aborted; the call then rejects with an AbortError. */
+  signal?: AbortSignal
 }
 
-export async function rankAreas({ polygon, spacingKm, grade, onProgress }: AreaRequest): Promise<AreaResult> {
+export async function rankAreas({ polygon, spacingKm, grade, onProgress, signal }: AreaRequest): Promise<AreaResult> {
   const cells = areaCells(polygon, spacingKm)
   if (cells.length > MAX_AREA_CELLS) throw new TooManyCellsError(cells.length, MAX_AREA_CELLS)
 
@@ -117,7 +119,7 @@ export async function rankAreas({ polygon, spacingKm, grade, onProgress }: AreaR
   let next = 0
   let done = 0
   const worker = async () => {
-    while (next < cells.length) {
+    while (next < cells.length && !signal?.aborted) {
       const cell = cells[next++]
       try {
         graded.push({ ...cell, grade: await grade(cell.center) })
@@ -130,6 +132,7 @@ export async function rankAreas({ polygon, spacingKm, grade, onProgress }: AreaR
   }
   await Promise.all(Array.from({ length: Math.min(AREA_CONCURRENCY, cells.length) }, worker))
 
+  if (signal?.aborted) throw new DOMException('grading was cancelled', 'AbortError')
   if (cells.length > 0 && graded.length === 0) throw new Error(firstFailure ?? 'no cell could be graded')
   const areas = graded
     .sort((a, b) => b.grade - a.grade || a.id.localeCompare(b.id))

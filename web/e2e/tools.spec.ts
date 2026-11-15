@@ -199,3 +199,42 @@ test('calculator field help opens on click, closes with Escape, and leaves the d
   await expect(page.getByRole('tooltip')).toHaveCount(0)
   await expect(page.getByLabel('Site name', { exact: true })).toHaveValue('Survey')
 })
+
+async function openToolAndDraw(page: import('@playwright/test').Page, grid: string, half: [number, number]) {
+  await page.goto('/?tk=~2027-03-01T00:00Z~29.53~2~n:Survey')
+  await page.getByRole('button', { name: 'Manual Selection' }).click()
+  const tool = page.getByRole('dialog', { name: 'Manual Selection' })
+  await expect(tool).toBeVisible()
+  await tool.getByLabel('Grid spacing').selectOption(grid)
+  const map = (await page.locator('.panel .polar-map').first().boundingBox())!
+  const cx = map.x + map.width / 2
+  const dialog = (await tool.boundingBox())!
+  const cy = (dialog.y + dialog.height + map.y + map.height) / 2
+  const [hx, hy] = half
+  for (const [dx, dy] of [[-hx, -hy], [hx, -hy], [hx, hy], [-hx, hy]]) await page.mouse.click(cx + dx, cy + dy)
+  await expect(tool.getByText(/4 selected/)).toBeVisible()
+  return tool
+}
+
+test('the over-cap message goes away when the grid is changed', async ({ page, context }) => {
+  await stubTiles(context)
+  const tool = await openToolAndDraw(page, '2', [50, 28])
+  await tool.getByRole('button', { name: 'Choose On Map' }).click()
+  await expect(tool.getByRole('alert')).toContainText('Draw a smaller outline')
+  await tool.getByLabel('Grid spacing').selectOption('10')
+  await expect(tool.getByRole('alert')).toHaveCount(0)
+})
+
+test('graded areas are cleared when the grading weights change', async ({ page, context }) => {
+  await stubTiles(context)
+  const tool = await openToolAndDraw(page, '10', [30, 17])
+  await tool.getByRole('button', { name: 'Choose On Map' }).click()
+  await expect(tool.getByRole('list', { name: 'Best areas' })).toBeVisible()
+  await tool.getByRole('button', { name: /Grading Weights/ }).click()
+  const slider = page.getByRole('slider', { name: 'station contact' })
+  await slider.fill('0.5')
+  await slider.dispatchEvent('pointerup')
+  await page.getByRole('dialog', { name: 'Grading Weights' }).getByRole('button', { name: 'Apply', exact: true }).click()
+  await expect(tool.getByRole('button', { name: 'Choose On Map' })).toBeVisible()
+  await expect(tool.getByRole('list', { name: 'Best areas' })).toHaveCount(0)
+})

@@ -103,6 +103,20 @@ test('when every cell fails the error is thrown, not an empty list', async () =>
   await expect(rankAreas({ polygon: square, spacingKm: 5, grade })).rejects.toThrow('boom')
 })
 
+test('aborting stops new cells from being graded and rejects', async () => {
+  const controller = new AbortController()
+  const grade = vi.fn(async (c: LatLon) => {
+    controller.abort()
+    return 100 + c.lat
+  })
+  const total = areaCells(square, 5).length
+  await expect(rankAreas({ polygon: square, spacingKm: 5, grade, signal: controller.signal })).rejects.toMatchObject({
+    name: 'AbortError',
+  })
+  expect(grade.mock.calls.length).toBeLessThanOrEqual(AREA_CONCURRENCY)
+  expect(grade.mock.calls.length).toBeLessThan(total)
+})
+
 test('progress is reported once per cell, ending at the total', async () => {
   const onProgress = vi.fn()
   const { cells } = await rankAreas({ polygon: square, spacingKm: 5, grade: byLat, onProgress })

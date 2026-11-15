@@ -16,7 +16,7 @@ import VectorLayer from 'ol/layer/Vector'
 import { transform } from 'ol/proj'
 import VectorSource from 'ol/source/Vector'
 import { Circle as CircleStyle, Fill, Stroke, Style, Text } from 'ol/style'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { rankAreas, TooManyCellsError, type RankedArea } from '../api/areas'
 import { formatLatLon, pointId, type LatLon } from '../api/points'
 import { useMap } from './PolarMap'
@@ -52,6 +52,25 @@ export function AreaTool({ areaRadiusM, onOpen, onClose, namePrefix, spec, setti
   const [problem, setProblem] = useState<string | null>(null)
   const [stats, setStats] = useState<{ cells: number; failed: number; firstFailure: string | null } | null>(null)
   const [outside, setOutside] = useState(false)
+
+  const running = useRef<AbortController | null>(null)
+  useEffect(() => () => running.current?.abort(), [])
+
+  const resetResults = () => {
+    setAreas(null)
+    setSelected(new Set())
+    setProblem(null)
+    setStats(null)
+  }
+
+  // Grades belong to the weights and mission they were computed for.
+  const gradedFor = JSON.stringify([settings, ticket.t0, ticket.days, ticket.panel, ticket.antenna, ticket.station])
+  useEffect(() => {
+    setAreas(null)
+    setSelected(new Set())
+    setProblem(null)
+    setStats(null)
+  }, [gradedFor])
 
   const [draftSettings, setDraftSettings] = useState<ScoreSettings | null>(null)
   const [outline, setOutline] = useState<LatLon[]>([])
@@ -122,8 +141,7 @@ export function AreaTool({ areaRadiusM, onOpen, onClose, namePrefix, spec, setti
       }
       setOutside(false)
       setVertices((v) => (v.some(([vx, vy]) => vx === x && vy === y) ? v : [...v, [x, y]]))
-      setAreas(null)
-      setSelected(new Set())
+      resetResults()
     }
     map.on('click', onClick)
     return () => map.un('click', onClick)
@@ -192,11 +210,16 @@ export function AreaTool({ areaRadiusM, onOpen, onClose, namePrefix, spec, setti
     setProgress(null)
     try {
       const grade = cellGrader(createApi(config, search), ticket, settings)
-      const result = await rankAreas({ polygon, spacingKm, grade, onProgress: (done, total) => setProgress({ done, total }) })
+      const controller = new AbortController()
+      running.current = controller
+      const result = await rankAreas({
+        polygon, spacingKm, grade, signal: controller.signal, onProgress: (done, total) => setProgress({ done, total }),
+      })
       setAreas(result.areas)
       setStats(result)
       setSelected(new Set(result.areas.slice(0, 1).map((a) => a.id)))
     } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') return
       setAreas(null)
       setProblem(
         error instanceof TooManyCellsError
@@ -260,7 +283,7 @@ export function AreaTool({ areaRadiusM, onOpen, onClose, namePrefix, spec, setti
             onChange={(e) => {
               setSpacingKm(Number(e.target.value))
               setVertices([])
-              setAreas(null)
+              resetResults()
             }}
             aria-label="Grid spacing"
           >
@@ -271,7 +294,7 @@ export function AreaTool({ areaRadiusM, onOpen, onClose, namePrefix, spec, setti
             ))}
           </select>
         </label>
-        <button type="button" className="link-button" onClick={() => { setVertices((v) => v.slice(0, -1)); setAreas(null); setSelected(new Set()) }} disabled={busy || vertices.length === 0}>
+        <button type="button" className="link-button" onClick={() => { setVertices((v) => v.slice(0, -1)); resetResults() }} disabled={busy || vertices.length === 0}>
           Undo point
         </button>
         <button
@@ -279,7 +302,7 @@ export function AreaTool({ areaRadiusM, onOpen, onClose, namePrefix, spec, setti
           className="link-button"
           onClick={() => {
             setVertices([])
-            setAreas(null)
+            resetResults()
           }}
           disabled={busy || vertices.length === 0}
         >
