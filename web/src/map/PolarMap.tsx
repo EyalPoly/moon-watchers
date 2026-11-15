@@ -6,6 +6,10 @@ import { MouseWheelZoom, defaults as defaultInteractions } from 'ol/interaction'
 import OlMap from 'ol/Map'
 import View from 'ol/View'
 import { Circle as CircleGeometry, LineString } from 'ol/geom'
+import type BaseEvent from 'ol/events/Event'
+import type Layer from 'ol/layer/Layer'
+import type RenderEvent from 'ol/render/Event'
+import { apply as applyTransform } from 'ol/transform'
 import { transform } from 'ol/proj'
 import TileLayer from 'ol/layer/Tile'
 import VectorLayer from 'ol/layer/Vector'
@@ -16,6 +20,23 @@ import { Stroke, Style } from 'ol/style'
 import TileGrid from 'ol/tilegrid/TileGrid'
 import type { Region } from '../api/types'
 import { parallelRadiusM, registerRegionProjection } from './projection'
+
+function clipToCircle(layer: Layer, radiusM: number) {
+  layer.on('prerender', (event: BaseEvent) => {
+    const { context, frameState } = event as RenderEvent
+    if (!context || !frameState) return
+    const ctx = context as CanvasRenderingContext2D
+    const [cx, cy] = applyTransform(frameState.coordinateToPixelTransform, [0, 0])
+    const pixelRatio = frameState.pixelRatio
+    ctx.save()
+    ctx.beginPath()
+    ctx.arc(cx * pixelRatio, cy * pixelRatio, (radiusM / frameState.viewState.resolution) * pixelRatio, 0, 2 * Math.PI)
+    ctx.clip()
+  })
+  layer.on('postrender', (event: BaseEvent) => {
+    ;((event as RenderEvent).context as CanvasRenderingContext2D | undefined)?.restore()
+  })
+}
 
 type TileLoader = (tile: { setState(state: number): void }) => void
 
@@ -81,6 +102,8 @@ export function PolarMap({
       tileSize: region.tile_grid.tile_size_px,
     })
 
+    const boundaryRadius = parallelRadiusM(region, region.custom_area.max_lat_deg)
+    const viewExtent = [-boundaryRadius, -boundaryRadius, boundaryRadius, boundaryRadius]
     const layers = []
     if (layer?.url_template) {
       const template = layer.url_template
@@ -108,7 +131,8 @@ export function PolarMap({
         setBasemapFailed(true)
         onErrorRef.current?.()
       })
-      reliefRef.current = new TileLayer({ source, className: 'ol-layer relief-tiles' })
+      reliefRef.current = new TileLayer({ source, className: 'ol-layer relief-tiles', extent: viewExtent })
+      clipToCircle(reliefRef.current, boundaryRadius)
       layers.push(reliefRef.current)
     }
 
@@ -127,13 +151,14 @@ export function PolarMap({
     }
     const graticule = new VectorLayer({
       className: 'ol-layer lunar-graticule',
-      extent: region.extent_m,
+      extent: viewExtent,
       source: new VectorSource({ features: grid, wrapX: false }),
       style: [
         new Style({ stroke: new Stroke({ color: 'rgba(14, 24, 24, .36)', width: 1.8 }) }),
         new Style({ stroke: new Stroke({ color: 'rgba(227, 238, 229, .50)', width: .75 }) }),
       ],
     })
+    clipToCircle(graticule, boundaryRadius)
     graticule.set('name', 'lunar-graticule')
     layers.push(graticule)
 
@@ -158,10 +183,12 @@ export function PolarMap({
         projection,
         center: [0, 0],
         resolutions: region.tile_grid.resolutions_m,
-        extent: region.extent_m,
+        extent: viewExtent,
         resolution: region.tile_grid.resolutions_m[Math.min(4, region.tile_grid.resolutions_m.length - 1)],
       }),
     })
+    const [width, height] = created.getSize() ?? [0, 0]
+    if (width > 0 && height > 0) created.getView().fit(viewExtent, { size: [width, height] })
     setMap(created)
     onReadyRef.current?.(created)
     return () => {

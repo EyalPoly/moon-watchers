@@ -59,7 +59,7 @@ test('Orbit keeps calculator plans and opens a selected site at the chosen time'
   await page.getByRole('button', { name: 'Orbit', exact: true }).click()
   await page.getByLabel('Orbit date', { exact: true }).fill('2027-04-03')
   await page.getByText('Layers & map key', { exact: true }).click()
-  await page.getByRole('combobox', { name: 'Locate a landing site' }).selectOption('sample_b')
+  await page.getByRole('combobox', { name: 'Locate a site' }).selectOption('sample_b')
   await page.getByRole('button', { name: 'Explore South Pole' }).click()
   await expect(page.getByRole('main', { name: 'South pole' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Map view' })).toHaveAttribute('aria-pressed', 'true')

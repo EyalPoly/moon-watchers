@@ -3,7 +3,7 @@
 Moon Watchers helps plan a landing near the Moon's south pole. For a landing site, a landing time and a mission length, it computes when the site has **sunlight** (for power) and **direct contact with an Earth station** (for communication), and turns that into an illustrative **score** so sites can be compared.
 
 ## Screens (tabs in the top bar)
-- **Orbit**: a lunar overview globe showing the Sun's and Earth's directions for a chosen UTC date and hour (with "+1 lunar day"), terrain shadows (illustrative), and "Locate a landing site".
+- **Orbit**: a lunar overview globe showing the Sun's and Earth's directions for a chosen UTC date and hour (with "+1 lunar day"), terrain shadows (illustrative), and "Locate a site".
 - **Site Calculator** (main screen): the map or ridge graph on the left ("South pole explorer"), and the site cards on the right.
 - **Timelines**: one panel per site with its score and bars for Sun, Earth contact, both and unknown terrain, on a shared mission-day axis; the comparison table is below.
 - **Surface**: not built yet (the tab is disabled, "coming soon").
