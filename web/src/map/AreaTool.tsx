@@ -12,7 +12,7 @@ import VectorLayer from 'ol/layer/Vector'
 import { transform } from 'ol/proj'
 import VectorSource from 'ol/source/Vector'
 import { Circle as CircleStyle, Fill, Stroke, Style, Text } from 'ol/style'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { rankAreas, type RankedArea } from '../api/areas'
 import { formatLatLon, pointId, type LatLon } from '../api/points'
 import { useMap } from './PolarMap'
@@ -28,12 +28,19 @@ export interface AreaToolProps {
   onClose: () => void
   /** Name prefix for the new tickets, e.g. the source ticket's name. */
   namePrefix: string
+  /** Find the best areas by itself once the outline has 3 points (when the AI guide opened the tool). */
+  autoFind?: boolean
+  /** Called with each new set of best areas. */
+  onRanked?: (areas: RankedArea[], spacingKm: number) => void
 }
 
 const SPACINGS_KM = [2, 5, 10]
 
 /** Grid, outline and best areas on one ticket's map (spec §9.3 freehand select, as a grid polygon). */
-export function AreaTool({ areaRadiusM, onOpen, onClose, namePrefix, spec, settings, onSettingsApply }: AreaToolProps) {
+/** After the last click, how long to wait before finding areas by itself. */
+export const AUTO_FIND_MS = 1200
+
+export function AreaTool({ areaRadiusM, onOpen, onClose, namePrefix, spec, settings, onSettingsApply, autoFind = false, onRanked }: AreaToolProps) {
   const map = useMap()
   const [spacingKm, setSpacingKm] = useState(5)
   const [vertices, setVertices] = useState<[number, number][]>([])
@@ -180,10 +187,23 @@ export function AreaTool({ areaRadiusM, onOpen, onClose, namePrefix, spec, setti
       const ranked = await rankAreas({ polygon, spacingKm })
       setAreas(ranked)
       setSelected(new Set(ranked.slice(0, 1).map((a) => a.id)))
+      onRanked?.(ranked, spacingKm)
     } finally {
       setBusy(false)
     }
   }
+
+  // Opened by the guide: find the areas once the outline has stopped growing for a moment.
+  // The timer calls the latest findAreas through a ref, so it restarts only on new points.
+  const latestFind = useRef(findAreas)
+  useLayoutEffect(() => {
+    latestFind.current = findAreas
+  })
+  useEffect(() => {
+    if (!autoFind || vertices.length < 3 || areas !== null) return
+    const timer = setTimeout(() => void latestFind.current(), AUTO_FIND_MS)
+    return () => clearTimeout(timer)
+  }, [autoFind, vertices, areas])
 
   const toggle = (id: string) =>
     setSelected((s) => {
@@ -217,6 +237,7 @@ export function AreaTool({ areaRadiusM, onOpen, onClose, namePrefix, spec, setti
           ✕
         </button>
       </div>
+      {autoFind && <p className="area-hint area-auto">The AI guide finds the best areas once the outline has 3 points.</p>}
       <p className="region-instruction" aria-live="polite">
         <strong>Select at least 3 different grid points</strong>
         <span>{vertices.length} selected{vertices.length < 3 ? ` · ${3 - vertices.length} more needed` : ' · outline ready'}</span>

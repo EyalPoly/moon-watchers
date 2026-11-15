@@ -1,7 +1,7 @@
 {
-  "bundle_id": "20261115-4364386f",
-  "url": "https://github.com/EyalPoly/moon-watchers/releases/download/bundle-20261115-4364386f/20261115-4364386f.zip",
-  "sha256": "6e2d47bcd8ff51c2579594e8f9777b42d63205c5dadbd287a6f241843eda0adb",
-  "bytes": 9259947,
-  "note": "20m terrain horizon bundle for the 30-site catalog, algorithm version 2; built 15 Nov from catalog/sites.yaml"
+  "bundle_id": "20261115-0e3f2557",
+  "url": "https://github.com/EyalPoly/moon-watchers/releases/download/bundle-20261115-0e3f2557/20261115-0e3f2557.zip",
+  "sha256": "ca8bdecbbb9325996b4add1995b1a80d3ee57b7a8afbba2ccf2da0a54e27c8ef",
+  "bytes": 9269851,
+  "note": "20m terrain horizon bundle for the 30-site catalog, algo_version 3 (far step 60 m); built 15 Nov from catalog/sites.yaml"
 }

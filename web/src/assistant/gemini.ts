@@ -55,14 +55,24 @@ interface GenerateResponse {
   promptFeedback?: { blockReason?: string }
 }
 
-/** Sends one message and returns the model's JSON, checked against the intent schema. */
+/** One turn of the conversation, oldest first; the last one is the user's new message. */
+export interface Turn {
+  role: 'user' | 'model'
+  text: string
+}
+
+/** At most this many earlier turns are sent, so long chats stay cheap. */
+export const MAX_TURNS = 16
+
+/** Sends the conversation and returns the model's JSON, checked against the intent schema. */
 export async function askGemini(
   key: string,
   model: string,
   system: string,
-  message: string,
+  turns: readonly Turn[] | string,
   signal?: AbortSignal,
 ): Promise<Intent> {
+  const history = typeof turns === 'string' ? [{ role: 'user' as const, text: turns }] : turns.slice(-MAX_TURNS)
   if (!isModelName(model)) throw new GeminiError('model', 'That is not a model name.')
   const data = (await call(
     `models/${model}:generateContent`,
@@ -71,7 +81,7 @@ export async function askGemini(
       method: 'POST',
       body: JSON.stringify({
         systemInstruction: { parts: [{ text: system }] },
-        contents: [{ role: 'user', parts: [{ text: message }] }],
+        contents: history.map((t) => ({ role: t.role, parts: [{ text: t.text }] })),
         generationConfig: {
           temperature: 0,
           responseMimeType: 'application/json',
