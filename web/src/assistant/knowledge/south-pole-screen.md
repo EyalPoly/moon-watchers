@@ -14,7 +14,7 @@
 - **Map Key** box:
   - **Maps Layers**: **Relief** (terrain elevation with hill shading), **PSR** (permanently shadowed regions, inside/outside, at the sites), **Earth DTE** (Earth contact for the active mission), **Slope** (local slope), **Lunar regolith** (simulated lunar regolith / dust index). Each has a colour scale (Higher / Lower) on the map.
   - **Polygons Layers**: None, **Planning boundary** (the dashed custom-point circle), **Selected region** and **Ranked areas** (from an applied Manual Selection).
-  - Markers: PSR (potential water ice), landing site, steep terrain / no Earth link, sensitive research.
+  - Markers: PSR (potential water ice), site, steep terrain / no Earth link, sensitive research.
 
 ## Right: Site calculator
 - The header shows how many sites there are.
