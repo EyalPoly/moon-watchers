@@ -24,6 +24,18 @@ To ship a new bundle:
 
 The bundle is 8 MB (masks 0.4 MB, ephemeris and Earth-rotation tables 7.6 MB), so memory stays far below 512 MiB. Terrain for custom points is a separate, later question (spec §6.6).
 
+## Load and memory (15 Nov, the 20 m bundle `20261114-43266f39`, 3 placeholder sites)
+
+`python -m build.api_load` replays what the web app asks for three cards: two 30-day missions at `sample_a`, one lunar day apart, and a 365-day mission at `sample_b`. That is 24 requests, 6 at a time. Run against the API image started with `docker run --memory 512m`:
+
+| | Result |
+|---|---|
+| Warm round (second), all 24 requests | 1.45 s wall; slowest request 0.63 s |
+| Cold round (first) | 3.44 s wall; slowest request 2.0 s (the first summary) |
+| Peak memory | about 229 MiB of 512 MiB (sampled with `docker stats`); idle 62 MiB |
+
+Before the fix in `engine/series.py` a single 365-day summary was enough to kill the container (OOM), because the series maths built about 10 KiB of temporaries per 10-minute step (533 MiB for a year). Windows are now computed in 30-day pieces.
+
 ## Frontend
 
 - Static previews on GitHub Pages, built by `.github/workflows/deploy.yml` on every push to `main`.
