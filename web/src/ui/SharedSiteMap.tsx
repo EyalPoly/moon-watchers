@@ -12,6 +12,7 @@ import { parallelRadiusM } from '../map/projection'
 import { SitePins } from '../map/SitePins'
 import type { Ticket } from '../state/tickets'
 import type { MapLayer, PolygonLayer } from './LayersBox'
+import { QuickmapLayers, type DataLayerId } from '../map/QuickmapLayers'
 import { pointLetter, siteDisplayName } from './points'
 
 interface Props {
@@ -21,6 +22,7 @@ interface Props {
   region: Region
   layer: MapLayer
   polygonLayer: PolygonLayer
+  dataLayers: readonly DataLayerId[]
   appliedRegion: AppliedRegion | null
   config: AppConfig
   search: string
@@ -38,7 +40,7 @@ interface Props {
   onRanked?: (areas: RankedArea[], spacingKm: number) => void
 }
 
-export function SharedSiteMap({ tickets, active, sites, region, layer, polygonLayer, appliedRegion, config, search,
+export function SharedSiteMap({ tickets, active, sites, region, layer, polygonLayer, dataLayers, appliedRegion, config, search,
   scoreSpec, settings, onSettingsApply, selecting, atLimit, onFocus, onPlace, onRegionClose, onOpenAreas, guideRegion = false, onRanked }: Props) {
   const ticket = tickets[active]
   const labels = new Map<string, string[]>()
@@ -62,7 +64,7 @@ export function SharedSiteMap({ tickets, active, sites, region, layer, polygonLa
   }
 
   return (
-    <section className="panel shared-map" aria-label="Landing sites map">
+    <section className="panel shared-map" aria-label="Sites map">
       <p className="panel-hint">{selecting
         ? 'Click grid points to outline a region.'
         : atLimit
@@ -70,6 +72,7 @@ export function SharedSiteMap({ tickets, active, sites, region, layer, polygonLa
           : 'Click the map to add a site.'}</p>
       <div className="panel-body">
         <PolarMap region={region} showBoundary={selecting || polygonLayer === 'Planning boundary'} themed={layer !== 'Relief'}>
+          <QuickmapLayers enabled={dataLayers} />
           {!selecting && <RegionOverlay selection={appliedRegion} layer={polygonLayer} />}
           <MapLegend layer={layer} overlay={selecting ? 'None' : polygonLayer} hasRegion={!!appliedRegion}
             legendUrl={region.layers[0]?.legend_url} />

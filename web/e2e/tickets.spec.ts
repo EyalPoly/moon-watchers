@@ -15,7 +15,7 @@ const picker = (page: Page) => page.locator('.station-menu > summary')
 test('all sites share one map, and additional sites stay reachable in pages of three', async ({ page, context }) => {
   await stubTiles(context)
   await page.goto(many(5))
-  await expect(page.getByRole('region', { name: 'Landing sites map' })).toHaveCount(1)
+  await expect(page.getByRole('region', { name: 'Sites map' })).toHaveCount(1)
   await expect(page.getByRole('button', { name: /^Focus site/ })).toHaveCount(5)
   await page.getByRole('button', { name: '+ Add site' }).click()
   await expect(page.getByRole('region', { name: 'Site F', exact: true })).toBeVisible()

@@ -82,12 +82,12 @@ export function OrbitScreen({ utc, onUtc, sites, onExplore }: Props) {
         <summary>Layers &amp; map key</summary>
         <div className="orbit-key-body">
           <label><input type="checkbox" checked={showSites} onChange={e => { setShowSites(e.target.checked); if (!e.target.checked) setSelectedId(null) }} />
-            <i className="site-symbol" aria-hidden="true" /> Landing sites</label>
+            <i className="site-symbol" aria-hidden="true" /> Sites</label>
           <label><input type="checkbox" checked={showPole} onChange={e => setShowPole(e.target.checked)} />
             <i className="pole-symbol" aria-hidden="true" /> South pole</label>
-          {showSites && sites.length > 0 && <select aria-label="Locate a landing site" value={selectedId ?? ''}
+          {showSites && sites.length > 0 && <select aria-label="Locate a site" value={selectedId ?? ''}
             onChange={e => setSelectedId(e.target.value || null)}>
-            <option value="">Locate a landing site…</option>
+            <option value="">Locate a site…</option>
             {sites.map(site => <option key={site.id} value={site.id}>{site.name}</option>)}
           </select>}
         </div>
