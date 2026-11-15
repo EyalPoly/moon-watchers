@@ -306,7 +306,7 @@ export default function App({ config }: { config: AppConfig }) {
         ) : view === 'map' ? (
           <>
             <SharedSiteMap tickets={screen.tickets} active={active} sites={allSites} region={region} layer={selectedLayer}
-              selecting={selecting} atLimit={screen.tickets.length >= MAX_URL_TICKETS} onFocus={focusTicket}
+              selecting={selecting} atLimit={screen.tickets.length >= MAX_URL_TICKETS && screen.tickets[active]?.site !== null} onFocus={focusTicket}
               onPlace={(site) => apply((s) => placePoint(s, active, site))}
               onRegionClose={() => setFreehand(null)}
               onOpenAreas={(points) => { setFreehand(null); apply((s) => addTicketsFor(s, active, points)) }} />

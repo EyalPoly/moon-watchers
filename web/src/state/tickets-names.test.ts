@@ -75,3 +75,11 @@ test('placing while the active card is collapsed still opens the new card', () =
   expect(next.tickets[1].collapsed).toBeUndefined()
   expect(next.open).toBe(1)
 })
+
+test('at the card limit a blank active card can still be filled', () => {
+  const tickets = Array.from({ length: MAX_URL_TICKETS }, () => ({ ...EMPTY_TICKET, site: 'sample_a' }))
+  tickets[MAX_URL_TICKETS - 1] = { ...EMPTY_TICKET }
+  const next = placePoint({ tickets, open: MAX_URL_TICKETS - 1, tau: 0, compare: false }, MAX_URL_TICKETS - 1, PLACED)
+  expect(next.tickets).toHaveLength(MAX_URL_TICKETS)
+  expect(next.tickets[MAX_URL_TICKETS - 1].site).toBe(PLACED)
+})

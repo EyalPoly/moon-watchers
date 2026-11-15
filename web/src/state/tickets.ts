@@ -95,11 +95,11 @@ export function addTicketsFor(s: Screen2State, from: number, points: { site: str
 
 /** A point clicked on the map: fills a blank active ticket, otherwise becomes a new ticket. */
 export function placePoint(s: Screen2State, active: number, site: string): Screen2State {
-  // Tickets live in the URL, so the cap has to hold here and not only when parsing.
-  if (s.tickets.length >= MAX_URL_TICKETS) return s
   if (s.tickets[active]?.site === null) {
     return { ...updateTicket(s, active, { site, editing: undefined, collapsed: undefined }), open: active }
   }
+  // Tickets live in the URL, so the cap has to hold here and not only when parsing.
+  if (s.tickets.length >= MAX_URL_TICKETS) return s
   return addTicketsFor(s, active, [{ site, name: '' }])
 }
 
