@@ -2,11 +2,21 @@ import Overlay from 'ol/Overlay'
 import { transform } from 'ol/proj'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import type { AppConfig } from '../api/config'
+import { useSummary } from '../state/queries'
+import { useScenario } from '../state/scenario'
+import type { Ticket } from '../state/tickets'
+import { mapReading } from '../ui/MapLegend'
+import type { MapLayer } from '../ui/LayersBox'
 import type { Site } from '../api/types'
 import { siteDisplayName } from '../ui/points'
 import { useMap } from './PolarMap'
 
 export interface SitePinsProps {
+  layer?: MapLayer
+  ticket?: Ticket
+  config?: AppConfig
+  search?: string
   sites: readonly Site[]
   selectedId: string | null
   labels: ReadonlyMap<string, string[]>
@@ -15,11 +25,12 @@ export interface SitePinsProps {
   onSelect: (id: string) => void
 }
 
-export function SitePins({ sites, selectedId, labels, activeLabel, onFocus, onSelect }: SitePinsProps) {
+export function SitePins({ layer = 'Relief', config, search = '', ticket, sites, selectedId, labels, activeLabel, onFocus, onSelect }: SitePinsProps) {
   const map = useMap()
-  const [targets, setTargets] = useState<{ site: Site; element: HTMLElement }[]>([])
+  const [targets, setTargets] = useState<{ id: string; element: HTMLElement }[]>([])
   // Overlays are rebuilt only when the set of sites or their positions change, not each
   // time the caller hands over a new array with the same sites.
+  const currentSites = new Map(sites.map((site) => [site.id, site]))
   const sitesKey = sites.map((s) => `${s.id}@${s.lat_deg},${s.lon_deg}`).join('|')
   const sitesRef = useRef(sites)
   useLayoutEffect(() => {
@@ -39,7 +50,7 @@ export function SitePins({ sites, selectedId, labels, activeLabel, onFocus, onSe
       map.addOverlay(overlay)
       return { site, element, overlay }
     })
-    setTargets(overlays.map(({ site, element }) => ({ site, element })))
+    setTargets(overlays.map(({ site, element }) => ({ id: site.id, element })))
     return () => {
       overlays.forEach(({ overlay }) => map.removeOverlay(overlay))
       setTargets([])
@@ -48,8 +59,10 @@ export function SitePins({ sites, selectedId, labels, activeLabel, onFocus, onSe
 
   return (
     <>
-      {targets.map(({ site, element }) =>
-        createPortal(
+      {targets.map(({ id, element }) => {
+        const site = currentSites.get(id)
+        if (!site) return null
+        return createPortal(
           <span className="pin-wrap">
             <button
               type="button"
@@ -65,6 +78,7 @@ export function SitePins({ sites, selectedId, labels, activeLabel, onFocus, onSe
                 .join(' ')}
               onClick={() => onSelect(site.id)}
             />
+            {layer !== 'Relief' && config && ticket && <SiteReading layer={layer} config={config} search={search} ticket={ticket} site={site} />}
             {labels.has(site.id) && (
               <span className="pin-tags">
                 {labels.get(site.id)?.map((label) => (
@@ -76,8 +90,20 @@ export function SitePins({ sites, selectedId, labels, activeLabel, onFocus, onSe
           </span>,
           element,
           site.id,
-        ),
-      )}
+        )
+      })}
     </>
   )
+}
+
+function SiteReading({ layer, config, search, ticket, site }: {
+  layer: MapLayer; config: AppConfig; search: string; ticket: Ticket; site: Site
+}) {
+  const needsSummary = layer === 'Earth DTE' || layer === 'Dust'
+  const scenario = useScenario(needsSummary ? site.id : null, ticket, ticket.station)
+  const query = useSummary(config, search, scenario)
+  const reading = mapReading(layer, site, query.isPlaceholderData ? undefined : query.data)
+  const text = needsSummary && query.isPending && !query.isError ? '…' : reading.text
+  return <span className="site-map-reading" style={{ borderColor: reading.color }}
+    aria-label={`${site.name}, ${layer}: ${text}`}><i style={{ backgroundColor: reading.color }} />{text}</span>
 }

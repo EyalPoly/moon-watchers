@@ -85,7 +85,7 @@ export function CompareView({ tickets, sitesById, config, search, settings, isSa
   return (
     <section className="compare" aria-label="Compare sites">
       <div className="compare-head">
-        <h2>Compare sites</h2>
+        <h2>Compare Sites</h2>
         <button type="button" className="secondary" onClick={onClose}>
           Back to explorer
         </button>
