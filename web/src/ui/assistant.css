@@ -269,3 +269,79 @@
   align-items: center;
   gap: 10px;
 }
+
+/* Guide v2: messages hold text plus answer buttons or an Apply card. */
+.guide-msg p {
+  margin: 0;
+}
+
+.guide-mode {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--border);
+  font-size: 12.5px;
+}
+
+.guide-mode button {
+  padding: 3px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.guide-mode button[aria-pressed='true'] {
+  border-color: var(--primary);
+  background: #233018;
+  color: #e9f6d6;
+}
+
+.guide-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.guide-option {
+  padding: 4px 10px;
+  border: 1px solid var(--primary);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--primary);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.guide-option:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.guide-proposal {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.guide-apply {
+  padding: 6px 12px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--primary);
+  color: #111;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.area-auto {
+  color: var(--primary);
+}
