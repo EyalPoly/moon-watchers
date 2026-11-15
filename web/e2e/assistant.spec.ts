@@ -172,12 +172,20 @@ test('the guide opens Select region and reports the best areas once the outline 
   await expect(tool.getByText('The AI guide finds the best areas once the outline has 3 points.')).toBeVisible()
   // Close the guide so it doesn't cover the map, outline a square, and reopen it.
   await guide.getByRole('button', { name: 'Close the AI guide' }).click()
+  // The tool's panel sits at the map's top right and is taller when the guide opened it,
+  // so outline a square in the free part of the map to its left (font widths differ by OS).
   const map = (await page.locator('.panel .polar-map').first().boundingBox())!
-  const cx = map.x + map.width / 2 - 80
+  const panel = (await tool.boundingBox())!
+  const freeRight = Math.min(panel.x, map.x + map.width) - 16
+  const half = Math.min(45, (freeRight - map.x - 32) / 2)
+  const cx = (map.x + 16 + freeRight) / 2
   const cy = map.y + map.height / 2
-  for (const [dx, dy] of [[-60, -60], [60, -60], [60, 60], [-60, 60]]) await page.mouse.click(cx + dx, cy + dy)
-  // A click can land on the tool's own panel; three points are enough.
-  await expect(tool.getByText(/\((3|4) points\)/)).toBeVisible()
+  const corners = [[-half, -half], [half, -half], [half, half]]
+  corners.forEach(([dx]) => expect(cx + dx, 'outline stays left of the tool panel').toBeLessThan(panel.x))
+  for (const [i, [dx, dy]] of corners.entries()) {
+    await page.mouse.click(cx + dx, cy + dy)
+    await expect(tool.getByText(`(${i + 1} ${i === 0 ? 'point' : 'points'})`)).toBeVisible()
+  }
   await expect(tool.getByRole('list', { name: 'Best areas' })).toBeVisible({ timeout: 5000 })
   await page.getByRole('button', { name: 'Ask the AI guide' }).click()
   await expect(guide.getByText(/^Best areas in your outline \(5 km grid, best first\): #1 /)).toBeVisible()
